@@ -5,7 +5,6 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
-import tiged from "tiged";
 
 const execAsync = promisify(exec);
 
@@ -35,27 +34,23 @@ async function main() {
   try {
     const projectPath = path.join(process.cwd(), projectName);
 
-    // Check if directory already exists
     try {
       await fs.access(projectPath);
       clack.cancel(`Directory ${projectName} already exists`);
       process.exit(1);
-    } catch {
-      // Directory doesn't exist, continue
-    }
+    } catch {}
 
-    // Clone just the template subdirectory
     s.start("Cloning template...");
-    const emitter = tiged("nocdn/create-nocdn-app/template", {
-      cache: false,
-      force: true,
-      verbose: false,
-    });
+    const tempPath = path.join(process.cwd(), `.temp-${Date.now()}`);
+    await execAsync(
+      `git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`
+    );
 
-    await emitter.clone(projectPath);
+    await fs.rename(path.join(tempPath, "template"), projectPath);
+
+    await fs.rm(tempPath, { recursive: true, force: true });
     s.stop("Template cloned");
 
-    // Update package.json with the new project name
     s.start("Configuring project...");
     const packageJsonPath = path.join(projectPath, "package.json");
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
@@ -63,25 +58,23 @@ async function main() {
     await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
     s.stop("Project configured");
 
-    // Install dependencies
     s.start("Installing dependencies...");
     await execAsync("bun install", { cwd: projectPath });
     s.stop("Dependencies installed");
 
-    // Initialize git
     s.start("Initializing git...");
     await execAsync("git init", { cwd: projectPath });
     await execAsync("git add .", { cwd: projectPath });
-    await execAsync('git commit -m "Initial commit from create-nocdn-app"', {
+    await execAsync('git commit -m "init: initial file upload"', {
       cwd: projectPath,
     });
     s.stop("Git initialized");
 
-    clack.outro(`✨ Project ${projectName} is ready!`);
+    clack.outro(`Project ${projectName} is ready`);
 
     console.log(`\nNext steps:
   cd ${projectName}
-  bun dev
+  bun run dev
 `);
   } catch (error) {
     s.stop("Error occurred");

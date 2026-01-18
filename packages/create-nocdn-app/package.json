@@ -22,7 +22,6 @@
     "template"
   ],
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
-    "tiged": "^2.12.7"
+    "@clack/prompts": "^0.11.0"
   }
 }
