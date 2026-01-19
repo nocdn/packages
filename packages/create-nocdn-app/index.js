@@ -25,7 +25,7 @@ const cliProjectName = args.find((arg) => !arg.startsWith("-"));
 function showHelp() {
 	console.log(`
 create-nocdn-app - Scaffold a new Next.js project with:
-  Tailwind + TypeScript + Biome + Shiki + Lucide
+  Tailwind + TypeScript + Prettier + Shiki + Lucide
 
 Usage:
   bunx create-nocdn-app [project-name] [options]

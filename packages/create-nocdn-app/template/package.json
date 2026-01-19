@@ -1,13 +1,13 @@
 {
   "name": "create-nocdn-app",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "biome check",
-    "format": "biome format --write"
+    "lint": "prettier --check .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "class-variance-authority": "latest",
@@ -20,13 +20,14 @@
     "tailwind-merge": "latest"
   },
   "devDependencies": {
-    "@biomejs/biome": "latest",
     "@tailwindcss/postcss": "latest",
+    "@trivago/prettier-plugin-sort-imports": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "babel-plugin-react-compiler": "latest",
     "concurrently": "latest",
+    "prettier": "latest",
     "tailwindcss": "latest",
     "tailwindcss-motion": "latest",
     "tw-animate-css": "latest",
