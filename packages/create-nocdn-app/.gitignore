@@ -34,3 +34,14 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 
 .cursor
+
+# agent files
+AGENTS.md
+Agents.md
+agents.md
+AGENT.md
+Agent.md
+agent.md
+CLAUDE.md
+Claude.md
+claude.md
