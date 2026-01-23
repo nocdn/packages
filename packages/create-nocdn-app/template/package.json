@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
-    "@trivago/prettier-plugin-sort-imports": "latest",
+    "prettier-plugin-organize-imports": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
