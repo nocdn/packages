@@ -1,15 +1,9 @@
 # create-nocdn-app
 
-To install dependencies:
+To use:
 
 ```bash
-bun install
+bunx create-nocdn-app
 ```
 
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.3.5. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+This will ask you for a project name and create a new Next.js (App Router) project with Tailwind + TypeScript + Prettier + Lucide + some prettier plugins like import sorting and tailwind class sorting.

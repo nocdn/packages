@@ -1,7 +1,7 @@
 {
   "name": "create-nocdn-app",
-  "version": "0.0.8",
-  "description": "Scaffold Next.js projects the nocdn way",
+  "version": "0.0.9",
+  "description": "Scaffold Next.js my preferred way",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -19,9 +19,10 @@
     "create-nocdn-app",
     "next.js",
     "scaffold",
-    "template"
+    "template",
+    "nocdn"
   ],
   "dependencies": {
-    "@clack/prompts": "^0.11.0"
+    "@clack/prompts": "latest"
   }
 }
