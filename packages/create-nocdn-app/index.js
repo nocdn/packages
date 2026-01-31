@@ -97,6 +97,16 @@ async function main() {
 		}
 	}
 
+	const projectDescription = await clack.text({
+		message: "Project description (optional, press Enter to skip)",
+		placeholder: "A brief description of your project",
+	});
+
+	if (clack.isCancel(projectDescription)) {
+		clack.cancel("Operation cancelled");
+		process.exit(0);
+	}
+
 	const s = clack.spinner();
 	const pm = getPackageManager();
 
@@ -125,6 +135,20 @@ async function main() {
 		const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
 		packageJson.name = projectName;
 		await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+		const layoutPath = path.join(projectPath, "app", "layout.tsx");
+		let layoutContent = await fs.readFile(layoutPath, "utf-8");
+		layoutContent = layoutContent.replace(
+			/title:\s*["']\{\{project-name\}\}["']/,
+			`title: "${projectName}"`,
+		);
+		if (projectDescription && projectDescription.trim()) {
+			layoutContent = layoutContent.replace(
+				/description:\s*[\s\S]*?(?=,\n|\n\};)/,
+				`description: "${projectDescription.trim()}"`,
+			);
+		}
+		await fs.writeFile(layoutPath, layoutContent);
 		s.stop("Project configured");
 
 		if (!flags.skipInstall) {
