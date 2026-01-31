@@ -75,6 +75,25 @@ async function main() {
 
 	clack.intro("create-nocdn-app");
 
+	const framework = await clack.select({
+		message: "Which framework would you like to use?",
+		options: [
+			{ value: "next", label: "Next.js (TypeScript, Compiler)" },
+			{ value: "vite", label: "Vite (TypeScript, React, Compiler)" },
+		],
+	});
+
+	if (clack.isCancel(framework)) {
+		clack.cancel("Operation cancelled");
+		process.exit(0);
+	}
+
+	if (framework === "vite") {
+		clack.log.info("Coming soon!");
+		clack.outro("Stay tuned for Vite support");
+		process.exit(0);
+	}
+
 	let projectName;
 
 	if (cliProjectName) {
@@ -109,6 +128,77 @@ async function main() {
 		process.exit(0);
 	}
 
+	let agentsContent = null;
+
+	const createAgentsMd = await clack.confirm({
+		message: "Create an AGENTS.md file?",
+		initialValue: true,
+	});
+
+	if (clack.isCancel(createAgentsMd)) {
+		clack.cancel("Operation cancelled");
+		process.exit(0);
+	}
+
+	if (createAgentsMd) {
+		const agentsOption = await clack.select({
+			message: "How would you like to create AGENTS.md?",
+			options: [
+				{ value: "blank-edit", label: "Create blank and edit now" },
+				{ value: "minimal", label: "Create minimal (specify runtime)" },
+				{ value: "minimal-edit", label: "Create minimal (specify runtime) and edit now" },
+			],
+		});
+
+		if (clack.isCancel(agentsOption)) {
+			clack.cancel("Operation cancelled");
+			process.exit(0);
+		}
+
+		if (agentsOption === "blank-edit") {
+			const content = await clack.text({
+				message: "Enter your AGENTS.md content:",
+				placeholder: "Instructions for AI agents working on this project...",
+			});
+			if (clack.isCancel(content)) {
+				clack.cancel("Operation cancelled");
+				process.exit(0);
+			}
+			agentsContent = content || "";
+		} else if (agentsOption === "minimal" || agentsOption === "minimal-edit") {
+			const runtime = await clack.select({
+				message: "Which runtime are you using?",
+				options: [
+					{ value: "bun", label: "Bun" },
+					{ value: "npm", label: "npm" },
+					{ value: "pnpm", label: "pnpm" },
+					{ value: "yarn", label: "Yarn" },
+				],
+			});
+
+			if (clack.isCancel(runtime)) {
+				clack.cancel("Operation cancelled");
+				process.exit(0);
+			}
+
+			const minimalContent = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
+
+			if (agentsOption === "minimal-edit") {
+				const editedContent = await clack.text({
+					message: "Edit your AGENTS.md content:",
+					initialValue: minimalContent,
+				});
+				if (clack.isCancel(editedContent)) {
+					clack.cancel("Operation cancelled");
+					process.exit(0);
+				}
+				agentsContent = editedContent || minimalContent;
+			} else {
+				agentsContent = minimalContent;
+			}
+		}
+	}
+
 	const s = clack.spinner();
 	const pm = getPackageManager();
 
@@ -124,7 +214,7 @@ async function main() {
 		s.start(flags.testing ? "Copying local template..." : "Cloning template...");
 		if (flags.testing) {
 			const scriptDir = new URL(".", import.meta.url).pathname;
-			const localTemplatePath = path.join(scriptDir, "template");
+			const localTemplatePath = path.join(scriptDir, "templates", "next");
 			await fs.cp(localTemplatePath, projectPath, { recursive: true });
 			s.stop("Local template copied");
 		} else {
@@ -132,7 +222,7 @@ async function main() {
 			await execAsync(
 				`git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`,
 			);
-			await fs.rename(path.join(tempPath, "template"), projectPath);
+			await fs.rename(path.join(tempPath, "templates", "next"), projectPath);
 			await fs.rm(tempPath, { recursive: true, force: true });
 			s.stop("Template cloned");
 		}
@@ -156,6 +246,11 @@ async function main() {
 			);
 		}
 		await fs.writeFile(layoutPath, layoutContent);
+
+		if (agentsContent !== null) {
+			const agentsMdPath = path.join(projectPath, "AGENTS.md");
+			await fs.writeFile(agentsMdPath, agentsContent);
+		}
 		s.stop("Project configured");
 
 		if (!flags.skipInstall) {
