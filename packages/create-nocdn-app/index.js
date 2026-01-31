@@ -18,6 +18,7 @@ const flags = {
 	open: args.includes("--open"),
 	useNpm: args.includes("--use-npm"),
 	usePnpm: args.includes("--use-pnpm"),
+	testing: args.includes("--testing"),
 };
 
 const cliProjectName = args.find((arg) => !arg.startsWith("-"));
@@ -38,6 +39,7 @@ Options:
   --open            Open project in default editor after creation
   --use-npm         Use npm instead of bun for installing dependencies
   --use-pnpm        Use pnpm instead of bun for installing dependencies
+  --testing         Use local template instead of cloning from GitHub (for development)
 
 Examples:
   bunx create-nocdn-app                    Interactive mode
@@ -119,16 +121,21 @@ async function main() {
 			process.exit(1);
 		} catch {}
 
-		s.start("Cloning template...");
-		const tempPath = path.join(process.cwd(), `.temp-${Date.now()}`);
-		await execAsync(
-			`git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`,
-		);
-
-		await fs.rename(path.join(tempPath, "template"), projectPath);
-
-		await fs.rm(tempPath, { recursive: true, force: true });
-		s.stop("Template cloned");
+		s.start(flags.testing ? "Copying local template..." : "Cloning template...");
+		if (flags.testing) {
+			const scriptDir = new URL(".", import.meta.url).pathname;
+			const localTemplatePath = path.join(scriptDir, "template");
+			await fs.cp(localTemplatePath, projectPath, { recursive: true });
+			s.stop("Local template copied");
+		} else {
+			const tempPath = path.join(process.cwd(), `.temp-${Date.now()}`);
+			await execAsync(
+				`git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`,
+			);
+			await fs.rename(path.join(tempPath, "template"), projectPath);
+			await fs.rm(tempPath, { recursive: true, force: true });
+			s.stop("Template cloned");
+		}
 
 		s.start("Configuring project...");
 		const packageJsonPath = path.join(projectPath, "package.json");

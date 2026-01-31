@@ -29,6 +29,8 @@ const ioskeleyMono = localFont({
     { path: "./fonts/IoskeleyMono-Regular.woff2", weight: "400" },
     { path: "./fonts/IoskeleyMono-Medium.woff2", weight: "500" },
     { path: "./fonts/IoskeleyMono-SemiBold.woff2", weight: "600" },
+    { path: "./fonts/IoskeleyMono-Bold.woff2", weight: "700" },
+    { path: "./fonts/IoskeleyMono-ExtraBold.woff2", weight: "800" },
   ],
   variable: "--font-ioskeley-mono",
 });
