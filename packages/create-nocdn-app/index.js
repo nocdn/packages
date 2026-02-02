@@ -236,8 +236,8 @@ async function main() {
 		const layoutPath = path.join(projectPath, "app", "layout.tsx");
 		let layoutContent = await fs.readFile(layoutPath, "utf-8");
 		layoutContent = layoutContent.replace(
-			/title:\s*["']\{\{project-name\}\}["']/,
-			`title: "${projectName}"`,
+			/\{\{project-name\}\}/g,
+			projectName,
 		);
 		if (projectDescription && projectDescription.trim()) {
 			layoutContent = layoutContent.replace(
