@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-
 @custom-variant dark (&:is(.dark *));
 @plugin "tailwindcss-motion";
 
@@ -180,4 +179,34 @@
 
 code {
   font-weight: 400;
+}
+
+.bottom-scroll-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 1) 80%);
+  mix-blend-mode: normal;
+  pointer-events: none;
+}
+
+.dark .bottom-scroll-mask {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(20, 20, 20, 1) 80%);
+}
+
+.top-scroll-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6rem;
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 1) 80%);
+  mix-blend-mode: normal;
+  pointer-events: none;
+}
+
+.dark .top-scroll-mask {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(20, 20, 20, 1) 80%);
 }
