@@ -163,10 +163,10 @@
   border: 1px solid var(--color-preview-border);
   background-color: var(--color-preview-bg);
   border-radius: 0.375rem;
-  padding: 2px 0.25rem;
-  font-size: 14px;
+  padding: 2px 0.3rem;
+  font-size: 13px;
   font-family: var(--font-ioskeley-mono);
-  font-weight: 330;
+  font-weight: 400;
   width: fit-content;
 }
 
