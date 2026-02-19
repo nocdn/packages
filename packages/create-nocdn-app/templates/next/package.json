@@ -12,11 +12,9 @@
   "dependencies": {
     "class-variance-authority": "latest",
     "clsx": "latest",
-    "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "shiki": "latest",
     "tailwind-merge": "latest"
   },
   "devDependencies": {

@@ -23,6 +23,7 @@
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
     "babel-plugin-react-compiler": "latest",
+    "concurrently": "latest",
     "eslint": "latest",
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
