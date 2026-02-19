@@ -88,12 +88,6 @@ async function main() {
     process.exit(0);
   }
 
-  if (framework === "vite") {
-    clack.log.info("Coming soon!");
-    clack.outro("Stay tuned for Vite support");
-    process.exit(0);
-  }
-
   let projectName;
 
   if (cliProjectName) {
@@ -118,17 +112,20 @@ async function main() {
     }
   }
 
-  const projectDescription = await clack.text({
-    message: "Project description (optional, press Enter to skip)",
-    placeholder: "A brief description of your project",
-  });
-
-  if (clack.isCancel(projectDescription)) {
-    clack.cancel("Operation cancelled");
-    process.exit(0);
-  }
-
+  let projectDescription = null;
   let agentsContent = null;
+
+  if (framework === "next") {
+    projectDescription = await clack.text({
+      message: "Project description (optional, press Enter to skip)",
+      placeholder: "A brief description of your project",
+    });
+
+    if (clack.isCancel(projectDescription)) {
+      clack.cancel("Operation cancelled");
+      process.exit(0);
+    }
+  }
 
   const createAgentsMd = await clack.confirm({
     message: "Create an AGENTS.md file?",
@@ -168,7 +165,10 @@ async function main() {
         process.exit(0);
       }
       agentsContent = content || "";
-    } else if (agentsOption === "minimal" || agentsOption === "minimal-edit") {
+    } else if (
+      agentsOption === "minimal" ||
+      agentsOption === "minimal-edit"
+    ) {
       const runtime = await clack.select({
         message: "Which runtime are you using?",
         options: [
@@ -204,6 +204,7 @@ async function main() {
 
   const s = clack.spinner();
   const pm = getPackageManager();
+  const templateDir = framework === "vite" ? "vite" : "next";
 
   try {
     const projectPath = path.join(process.cwd(), projectName);
@@ -219,15 +220,22 @@ async function main() {
     );
     if (flags.testing) {
       const scriptDir = new URL(".", import.meta.url).pathname;
-      const localTemplatePath = path.join(scriptDir, "templates", "next");
-      await fs.cp(localTemplatePath, projectPath, { recursive: true });
+      const localTemplatePath = path.join(
+        scriptDir,
+        "templates",
+        templateDir
+      );
+      await fs.cp(localTemplatePath, projectPath, { recursive: true, dereference: true });
       s.stop("Local template copied");
     } else {
       const tempPath = path.join(process.cwd(), `.temp-${Date.now()}`);
       await execAsync(
         `git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`
       );
-      await fs.rename(path.join(tempPath, "templates", "next"), projectPath);
+      await fs.rename(
+        path.join(tempPath, "templates", templateDir),
+        projectPath
+      );
       await fs.rm(tempPath, { recursive: true, force: true });
       s.stop("Template cloned");
     }
@@ -238,16 +246,29 @@ async function main() {
     packageJson.name = projectName;
     await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
-    const layoutPath = path.join(projectPath, "app", "layout.tsx");
-    let layoutContent = await fs.readFile(layoutPath, "utf-8");
-    layoutContent = layoutContent.replace(/\{\{project-name\}\}/g, projectName);
-    if (projectDescription && projectDescription.trim()) {
+    if (framework === "next") {
+      const layoutPath = path.join(projectPath, "app", "layout.tsx");
+      let layoutContent = await fs.readFile(layoutPath, "utf-8");
       layoutContent = layoutContent.replace(
-        /description:\s*[\s\S]*?(?=,\n|\n\};)/,
-        `description: "${projectDescription.trim()}"`
+        /\{\{project-name\}\}/g,
+        projectName
       );
+      if (projectDescription && projectDescription.trim()) {
+        layoutContent = layoutContent.replace(
+          /description:\s*[\s\S]*?(?=,\n|\n\};)/,
+          `description: "${projectDescription.trim()}"`
+        );
+      }
+      await fs.writeFile(layoutPath, layoutContent);
+    } else if (framework === "vite") {
+      const indexHtmlPath = path.join(projectPath, "index.html");
+      let indexHtmlContent = await fs.readFile(indexHtmlPath, "utf-8");
+      indexHtmlContent = indexHtmlContent.replace(
+        /\{\{project-name\}\}/g,
+        projectName
+      );
+      await fs.writeFile(indexHtmlPath, indexHtmlContent);
     }
-    await fs.writeFile(layoutPath, layoutContent);
 
     if (agentsContent !== null) {
       const agentsMdPath = path.join(projectPath, "AGENTS.md");
