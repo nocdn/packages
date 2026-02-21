@@ -232,9 +232,10 @@ async function main() {
       await execAsync(
         `git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`
       );
-      await fs.rename(
+      await fs.cp(
         path.join(tempPath, "templates", templateDir),
-        projectPath
+        projectPath,
+        { recursive: true, dereference: true }
       );
       await fs.rm(tempPath, { recursive: true, force: true });
       s.stop("Template cloned");
