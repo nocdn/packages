@@ -7,7 +7,9 @@ import path from "path";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
-const VERSION = "0.0.2";
+
+const packageJsonUrl = new URL("./package.json", import.meta.url);
+const { version: VERSION } = JSON.parse(await fs.readFile(packageJsonUrl, "utf-8"));
 
 const args = process.argv.slice(2);
 const flags = {
@@ -73,7 +75,7 @@ function getPackageManager() {
 async function main() {
   console.clear();
 
-  clack.intro("create-nocdn-app");
+  clack.intro(`create-nocdn-app (${VERSION})`);
 
   const framework = await clack.select({
     message: "Which framework would you like to use?",
