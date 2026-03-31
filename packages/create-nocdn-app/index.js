@@ -312,11 +312,6 @@ async function main() {
     }
 
     s.start("Configuring project...");
-    await fs.copyFile(
-      path.join(scriptDir, "templates", "shared", ".gitignore"),
-      path.join(projectPath, ".gitignore")
-    );
-
     const packageJsonPath = path.join(projectPath, "package.json");
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
     packageJson.name = projectName;
