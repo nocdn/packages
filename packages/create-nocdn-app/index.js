@@ -11,7 +11,9 @@ const execAsync = promisify(exec);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 const packageJsonUrl = new URL("./package.json", import.meta.url);
-const { version: VERSION } = JSON.parse(await fs.readFile(packageJsonUrl, "utf-8"));
+const { version: VERSION } = JSON.parse(
+  await fs.readFile(packageJsonUrl, "utf-8"),
+);
 
 const args = process.argv.slice(2);
 const flags = {
@@ -29,7 +31,7 @@ const cliProjectName = args.find((arg) => !arg.startsWith("-"));
 
 function showHelp() {
   console.log(`
-create-nocdn-app - Scaffold a new Next.js, Vite, or Hono project
+create-nocdn-app - Scaffold a new Next.js, Vite, TanStack Start, or Hono project
 
 Usage:
   bunx create-nocdn-app [project-name] [options]
@@ -88,14 +90,24 @@ function getFrameworkConfig(framework) {
   if (framework === "next") {
     return {
       templateDir: "next",
-      runCommand: (pm) => (pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`),
+      runCommand: (pm) =>
+        pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`,
     };
   }
 
   if (framework === "vite") {
     return {
       templateDir: "vite",
-      runCommand: (pm) => (pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`),
+      runCommand: (pm) =>
+        pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`,
+    };
+  }
+
+  if (framework === "tanstack") {
+    return {
+      templateDir: "tanstack",
+      runCommand: (pm) =>
+        pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`,
     };
   }
 
@@ -116,6 +128,13 @@ async function replaceInFile(filePath, replacements) {
   await fs.writeFile(filePath, content);
 }
 
+async function renameIfExists(sourcePath, targetPath) {
+  try {
+    await fs.access(sourcePath);
+    await fs.rename(sourcePath, targetPath);
+  } catch {}
+}
+
 async function main() {
   console.clear();
 
@@ -126,6 +145,10 @@ async function main() {
     options: [
       { value: "next", label: "Next.js (TypeScript, Compiler)" },
       { value: "vite", label: "Vite (TypeScript, React, Compiler)" },
+      {
+        value: "tanstack",
+        label: "TanStack Start (TypeScript, React, Compiler)",
+      },
       { value: "hono", label: "Hono (Bun API)" },
     ],
   });
@@ -225,10 +248,7 @@ async function main() {
         process.exit(0);
       }
       agentsContent = content || "";
-    } else if (
-      agentsOption === "minimal" ||
-      agentsOption === "minimal-edit"
-    ) {
+    } else if (agentsOption === "minimal" || agentsOption === "minimal-edit") {
       let runtime = "bun";
 
       if (framework !== "hono") {
@@ -282,36 +302,39 @@ async function main() {
 
     if (framework === "hono" && (flags.useNpm || flags.usePnpm)) {
       clack.log.info(
-        "The Hono template uses Bun, so dependencies will be installed with bun."
+        "The Hono template uses Bun, so dependencies will be installed with bun.",
       );
     }
 
     s.start(
-      flags.testing ? "Copying local template..." : "Cloning template..."
+      flags.testing ? "Copying local template..." : "Cloning template...",
     );
     if (flags.testing) {
-      const localTemplatePath = path.join(
-        scriptDir,
-        "templates",
-        templateDir
-      );
-      await fs.cp(localTemplatePath, projectPath, { recursive: true, dereference: true });
+      const localTemplatePath = path.join(scriptDir, "templates", templateDir);
+      await fs.cp(localTemplatePath, projectPath, {
+        recursive: true,
+        dereference: true,
+      });
       s.stop("Local template copied");
     } else {
       const tempPath = path.join(process.cwd(), `.temp-${Date.now()}`);
       await execAsync(
-        `git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`
+        `git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`,
       );
-      await fs.cp(
-        path.join(tempPath, "templates", templateDir),
-        projectPath,
-        { recursive: true, dereference: true }
-      );
+      await fs.cp(path.join(tempPath, "templates", templateDir), projectPath, {
+        recursive: true,
+        dereference: true,
+      });
       await fs.rm(tempPath, { recursive: true, force: true });
       s.stop("Template cloned");
     }
 
     s.start("Configuring project...");
+    await renameIfExists(
+      path.join(projectPath, "gitignore"),
+      path.join(projectPath, ".gitignore"),
+    );
+
     const packageJsonPath = path.join(projectPath, "package.json");
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
     packageJson.name = projectName;
@@ -322,12 +345,12 @@ async function main() {
       let layoutContent = await fs.readFile(layoutPath, "utf-8");
       layoutContent = layoutContent.replace(
         /\{\{project-name\}\}/g,
-        projectName
+        projectName,
       );
       if (projectDescription && projectDescription.trim()) {
         layoutContent = layoutContent.replace(
           /description:\s*[\s\S]*?(?=,\n|\n\};)/,
-          `description: "${projectDescription.trim()}"`
+          `description: "${projectDescription.trim()}"`,
         );
       }
       await fs.writeFile(layoutPath, layoutContent);
@@ -336,9 +359,25 @@ async function main() {
       let indexHtmlContent = await fs.readFile(indexHtmlPath, "utf-8");
       indexHtmlContent = indexHtmlContent.replace(
         /\{\{project-name\}\}/g,
-        projectName
+        projectName,
       );
       await fs.writeFile(indexHtmlPath, indexHtmlContent);
+    } else if (framework === "tanstack") {
+      const replacements = {
+        "project-name": projectName,
+      };
+
+      await Promise.all([
+        replaceInFile(path.join(projectPath, "README.md"), replacements),
+        replaceInFile(
+          path.join(projectPath, "src", "routes", "index.tsx"),
+          replacements,
+        ),
+        replaceInFile(
+          path.join(projectPath, "src", "routes", "__root.tsx"),
+          replacements,
+        ),
+      ]);
     } else if (framework === "hono") {
       const replacements = {
         "project-name": projectName,

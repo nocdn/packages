@@ -1,1 +1,5 @@
-../shared/.prettierignore
+node_modules
+.next
+dist
+build
+*.lock
