@@ -1,7 +1,7 @@
 {
   "name": "create-nocdn-app",
-  "version": "0.2.4",
-  "description": "Scaffold Next.js or Vite my preferred way",
+  "version": "0.2.5",
+  "description": "Scaffold Next.js, Vite, or Hono my preferred way",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -9,7 +9,7 @@
   },
   "files": [
     "index.js",
-    "template"
+    "templates"
   ],
   "repository": {
     "type": "git",
@@ -19,6 +19,9 @@
     "create-nocdn-app",
     "next.js",
     "vite",
+    "hono",
+    "bun",
+    "api",
     "scaffold",
     "template",
     "nocdn"

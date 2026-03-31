@@ -1,0 +1,12 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: {{project-name}}:local
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-{{port}}}
+    ports:
+      - "${PORT:-{{port}}}:${PORT:-{{port}}}"
+    restart: unless-stopped

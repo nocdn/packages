@@ -1,0 +1,7 @@
+node_modules
+.git
+.gitignore
+.firecrawl
+README.md
+compose.yaml
+docker-compose.yml

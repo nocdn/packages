@@ -4,9 +4,11 @@ import * as clack from "@clack/prompts";
 import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 const packageJsonUrl = new URL("./package.json", import.meta.url);
 const { version: VERSION } = JSON.parse(await fs.readFile(packageJsonUrl, "utf-8"));
@@ -27,8 +29,7 @@ const cliProjectName = args.find((arg) => !arg.startsWith("-"));
 
 function showHelp() {
   console.log(`
-create-nocdn-app - Scaffold a new Next.js project with:
-  Tailwind + TypeScript + Prettier + Shiki + Lucide
+create-nocdn-app - Scaffold a new Next.js, Vite, or Hono project
 
 Usage:
   bunx create-nocdn-app [project-name] [options]
@@ -66,10 +67,53 @@ function validateProjectName(value) {
   }
 }
 
+function validatePort(value) {
+  if (value.length === 0) return "Port is required";
+  if (!/^\d+$/.test(value)) return "Port must be a number";
+
+  const port = Number(value);
+
+  if (port < 1 || port > 65535) {
+    return "Port must be between 1 and 65535";
+  }
+}
+
 function getPackageManager() {
   if (flags.useNpm) return { name: "npm", install: "npm install" };
   if (flags.usePnpm) return { name: "pnpm", install: "pnpm install" };
   return { name: "bun", install: "bun install" };
+}
+
+function getFrameworkConfig(framework) {
+  if (framework === "next") {
+    return {
+      templateDir: "next",
+      runCommand: (pm) => (pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`),
+    };
+  }
+
+  if (framework === "vite") {
+    return {
+      templateDir: "vite",
+      runCommand: (pm) => (pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`),
+    };
+  }
+
+  return {
+    templateDir: "hono",
+    installPackageManager: { name: "bun", install: "bun install" },
+    runCommand: () => "bun run dev",
+  };
+}
+
+async function replaceInFile(filePath, replacements) {
+  let content = await fs.readFile(filePath, "utf-8");
+
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    content = content.replaceAll(`{{${placeholder}}}`, value);
+  }
+
+  await fs.writeFile(filePath, content);
 }
 
 async function main() {
@@ -82,6 +126,7 @@ async function main() {
     options: [
       { value: "next", label: "Next.js (TypeScript, Compiler)" },
       { value: "vite", label: "Vite (TypeScript, React, Compiler)" },
+      { value: "hono", label: "Hono (Bun API)" },
     ],
   });
 
@@ -115,6 +160,7 @@ async function main() {
   }
 
   let projectDescription = null;
+  let projectPort = null;
   let agentsContent = null;
 
   if (framework === "next") {
@@ -124,6 +170,18 @@ async function main() {
     });
 
     if (clack.isCancel(projectDescription)) {
+      clack.cancel("Operation cancelled");
+      process.exit(0);
+    }
+  } else if (framework === "hono") {
+    projectPort = await clack.text({
+      message: "Which port should the API run on?",
+      placeholder: "3000",
+      initialValue: "3000",
+      validate: validatePort,
+    });
+
+    if (clack.isCancel(projectPort)) {
       clack.cancel("Operation cancelled");
       process.exit(0);
     }
@@ -171,19 +229,23 @@ async function main() {
       agentsOption === "minimal" ||
       agentsOption === "minimal-edit"
     ) {
-      const runtime = await clack.select({
-        message: "Which runtime are you using?",
-        options: [
-          { value: "bun", label: "Bun" },
-          { value: "npm", label: "npm" },
-          { value: "pnpm", label: "pnpm" },
-          { value: "yarn", label: "Yarn" },
-        ],
-      });
+      let runtime = "bun";
 
-      if (clack.isCancel(runtime)) {
-        clack.cancel("Operation cancelled");
-        process.exit(0);
+      if (framework !== "hono") {
+        runtime = await clack.select({
+          message: "Which runtime are you using?",
+          options: [
+            { value: "bun", label: "Bun" },
+            { value: "npm", label: "npm" },
+            { value: "pnpm", label: "pnpm" },
+            { value: "yarn", label: "Yarn" },
+          ],
+        });
+
+        if (clack.isCancel(runtime)) {
+          clack.cancel("Operation cancelled");
+          process.exit(0);
+        }
       }
 
       const minimalContent = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
@@ -205,8 +267,9 @@ async function main() {
   }
 
   const s = clack.spinner();
-  const pm = getPackageManager();
-  const templateDir = framework === "vite" ? "vite" : "next";
+  const frameworkConfig = getFrameworkConfig(framework);
+  const pm = frameworkConfig.installPackageManager ?? getPackageManager();
+  const templateDir = frameworkConfig.templateDir;
 
   try {
     const projectPath = path.join(process.cwd(), projectName);
@@ -217,11 +280,16 @@ async function main() {
       process.exit(1);
     } catch {}
 
+    if (framework === "hono" && (flags.useNpm || flags.usePnpm)) {
+      clack.log.info(
+        "The Hono template uses Bun, so dependencies will be installed with bun."
+      );
+    }
+
     s.start(
       flags.testing ? "Copying local template..." : "Cloning template..."
     );
     if (flags.testing) {
-      const scriptDir = new URL(".", import.meta.url).pathname;
       const localTemplatePath = path.join(
         scriptDir,
         "templates",
@@ -244,6 +312,11 @@ async function main() {
     }
 
     s.start("Configuring project...");
+    await fs.copyFile(
+      path.join(scriptDir, "templates", "shared", ".gitignore"),
+      path.join(projectPath, ".gitignore")
+    );
+
     const packageJsonPath = path.join(projectPath, "package.json");
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
     packageJson.name = projectName;
@@ -271,6 +344,18 @@ async function main() {
         projectName
       );
       await fs.writeFile(indexHtmlPath, indexHtmlContent);
+    } else if (framework === "hono") {
+      const replacements = {
+        "project-name": projectName,
+        port: projectPort,
+      };
+
+      await Promise.all([
+        replaceInFile(path.join(projectPath, "README.md"), replacements),
+        replaceInFile(path.join(projectPath, "src", "index.ts"), replacements),
+        replaceInFile(path.join(projectPath, "compose.yaml"), replacements),
+        replaceInFile(path.join(projectPath, "Dockerfile"), replacements),
+      ]);
     }
 
     if (agentsContent !== null) {
@@ -303,7 +388,7 @@ async function main() {
 
     clack.outro(`Project ${projectName} is ready`);
 
-    const runCmd = pm.name === "bun" ? "bun run dev" : `${pm.name} run dev`;
+    const runCmd = frameworkConfig.runCommand(pm);
     console.log(`\nNext steps:
   cd ${projectName}
   ${runCmd}
