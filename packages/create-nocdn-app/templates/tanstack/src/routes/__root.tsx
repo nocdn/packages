@@ -1,6 +1,4 @@
-import { TanStackDevtools } from "@tanstack/react-devtools"
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
 import appCss from "../globals.css?url"
 
@@ -45,17 +43,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="wrap-anywhere">
         {children}
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
         <Scripts />
       </body>
     </html>
