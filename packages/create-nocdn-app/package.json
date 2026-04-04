@@ -1,6 +1,6 @@
 {
   "name": "create-nocdn-app",
-  "version": "0.2.9",
+  "version": "0.3.1",
   "description": "Scaffold Next.js, Vite, TanStack Start, or Hono my preferred way",
   "license": "MIT",
   "type": "module",
