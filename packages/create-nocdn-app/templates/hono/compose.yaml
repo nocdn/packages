@@ -4,6 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
     image: {{project-name}}:local
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       PORT: ${PORT:-{{port}}}
