@@ -221,14 +221,19 @@ async function main() {
   }
 
   if (createAgentsMd) {
+    const minimalLabel =
+      framework === "hono"
+        ? "bun runtime, lean containers, .env conventions"
+        : "specify runtime";
+
     const agentsOption = await clack.select({
       message: "How would you like to create AGENTS.md?",
       options: [
         { value: "blank-edit", label: "Create blank and edit now" },
-        { value: "minimal", label: "Create minimal (specify runtime)" },
+        { value: "minimal", label: `Create minimal (${minimalLabel})` },
         {
           value: "minimal-edit",
-          label: "Create minimal (specify runtime) and edit now",
+          label: `Create minimal (${minimalLabel}) and edit now`,
         },
       ],
     });
@@ -268,7 +273,15 @@ async function main() {
         }
       }
 
-      const minimalContent = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
+      let minimalContent = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
+
+      if (framework === "hono") {
+        minimalContent += "\n\n" + [
+          "Keep the Docker container lean. Avoid unnecessary dependencies and bloat, but do not add extra complexity or convoluted workarounds just to shave off image size - simplicity (and readability) takes priority over minimalism.",
+          "When writing a .env.example file, include a short, clear, professional comment above each variable explaining its purpose. Group related variables together.",
+          "For rate limiting, use hono-rate-limiter (https://honohub.dev/docs/rate-limiter). Rate limits are global for the entire app (not per-IP or per-user). All rate limit values (windowMs and limit) must be configurable via environment variables. The /api/health endpoint has its own separate rate limit (default: 1 request per 500ms) independent from the main rate limit (default: 100 requests per 15 minutes). Never combine health and main rate limits into a single limiter.",
+        ].join("\n\n");
+      }
 
       if (agentsOption === "minimal-edit") {
         const editedContent = await clack.text({

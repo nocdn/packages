@@ -6,7 +6,8 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "hono": "latest"
+    "hono": "latest",
+    "hono-rate-limiter": "latest"
   },
   "devDependencies": {
     "@types/bun": "latest"
