@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { logger } from "hono/logger";
 import { rateLimiter } from "hono-rate-limiter";
 
 const defaultPort = Number.parseInt("{{port}}", 10);
@@ -11,6 +12,8 @@ const healthWindowMs = Number.parseInt(process.env.HEALTH_RATE_LIMIT_WINDOW_MS ?
 const healthLimit = Number.parseInt(process.env.HEALTH_RATE_LIMIT_MAX ?? "", 10) || 1;
 
 const app = new Hono();
+
+app.use(logger());
 
 const mainLimiter = rateLimiter({
   windowMs: mainWindowMs,
@@ -30,7 +33,7 @@ app.get("/api/health", healthLimiter, (c) => {
 
 app.use("*", mainLimiter);
 
-app.get("/", (c) => {
+app.get("/api", (c) => {
   return c.json({
     name: "{{project-name}}",
     status: "ok",
