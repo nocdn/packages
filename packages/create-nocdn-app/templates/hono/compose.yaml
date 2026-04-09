@@ -12,4 +12,4 @@ services:
       PORT: ${PORT:-{{port}}}
     ports:
       - "${PORT:-{{port}}}:${PORT:-{{port}}}"
-    restart: unless-stopped
+    restart: always
