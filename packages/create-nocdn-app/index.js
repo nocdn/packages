@@ -282,6 +282,7 @@ async function main() {
           "All API routes must be prefixed with /api/ (e.g. /api/users, /api/health).",
           "Use Hono's built-in logger middleware (https://hono.dev/docs/middleware/builtin/logger) for request logging. Import it from 'hono/logger'.",
           "For rate limiting, use hono-rate-limiter (https://honohub.dev/docs/rate-limiter). Rate limits are global for the entire app (not per-IP or per-user). All rate limit values (windowMs and limit) must be configurable via environment variables. The /api/health endpoint has its own separate rate limit (default: 1 request per 500ms) independent from the main rate limit (default: 100 requests per 15 minutes). Never combine health and main rate limits into a single limiter.",
+          "When you add, change, or remove features, update the README.md to reflect the changes (routes, environment variables, behavior, etc.).",
         ].join("\n\n");
       }
 

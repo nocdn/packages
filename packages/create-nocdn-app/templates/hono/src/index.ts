@@ -27,11 +27,16 @@ const healthLimiter = rateLimiter({
   keyGenerator: () => "global",
 });
 
+app.use("*", async (c, next) => {
+  if (c.req.path === "/api/health") {
+    return next();
+  }
+  return mainLimiter(c, next);
+});
+
 app.get("/api/health", healthLimiter, (c) => {
   return c.json({ status: "ok" });
 });
-
-app.use("*", mainLimiter);
 
 app.get("/api", (c) => {
   return c.json({
