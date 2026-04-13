@@ -47,6 +47,8 @@ Two separate limiters are configured:
 
 ## Docker
 
+Commit `bun.lock` for reproducible container builds. If it is missing, the Docker image will still install dependencies, but without `--frozen-lockfile`.
+
 ```sh
 docker compose up --build
 ```
