@@ -49,6 +49,8 @@ Two separate limiters are configured:
 
 Commit `bun.lock` for reproducible container builds. If it is missing, the Docker image will still install dependencies, but without `--frozen-lockfile`.
 
+The container build compiles the API into a single Bun executable with `bun build --compile --minify`. Sourcemaps are not included to keep the runtime image lean.
+
 ```sh
 docker compose up --build
 ```

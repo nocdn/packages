@@ -1,20 +1,24 @@
 # syntax=docker/dockerfile:1
 
-FROM oven/bun:1-alpine AS deps
+FROM oven/bun:1-alpine AS build
 WORKDIR /usr/src/app
 
-COPY . ./
+COPY package.json ./
+COPY bun.lock* ./
 RUN if [ -f bun.lock ]; then bun install --frozen-lockfile --production; else bun install --production; fi
 
-FROM oven/bun:1-alpine AS release
+COPY . ./
+RUN bun build ./src/index.ts --compile --minify --outfile app
+
+FROM alpine:latest AS release
 WORKDIR /usr/src/app
 
 ENV NODE_ENV=production
 
-COPY --from=deps /usr/src/app/node_modules ./node_modules
-COPY . ./
+RUN apk add --no-cache libgcc libstdc++
 
-USER bun
+COPY --from=build /usr/src/app/app ./app
+
 EXPOSE {{port}}
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["./app"]
