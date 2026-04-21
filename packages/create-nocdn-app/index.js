@@ -16,6 +16,23 @@ const { version: VERSION } = JSON.parse(
 );
 
 const args = process.argv.slice(2);
+
+function getArgValue(short, long) {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === short || args[i] === long) return args[i + 1] ?? null;
+    if (long && args[i].startsWith(`${long}=`)) return args[i].split("=")[1];
+  }
+  return null;
+}
+
+const valuedFlags = new Set();
+for (let i = 0; i < args.length; i++) {
+  if (["-t", "--template", "-p", "--port", "-d", "--description", "-a", "--agents", "--runtime"].includes(args[i])) {
+    valuedFlags.add(i);
+    valuedFlags.add(i + 1);
+  }
+}
+
 const flags = {
   help: args.includes("-h") || args.includes("--help"),
   version: args.includes("-v") || args.includes("--version"),
@@ -25,31 +42,61 @@ const flags = {
   useNpm: args.includes("--use-npm"),
   usePnpm: args.includes("--use-pnpm"),
   testing: args.includes("--testing"),
+  template: getArgValue("-t", "--template"),
+  port: getArgValue("-p", "--port"),
+  description: getArgValue("-d", "--description"),
+  noAgents: args.includes("--no-agents"),
+  agents: getArgValue("-a", "--agents"),
+  runtime: getArgValue(null, "--runtime"),
 };
 
-const cliProjectName = args.find((arg) => !arg.startsWith("-"));
+const cliProjectName = args.find((arg, i) => !arg.startsWith("-") && !valuedFlags.has(i));
+
+const VALID_TEMPLATES = ["next", "vite", "tanstack", "tanstack-start", "start", "hono"];
+const VALID_AGENTS = ["none", "blank", "minimal"];
+const VALID_RUNTIMES = ["bun", "npm", "pnpm", "yarn"];
+
+function normalizeTemplate(value) {
+  if (value === "start" || value === "tanstack-start") return "tanstack";
+  return value;
+}
 
 function showHelp() {
   console.log(`
-create-nocdn-app - Scaffold a new Next.js, Vite, TanStack Start, or Hono project
+create-nocdn-app v${VERSION}
+
+Scaffold a new Next.js, Vite, TanStack Start, or Hono project.
 
 Usage:
   bunx create-nocdn-app [project-name] [options]
 
-Options:
-  -h, --help        Show this help message
-  -v, --version     Show version number
-  --skip-install    Skip installing dependencies
-  --skip-git        Skip initializing git repository
-  --open            Open project in default editor after creation
-  --use-npm         Use npm instead of bun for installing dependencies
-  --use-pnpm        Use pnpm instead of bun for installing dependencies
-  --testing         Use local template instead of cloning from GitHub (for development)
+Template:
+  -t, --template <name>    next | vite | tanstack (or start) | hono
+
+Project options:
+  -p, --port <number>      Port for Hono API (default: 3000)
+  -d, --description <text> Project description (Next.js, TanStack)
+
+AGENTS.md:
+  -a, --agents <mode>      none | blank | minimal (default: prompt)
+  --no-agents              Shorthand for --agents none
+  --runtime <name>         bun | npm | pnpm | yarn (for minimal agents, default: bun)
+
+General:
+  --skip-install           Skip installing dependencies
+  --skip-git               Skip initializing git repository
+  --open                   Open project in default editor after creation
+  --use-npm                Use npm instead of bun for installing dependencies
+  --use-pnpm               Use pnpm instead of bun for installing dependencies
+  -h, --help               Show this help message
+  -v, --version            Show version number
 
 Examples:
-  bunx create-nocdn-app                    Interactive mode
-  bunx create-nocdn-app my-app             Create project named "my-app"
-  bunx create-nocdn-app my-app --skip-git  Create without git init
+  bunx create-nocdn-app
+  bunx create-nocdn-app my-app -t hono -p 8080 --agents minimal
+  bunx create-nocdn-app my-app -t next -d "My website" --no-agents
+  bunx create-nocdn-app my-app -t tanstack --skip-git --skip-install
+  bunx create-nocdn-app my-app -t vite --agents minimal --runtime pnpm
 `);
   process.exit(0);
 }
@@ -135,27 +182,74 @@ async function renameIfExists(sourcePath, targetPath) {
   } catch {}
 }
 
+function buildMinimalAgentsContent(framework, runtime) {
+  let content = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
+
+  if (framework === "hono") {
+    content += "\n\n" + [
+      "Keep the Docker container lean. Avoid unnecessary dependencies and bloat, but do not add extra complexity or convoluted workarounds just to shave off image size - simplicity (and readability) takes priority over minimalism.",
+      "When writing a .env.example file, include a short, clear, professional comment above each variable explaining its purpose. Group related variables together. Make sure to update it when you add, change or remove features from the project.",
+      "All API routes must be prefixed with /api/ (e.g. /api/users, /api/health).",
+      "Use Hono's built-in logger middleware (https://hono.dev/docs/middleware/builtin/logger) for request logging. Import it from 'hono/logger'.",
+      "For rate limiting, use hono-rate-limiter (https://honohub.dev/docs/rate-limiter). Rate limits are global for the entire app (not per-IP or per-user). All rate limit values (windowMs and limit) must be configurable via environment variables. The /api/health endpoint has its own separate rate limit (default: 1 request per 500ms) independent from the main rate limit (default: 100 requests per 15 minutes). Never combine health and main rate limits into a single limiter.",
+      "When you add, change, or remove features, update the README.md to reflect the changes (routes, environment variables, behavior, etc.).",
+      "The root route (GET /) must return a plain-text usage page (Content-Type: text/plain). Format: project name on the first line, then a blank line, then each API capability as a short label followed by an indented curl example on the next line. Group related endpoints together. No HTML, no JSON, no markdown - just clean plain text that looks good in both a terminal (curl) and a browser. When you add, change, or remove API routes, update this root route to keep it accurate. Every API route should appear here with a curl example. For reference, fetch https://0x0.st with curl to see a good example of this style.",
+    ].join("\n\n");
+  }
+
+  return content;
+}
+
+function die(message) {
+  console.error(`error: ${message}`);
+  process.exit(1);
+}
+
 async function main() {
-  console.clear();
+  // Validate flag values early
+  if (flags.template && !VALID_TEMPLATES.includes(flags.template)) {
+    die(`invalid template "${flags.template}". Must be one of: ${VALID_TEMPLATES.join(", ")}`);
+  }
+  if (flags.agents && !VALID_AGENTS.includes(flags.agents)) {
+    die(`invalid agents mode "${flags.agents}". Must be one of: ${VALID_AGENTS.join(", ")}`);
+  }
+  if (flags.runtime && !VALID_RUNTIMES.includes(flags.runtime)) {
+    die(`invalid runtime "${flags.runtime}". Must be one of: ${VALID_RUNTIMES.join(", ")}`);
+  }
+  if (flags.port) {
+    const portError = validatePort(flags.port);
+    if (portError) die(portError);
+  }
+
+  const nonInteractive = !!(flags.template && cliProjectName);
+
+  if (!nonInteractive) console.clear();
 
   clack.intro(`create-nocdn-app (${VERSION})`);
 
-  const framework = await clack.select({
-    message: "Which framework would you like to use?",
-    options: [
-      { value: "next", label: "Next.js (TypeScript, Compiler)" },
-      { value: "vite", label: "Vite (TypeScript, React, Compiler)" },
-      {
-        value: "tanstack",
-        label: "TanStack Start (TypeScript, React, Compiler)",
-      },
-      { value: "hono", label: "Hono (Bun API)" },
-    ],
-  });
+  let framework;
 
-  if (clack.isCancel(framework)) {
-    clack.cancel("Operation cancelled");
-    process.exit(0);
+  if (flags.template) {
+    framework = normalizeTemplate(flags.template);
+    clack.log.info(`Using template: ${framework}`);
+  } else {
+    framework = await clack.select({
+      message: "Which framework would you like to use?",
+      options: [
+        { value: "next", label: "Next.js (TypeScript, Compiler)" },
+        { value: "vite", label: "Vite (TypeScript, React, Compiler)" },
+        {
+          value: "tanstack",
+          label: "TanStack Start (TypeScript, React, Compiler)",
+        },
+        { value: "hono", label: "Hono (Bun API)" },
+      ],
+    });
+
+    if (clack.isCancel(framework)) {
+      clack.cancel("Operation cancelled");
+      process.exit(0);
+    }
   }
 
   let projectName;
@@ -187,77 +281,51 @@ async function main() {
   let agentsContent = null;
 
   if (framework === "next" || framework === "tanstack") {
-    projectDescription = await clack.text({
-      message: "Project description (optional, press Enter to skip)",
-      placeholder: "A brief description of your project",
-    });
-
-    if (clack.isCancel(projectDescription)) {
-      clack.cancel("Operation cancelled");
-      process.exit(0);
-    }
-  } else if (framework === "hono") {
-    projectPort = await clack.text({
-      message: "Which port should the API run on?",
-      placeholder: "3000",
-      initialValue: "3000",
-      validate: validatePort,
-    });
-
-    if (clack.isCancel(projectPort)) {
-      clack.cancel("Operation cancelled");
-      process.exit(0);
-    }
-  }
-
-  const createAgentsMd = await clack.confirm({
-    message: "Create an AGENTS.md file?",
-    initialValue: true,
-  });
-
-  if (clack.isCancel(createAgentsMd)) {
-    clack.cancel("Operation cancelled");
-    process.exit(0);
-  }
-
-  if (createAgentsMd) {
-    const minimalLabel =
-      framework === "hono"
-        ? "bun runtime, lean containers, .env conventions"
-        : "specify runtime";
-
-    const agentsOption = await clack.select({
-      message: "How would you like to create AGENTS.md?",
-      options: [
-        { value: "blank-edit", label: "Create blank and edit now" },
-        { value: "minimal", label: `Create minimal (${minimalLabel})` },
-        {
-          value: "minimal-edit",
-          label: `Create minimal (${minimalLabel}) and edit now`,
-        },
-      ],
-    });
-
-    if (clack.isCancel(agentsOption)) {
-      clack.cancel("Operation cancelled");
-      process.exit(0);
-    }
-
-    if (agentsOption === "blank-edit") {
-      const content = await clack.text({
-        message: "Enter your AGENTS.md content:",
-        placeholder: "Instructions for AI agents working on this project...",
+    if (flags.description !== null) {
+      projectDescription = flags.description;
+    } else if (!nonInteractive) {
+      projectDescription = await clack.text({
+        message: "Project description (optional, press Enter to skip)",
+        placeholder: "A brief description of your project",
       });
-      if (clack.isCancel(content)) {
+
+      if (clack.isCancel(projectDescription)) {
         clack.cancel("Operation cancelled");
         process.exit(0);
       }
-      agentsContent = content || "";
-    } else if (agentsOption === "minimal" || agentsOption === "minimal-edit") {
-      let runtime = "bun";
+    }
+  } else if (framework === "hono") {
+    if (flags.port) {
+      projectPort = flags.port;
+    } else if (nonInteractive) {
+      projectPort = "3000";
+    } else {
+      projectPort = await clack.text({
+        message: "Which port should the API run on?",
+        placeholder: "3000",
+        initialValue: "3000",
+        validate: validatePort,
+      });
 
-      if (framework !== "hono") {
-        runtime = await clack.select({
+      if (clack.isCancel(projectPort)) {
+        clack.cancel("Operation cancelled");
+        process.exit(0);
+      }
+    }
+  }
+
+  if (flags.noAgents) {
+    agentsContent = null;
+  } else if (flags.agents) {
+    if (flags.agents === "none") {
+      agentsContent = null;
+    } else if (flags.agents === "blank") {
+      agentsContent = "";
+    } else if (flags.agents === "minimal") {
+      const runtime = flags.runtime ?? (framework === "hono" ? "bun" : null);
+
+      if (!runtime) {
+        const selectedRuntime = await clack.select({
           message: "Which runtime are you using?",
           options: [
             { value: "bun", label: "Bun" },
@@ -267,38 +335,95 @@ async function main() {
           ],
         });
 
-        if (clack.isCancel(runtime)) {
+        if (clack.isCancel(selectedRuntime)) {
           clack.cancel("Operation cancelled");
           process.exit(0);
         }
-      }
 
-      let minimalContent = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
-
-      if (framework === "hono") {
-        minimalContent += "\n\n" + [
-          "Keep the Docker container lean. Avoid unnecessary dependencies and bloat, but do not add extra complexity or convoluted workarounds just to shave off image size - simplicity (and readability) takes priority over minimalism.",
-          "When writing a .env.example file, include a short, clear, professional comment above each variable explaining its purpose. Group related variables together. Make sure to update it when you add, change or remove features from the project.",
-          "All API routes must be prefixed with /api/ (e.g. /api/users, /api/health).",
-          "Use Hono's built-in logger middleware (https://hono.dev/docs/middleware/builtin/logger) for request logging. Import it from 'hono/logger'.",
-          "For rate limiting, use hono-rate-limiter (https://honohub.dev/docs/rate-limiter). Rate limits are global for the entire app (not per-IP or per-user). All rate limit values (windowMs and limit) must be configurable via environment variables. The /api/health endpoint has its own separate rate limit (default: 1 request per 500ms) independent from the main rate limit (default: 100 requests per 15 minutes). Never combine health and main rate limits into a single limiter.",
-          "When you add, change, or remove features, update the README.md to reflect the changes (routes, environment variables, behavior, etc.).",
-          "The root route (GET /) must return a plain-text usage page (Content-Type: text/plain). Format: project name on the first line, then a blank line, then each API capability as a short label followed by an indented curl example on the next line. Group related endpoints together. No HTML, no JSON, no markdown - just clean plain text that looks good in both a terminal (curl) and a browser. When you add, change, or remove API routes, update this root route to keep it accurate. Every API route should appear here with a curl example. For reference, fetch https://0x0.st with curl to see a good example of this style.",
-        ].join("\n\n");
-      }
-
-      if (agentsOption === "minimal-edit") {
-        const editedContent = await clack.text({
-          message: "Edit your AGENTS.md content:",
-          initialValue: minimalContent,
-        });
-        if (clack.isCancel(editedContent)) {
-          clack.cancel("Operation cancelled");
-          process.exit(0);
-        }
-        agentsContent = editedContent || minimalContent;
+        agentsContent = buildMinimalAgentsContent(framework, selectedRuntime);
       } else {
-        agentsContent = minimalContent;
+        agentsContent = buildMinimalAgentsContent(framework, runtime);
+      }
+    }
+  } else {
+    const createAgentsMd = await clack.confirm({
+      message: "Create an AGENTS.md file?",
+      initialValue: true,
+    });
+
+    if (clack.isCancel(createAgentsMd)) {
+      clack.cancel("Operation cancelled");
+      process.exit(0);
+    }
+
+    if (createAgentsMd) {
+      const minimalLabel =
+        framework === "hono"
+          ? "bun runtime, lean containers, .env conventions"
+          : "specify runtime";
+
+      const agentsOption = await clack.select({
+        message: "How would you like to create AGENTS.md?",
+        options: [
+          { value: "blank-edit", label: "Create blank and edit now" },
+          { value: "minimal", label: `Create minimal (${minimalLabel})` },
+          {
+            value: "minimal-edit",
+            label: `Create minimal (${minimalLabel}) and edit now`,
+          },
+        ],
+      });
+
+      if (clack.isCancel(agentsOption)) {
+        clack.cancel("Operation cancelled");
+        process.exit(0);
+      }
+
+      if (agentsOption === "blank-edit") {
+        const content = await clack.text({
+          message: "Enter your AGENTS.md content:",
+          placeholder: "Instructions for AI agents working on this project...",
+        });
+        if (clack.isCancel(content)) {
+          clack.cancel("Operation cancelled");
+          process.exit(0);
+        }
+        agentsContent = content || "";
+      } else if (agentsOption === "minimal" || agentsOption === "minimal-edit") {
+        let runtime = "bun";
+
+        if (framework !== "hono") {
+          runtime = await clack.select({
+            message: "Which runtime are you using?",
+            options: [
+              { value: "bun", label: "Bun" },
+              { value: "npm", label: "npm" },
+              { value: "pnpm", label: "pnpm" },
+              { value: "yarn", label: "Yarn" },
+            ],
+          });
+
+          if (clack.isCancel(runtime)) {
+            clack.cancel("Operation cancelled");
+            process.exit(0);
+          }
+        }
+
+        const minimalContent = buildMinimalAgentsContent(framework, runtime);
+
+        if (agentsOption === "minimal-edit") {
+          const editedContent = await clack.text({
+            message: "Edit your AGENTS.md content:",
+            initialValue: minimalContent,
+          });
+          if (clack.isCancel(editedContent)) {
+            clack.cancel("Operation cancelled");
+            process.exit(0);
+          }
+          agentsContent = editedContent || minimalContent;
+        } else {
+          agentsContent = minimalContent;
+        }
       }
     }
   }
