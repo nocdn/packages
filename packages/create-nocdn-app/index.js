@@ -27,7 +27,19 @@ function getArgValue(short, long) {
 
 const valuedFlags = new Set();
 for (let i = 0; i < args.length; i++) {
-  if (["-t", "--template", "-p", "--port", "-d", "--description", "-a", "--agents", "--runtime"].includes(args[i])) {
+  if (
+    [
+      "-t",
+      "--template",
+      "-p",
+      "--port",
+      "-d",
+      "--description",
+      "-a",
+      "--agents",
+      "--runtime",
+    ].includes(args[i])
+  ) {
     valuedFlags.add(i);
     valuedFlags.add(i + 1);
   }
@@ -50,9 +62,18 @@ const flags = {
   runtime: getArgValue(null, "--runtime"),
 };
 
-const cliProjectName = args.find((arg, i) => !arg.startsWith("-") && !valuedFlags.has(i));
+const cliProjectName = args.find(
+  (arg, i) => !arg.startsWith("-") && !valuedFlags.has(i),
+);
 
-const VALID_TEMPLATES = ["next", "vite", "tanstack", "tanstack-start", "start", "hono"];
+const VALID_TEMPLATES = [
+  "next",
+  "vite",
+  "tanstack",
+  "tanstack-start",
+  "start",
+  "hono",
+];
 const VALID_AGENTS = ["none", "blank", "minimal"];
 const VALID_RUNTIMES = ["bun", "npm", "pnpm", "yarn"];
 
@@ -186,15 +207,17 @@ function buildMinimalAgentsContent(framework, runtime) {
   let content = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
 
   if (framework === "hono") {
-    content += "\n\n" + [
-      "Keep the Docker container lean. Avoid unnecessary dependencies and bloat, but do not add extra complexity or convoluted workarounds just to shave off image size - simplicity (and readability) takes priority over minimalism.",
-      "When writing a .env.example file, include a short, clear, professional comment above each variable explaining its purpose. Group related variables together. Make sure to update it when you add, change or remove features from the project.",
-      "All API routes must be prefixed with /api/ (e.g. /api/users, /api/health).",
-      "Use Hono's built-in logger middleware (https://hono.dev/docs/middleware/builtin/logger) for request logging. Import it from 'hono/logger'.",
-      "For rate limiting, use hono-rate-limiter (https://honohub.dev/docs/rate-limiter). Rate limits are global for the entire app (not per-IP or per-user). All rate limit values (windowMs and limit) must be configurable via environment variables. The /api/health endpoint has its own separate rate limit (default: 1 request per 500ms) independent from the main rate limit (default: 100 requests per 15 minutes). Never combine health and main rate limits into a single limiter.",
-      "When you add, change, or remove features, update the README.md to reflect the changes (routes, environment variables, behavior, etc.).",
-      "The root route (GET /) must return a plain-text usage page (Content-Type: text/plain). Format: project name on the first line, then a blank line, then each API capability as a short label followed by an indented curl example on the next line. Group related endpoints together. No HTML, no JSON, no markdown - just clean plain text that looks good in both a terminal (curl) and a browser. When you add, change, or remove API routes, update this root route to keep it accurate. Every API route should appear here with a curl example. For reference, fetch https://0x0.st with curl to see a good example of this style.",
-    ].join("\n\n");
+    content +=
+      "\n\n" +
+      [
+        "Keep the Docker container lean. Avoid unnecessary dependencies and bloat, but do not add extra complexity or convoluted workarounds just to shave off image size - simplicity (and readability) takes priority over minimalism.",
+        "When writing a .env.example file, include a short, clear, professional comment above each variable explaining its purpose. Group related variables together. Make sure to update it when you add, change or remove features from the project.",
+        "All API routes must be prefixed with /api/ (e.g. /api/users, /api/health).",
+        "Use Hono's built-in logger middleware (https://hono.dev/docs/middleware/builtin/logger) for request logging. Import it from 'hono/logger'.",
+        "For rate limiting, use hono-rate-limiter (https://honohub.dev/docs/rate-limiter). Rate limits are global for the entire app (not per-IP or per-user). All rate limit values (windowMs and limit) must be configurable via environment variables. The /api/health endpoint has its own separate rate limit (default: 1 request per 500ms) independent from the main rate limit (default: 100 requests per 15 minutes). Never combine health and main rate limits into a single limiter.",
+        "When you add, change, or remove features, update the README.md to reflect the changes (routes, environment variables, behavior, etc.).",
+        "The root route (GET /) must return a plain-text usage page (Content-Type: text/plain). Format: project name on the first line, then a blank line, then each API capability as a short label followed by a blank line then a (nicely formatted) curl example on the next line. Group related endpoints together. No HTML, no JSON, no markdown - just clean plain text that looks good in both a terminal (curl) and a browser. When you add, change, or remove API routes, update this root route to keep it accurate. Every API route should appear here with a curl example. For reference, fetch [https://0x0.st](https://0x0.st) with curl to see a good example of this style. Make sure all options are also present and briefly explained. Make sure all the curl requests are pretty-formatted, since this also has to be nice to read for humans",
+      ].join("\n\n");
   }
 
   return content;
@@ -208,13 +231,19 @@ function die(message) {
 async function main() {
   // Validate flag values early
   if (flags.template && !VALID_TEMPLATES.includes(flags.template)) {
-    die(`invalid template "${flags.template}". Must be one of: ${VALID_TEMPLATES.join(", ")}`);
+    die(
+      `invalid template "${flags.template}". Must be one of: ${VALID_TEMPLATES.join(", ")}`,
+    );
   }
   if (flags.agents && !VALID_AGENTS.includes(flags.agents)) {
-    die(`invalid agents mode "${flags.agents}". Must be one of: ${VALID_AGENTS.join(", ")}`);
+    die(
+      `invalid agents mode "${flags.agents}". Must be one of: ${VALID_AGENTS.join(", ")}`,
+    );
   }
   if (flags.runtime && !VALID_RUNTIMES.includes(flags.runtime)) {
-    die(`invalid runtime "${flags.runtime}". Must be one of: ${VALID_RUNTIMES.join(", ")}`);
+    die(
+      `invalid runtime "${flags.runtime}". Must be one of: ${VALID_RUNTIMES.join(", ")}`,
+    );
   }
   if (flags.port) {
     const portError = validatePort(flags.port);
@@ -389,7 +418,10 @@ async function main() {
           process.exit(0);
         }
         agentsContent = content || "";
-      } else if (agentsOption === "minimal" || agentsOption === "minimal-edit") {
+      } else if (
+        agentsOption === "minimal" ||
+        agentsOption === "minimal-edit"
+      ) {
         let runtime = "bun";
 
         if (framework !== "hono") {
