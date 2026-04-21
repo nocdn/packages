@@ -206,6 +206,14 @@ async function renameIfExists(sourcePath, targetPath) {
 function buildMinimalAgentsContent(framework, runtime) {
   let content = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
 
+  if (framework === "next") {
+    content +=
+      "\n\n" +
+      [
+        "Prefer the project's custom Link component in components/link.tsx over next/link, because it navigates onMouseDown. Wherever navigation links are used in the app, do not disable prefetching unless the user explicitly asks for that behavior.",
+      ].join("\n\n");
+  }
+
   if (framework === "hono") {
     content +=
       "\n\n" +
