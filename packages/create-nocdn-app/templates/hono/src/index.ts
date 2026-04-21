@@ -38,6 +38,23 @@ app.get("/api/health", healthLimiter, (c) => {
   return c.json({ status: "ok" });
 });
 
+app.get("/", (c) => {
+  const host = c.req.header("host") ?? `localhost:${port}`;
+  const base = `${c.req.url.startsWith("https") ? "https" : "http"}://${host}`;
+
+  return c.text(
+    [
+      "{{project-name}}",
+      "",
+      "Health check:",
+      `  curl ${base}/api/health`,
+      "",
+      "App info:",
+      `  curl ${base}/api`,
+    ].join("\n") + "\n",
+  );
+});
+
 app.get("/api", (c) => {
   return c.json({
     name: "{{project-name}}",

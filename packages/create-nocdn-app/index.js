@@ -283,6 +283,7 @@ async function main() {
           "Use Hono's built-in logger middleware (https://hono.dev/docs/middleware/builtin/logger) for request logging. Import it from 'hono/logger'.",
           "For rate limiting, use hono-rate-limiter (https://honohub.dev/docs/rate-limiter). Rate limits are global for the entire app (not per-IP or per-user). All rate limit values (windowMs and limit) must be configurable via environment variables. The /api/health endpoint has its own separate rate limit (default: 1 request per 500ms) independent from the main rate limit (default: 100 requests per 15 minutes). Never combine health and main rate limits into a single limiter.",
           "When you add, change, or remove features, update the README.md to reflect the changes (routes, environment variables, behavior, etc.).",
+          "The root route (GET /) must return a plain-text usage page (Content-Type: text/plain). Format: project name on the first line, then a blank line, then each API capability as a short label followed by an indented curl example on the next line. Group related endpoints together. No HTML, no JSON, no markdown - just clean plain text that looks good in both a terminal (curl) and a browser. When you add, change, or remove API routes, update this root route to keep it accurate. Every API route should appear here with a curl example. For reference, fetch https://0x0.st with curl to see a good example of this style.",
         ].join("\n\n");
       }
 
