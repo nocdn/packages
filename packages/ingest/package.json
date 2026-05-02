@@ -1,6 +1,6 @@
 {
   "name": "repo-squeeze",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A bunx-runnable CLI that squeezes a local repository into an LLM-friendly digest.",
   "license": "MIT",
   "module": "index.js",
