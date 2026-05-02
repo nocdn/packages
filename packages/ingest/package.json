@@ -1,0 +1,28 @@
+{
+  "name": "repo-squeeze",
+  "version": "0.1.0",
+  "description": "A bunx-runnable CLI that squeezes a local repository into an LLM-friendly digest.",
+  "license": "MIT",
+  "module": "index.js",
+  "type": "module",
+  "bin": {
+    "repo-squeeze": "./bin/repo-squeeze.js",
+    "ingest": "./bin/repo-squeeze.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "index.js",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "bun run ./bin/repo-squeeze.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "clipboardy": "5.3.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
