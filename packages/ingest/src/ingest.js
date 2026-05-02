@@ -21,6 +21,7 @@ const MAX_DIRECTORY_DEPTH = 20;
 const SAMPLE_SIZE = 8192;
 
 export async function ingestPath(source = ".", options = {}) {
+  const startTime = performance.now();
   const cwd = options.cwd ?? process.cwd();
   const rootPath = path.resolve(cwd, source || ".");
   const rootStats = await lstat(rootPath);
@@ -48,6 +49,7 @@ export async function ingestPath(source = ".", options = {}) {
     rootPath,
     resolvedRoot,
     maxFileSize: options.maxFileSize ?? MAX_FILE_SIZE,
+    verbose: options.verbose ?? false,
     filesAnalyzed: 0,
     totalSize: 0,
     excludedDirectories: new Set(),
@@ -63,12 +65,17 @@ export async function ingestPath(source = ".", options = {}) {
 
   const tree = `Directory structure:\n${createTree(rootNode)}`;
   const content = gatherFileContents(rootNode).trimEnd();
-  const summary = createSummary({
+  let summary = createSummary({
     rootName,
     resolvedRoot,
     filesAnalyzed: state.filesAnalyzed,
     excludedDirectories: state.excludedDirectories,
   });
+
+  if (state.verbose) {
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+    summary += `\nElapsed: ${elapsed}s`;
+  }
 
   return {
     summary,
@@ -102,6 +109,9 @@ async function processDirectory(directoryPath, name, relativePath, depth, should
     if (shouldExclude(childRelativePath, entry.isDirectory())) {
       if (entry.isDirectory()) {
         state.excludedDirectories.add(childRelativePath);
+      }
+      if (state.verbose) {
+        process.stderr.write(`Excluded: ${childRelativePath}\n`);
       }
       continue;
     }
@@ -165,12 +175,22 @@ async function processRootFile(filePath, name, relativePath, shouldInclude, stat
 
 async function processFile(filePath, name, relativePath, state, includePdf) {
   if (state.filesAnalyzed + 1 > MAX_FILES) {
+    if (state.verbose) {
+      process.stderr.write(`Skipped (max files): ${relativePath}\n`);
+    }
     return null;
   }
 
   const fileStats = await stat(filePath);
   if (fileStats.size > state.maxFileSize || state.totalSize + fileStats.size > MAX_TOTAL_SIZE_BYTES) {
+    if (state.verbose) {
+      process.stderr.write(`Skipped (size limit): ${relativePath} (${fileStats.size.toLocaleString("en-US")} bytes)\n`);
+    }
     return null;
+  }
+
+  if (state.verbose) {
+    process.stderr.write(`Processing: ${relativePath} (${fileStats.size.toLocaleString("en-US")} bytes)\n`);
   }
 
   state.filesAnalyzed += 1;
@@ -182,7 +202,7 @@ async function processFile(filePath, name, relativePath, state, includePdf) {
     path: filePath,
     relativePath,
     size: fileStats.size,
-    content: await readFileContent(filePath, name, includePdf),
+    content: await readFileContent(filePath, name, includePdf, state.verbose),
   };
 }
 
@@ -204,9 +224,9 @@ async function processSymlink(filePath, name, relativePath) {
   };
 }
 
-async function readFileContent(filePath, name, includePdf) {
+async function readFileContent(filePath, name, includePdf, verbose) {
   if (includePdf && path.extname(name).toLowerCase() === ".pdf") {
-    return await extractPdfText(filePath);
+    return await extractPdfText(filePath, verbose);
   }
 
   const data = await readFile(filePath);
@@ -227,7 +247,8 @@ async function readFileContent(filePath, name, includePdf) {
   }
 }
 
-async function extractPdfText(filePath) {
+async function extractPdfText(filePath, verbose) {
+  const restoreStderr = suppressStderr(!verbose);
   try {
     const data = await readFile(filePath);
     const pdf = await getDocumentProxy(new Uint8Array(data));
@@ -236,7 +257,20 @@ async function extractPdfText(filePath) {
     return text.trim() ? `${header}\n\n${text}` : `${header}\n\n[No extractable text]`;
   } catch (error) {
     return `[PDF text extraction failed: ${error.message}]`;
+  } finally {
+    restoreStderr();
   }
+}
+
+function suppressStderr(suppress) {
+  if (!suppress) {
+    return () => {};
+  }
+  const original = process.stderr.write.bind(process.stderr);
+  process.stderr.write = () => true;
+  return () => {
+    process.stderr.write = original;
+  };
 }
 
 function filterPdfPattern(patterns, includePdf) {

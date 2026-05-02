@@ -41,6 +41,7 @@ async function main() {
       ignoreFiles: args.ignoreFiles,
       maxFileSize: args.maxSize,
       includePdf: args.includePdf,
+      verbose: args.verbose,
     });
 
     if (args.stdout) {
@@ -81,6 +82,7 @@ function parseArgs(argv, packageInfo) {
     includeDangerous: false,
     includeGitignored: false,
     includePdf: false,
+    verbose: false,
     listTemplates: false,
     maxSize: 10 * 1024 * 1024,
     help: false,
@@ -94,6 +96,11 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "-h" || arg === "--help") {
       args.help = true;
+      continue;
+    }
+
+    if (arg === "-V" || arg === "--verbose") {
+      args.verbose = true;
       continue;
     }
 
@@ -353,6 +360,7 @@ Examples:
 Options:
   -h, --help                       Show this help text.
   -v, --version                    Show the package version.
+  -V, --verbose                    Print debug information during processing.
   -L, --list-templates             List available exclusion templates.
   -o, --output [file]              Write the digest to a file. Without a file, writes digest.txt in the current directory.
   -S, --stdout                     Write the full digest to stdout and do not print status text.
