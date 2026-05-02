@@ -99,7 +99,7 @@ function parseArgs(argv, packageInfo) {
       continue;
     }
 
-    if (arg === "-V" || arg === "--verbose") {
+    if (arg === "--verbose") {
       args.verbose = true;
       continue;
     }
@@ -360,7 +360,7 @@ Examples:
 Options:
   -h, --help                       Show this help text.
   -v, --version                    Show the package version.
-  -V, --verbose                    Print debug information during processing.
+      --verbose                    Print debug information during processing.
   -L, --list-templates             List available exclusion templates.
   -o, --output [file]              Write the digest to a file. Without a file, writes digest.txt in the current directory.
   -S, --stdout                     Write the full digest to stdout and do not print status text.
