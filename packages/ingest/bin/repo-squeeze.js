@@ -40,6 +40,7 @@ async function main() {
       includeGitignored: args.includeGitignored,
       ignoreFiles: args.ignoreFiles,
       maxFileSize: args.maxSize,
+      includePdf: args.includePdf,
     });
 
     if (args.stdout) {
@@ -79,6 +80,7 @@ function parseArgs(argv, packageInfo) {
     noClipboard: false,
     includeDangerous: false,
     includeGitignored: false,
+    includePdf: false,
     listTemplates: false,
     maxSize: 10 * 1024 * 1024,
     help: false,
@@ -122,6 +124,11 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "-g" || arg === "--include-gitignored") {
       args.includeGitignored = true;
+      continue;
+    }
+
+    if (arg === "--include-pdf") {
+      args.includePdf = true;
       continue;
     }
 
@@ -357,6 +364,7 @@ Options:
   -g, --include-gitignored         Include files matched by .gitignore and .gitingestignore.
   -F, --ignore-file <file>         Also load ignore patterns from this file name, for example .customignore.
   -s, --max-size <bytes>           Maximum size of one file to include. Default: 10485760.
+      --include-pdf                  Extract text from PDF files and include it in the digest.
 
 By default the digest is copied to the clipboard with clipboardy.
 `;

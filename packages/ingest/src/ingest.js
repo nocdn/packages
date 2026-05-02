@@ -1,6 +1,7 @@
 import { lstat, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { TextDecoder } from "node:util";
+import { extractText, getDocumentProxy } from "unpdf";
 
 import {
   BUILT_IN_EXCLUDE_PATTERNS,
@@ -32,7 +33,9 @@ export async function ingestPath(source = ".", options = {}) {
     : loadedIgnorePatterns;
   const templatePatterns = collectTemplatePatterns(options.templates ?? []);
   const userExcludePatterns = parsePatterns(options.exclude ?? []);
-  const builtInPatterns = options.includeDangerous ? [] : BUILT_IN_EXCLUDE_PATTERNS;
+  const builtInPatterns = options.includeDangerous
+    ? []
+    : filterPdfPattern(BUILT_IN_EXCLUDE_PATTERNS, options.includePdf);
   const excludePatterns = [
     ...builtInPatterns,
     ...ignoreFilePatterns,
@@ -51,8 +54,8 @@ export async function ingestPath(source = ".", options = {}) {
   };
 
   const rootNode = rootStats.isDirectory()
-    ? await processDirectory(rootPath, rootName, "", 0, shouldExclude, shouldInclude, state)
-    : await processRootFile(rootPath, rootName, path.basename(rootPath), shouldInclude, state);
+    ? await processDirectory(rootPath, rootName, "", 0, shouldExclude, shouldInclude, state, options.includePdf)
+    : await processRootFile(rootPath, rootName, path.basename(rootPath), shouldInclude, state, options.includePdf);
 
   if (!rootNode) {
     throw new Error("No files were available to ingest after exclusions were applied.");
@@ -84,7 +87,7 @@ export async function writeDigest(outputPath, digest, cwd = process.cwd()) {
   return target;
 }
 
-async function processDirectory(directoryPath, name, relativePath, depth, shouldExclude, shouldInclude, state) {
+async function processDirectory(directoryPath, name, relativePath, depth, shouldExclude, shouldInclude, state, includePdf) {
   if (depth > MAX_DIRECTORY_DEPTH) {
     return null;
   }
@@ -121,6 +124,7 @@ async function processDirectory(directoryPath, name, relativePath, depth, should
         shouldExclude,
         shouldInclude,
         state,
+        includePdf,
       );
 
       if (child && child.children.length > 0) {
@@ -133,7 +137,7 @@ async function processDirectory(directoryPath, name, relativePath, depth, should
       if (shouldInclude && !shouldInclude(childRelativePath, false)) {
         continue;
       }
-      const child = await processFile(absolutePath, entry.name, childRelativePath, state);
+      const child = await processFile(absolutePath, entry.name, childRelativePath, state, includePdf);
       if (child) {
         children.push(child);
       }
@@ -151,15 +155,15 @@ async function processDirectory(directoryPath, name, relativePath, depth, should
   };
 }
 
-async function processRootFile(filePath, name, relativePath, shouldInclude, state) {
+async function processRootFile(filePath, name, relativePath, shouldInclude, state, includePdf) {
   if (shouldInclude && !shouldInclude(relativePath, false)) {
     return null;
   }
 
-  return await processFile(filePath, name, relativePath, state);
+  return await processFile(filePath, name, relativePath, state, includePdf);
 }
 
-async function processFile(filePath, name, relativePath, state) {
+async function processFile(filePath, name, relativePath, state, includePdf) {
   if (state.filesAnalyzed + 1 > MAX_FILES) {
     return null;
   }
@@ -178,7 +182,7 @@ async function processFile(filePath, name, relativePath, state) {
     path: filePath,
     relativePath,
     size: fileStats.size,
-    content: await readTextFile(filePath),
+    content: await readFileContent(filePath, name, includePdf),
   };
 }
 
@@ -200,7 +204,11 @@ async function processSymlink(filePath, name, relativePath) {
   };
 }
 
-async function readTextFile(filePath) {
+async function readFileContent(filePath, name, includePdf) {
+  if (includePdf && path.extname(name).toLowerCase() === ".pdf") {
+    return await extractPdfText(filePath);
+  }
+
   const data = await readFile(filePath);
   if (data.length === 0) {
     return "[Empty file]";
@@ -217,6 +225,25 @@ async function readTextFile(filePath) {
   } catch (error) {
     return `[Binary or unreadable file: ${error.message}]`;
   }
+}
+
+async function extractPdfText(filePath) {
+  try {
+    const data = await readFile(filePath);
+    const pdf = await getDocumentProxy(new Uint8Array(data));
+    const { totalPages, text } = await extractText(pdf, { mergePages: true });
+    const header = `[PDF document — ${totalPages} page${totalPages === 1 ? "" : "s"}]`;
+    return text.trim() ? `${header}\n\n${text}` : `${header}\n\n[No extractable text]`;
+  } catch (error) {
+    return `[PDF text extraction failed: ${error.message}]`;
+  }
+}
+
+function filterPdfPattern(patterns, includePdf) {
+  if (!includePdf) {
+    return patterns;
+  }
+  return patterns.filter((pattern) => pattern !== "*.pdf");
 }
 
 async function loadIgnorePatterns(rootPath, ignoreFileNames) {
