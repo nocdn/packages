@@ -41,8 +41,29 @@ async function main() {
       ignoreFiles: args.ignoreFiles,
       maxFileSize: args.maxSize,
       includePdf: args.includePdf,
+      includeEnv: args.includeEnv,
+      lineNumbers: args.lineNumbers,
+      dryRun: args.dryRun,
       verbose: args.verbose,
     });
+
+    if (args.dryRun) {
+      const lines = [
+        "Dry run — no digest produced.",
+        "",
+        result.summary,
+        `Total size: ${result.totalSize.toLocaleString("en-US")} bytes`,
+        "",
+        result.tree,
+        "Files that would be included:",
+        ...result.files.map((file) => {
+          const tag = file.type === "symlink" ? " [symlink]" : "";
+          return `  ${file.relativePath}${tag} (${file.size.toLocaleString("en-US")} bytes)`;
+        }),
+      ];
+      process.stdout.write(`${lines.join("\n")}\n`);
+      return;
+    }
 
     if (args.stdout) {
       process.stdout.write(result.digest);
@@ -82,6 +103,9 @@ function parseArgs(argv, packageInfo) {
     includeDangerous: false,
     includeGitignored: false,
     includePdf: false,
+    includeEnv: false,
+    lineNumbers: false,
+    dryRun: false,
     verbose: false,
     listTemplates: false,
     maxSize: 10 * 1024 * 1024,
@@ -136,6 +160,21 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "--include-pdf") {
       args.includePdf = true;
+      continue;
+    }
+
+    if (arg === "-N" || arg === "--line-numbers") {
+      args.lineNumbers = true;
+      continue;
+    }
+
+    if (arg === "--include-env") {
+      args.includeEnv = true;
+      continue;
+    }
+
+    if (arg === "--dry-run") {
+      args.dryRun = true;
       continue;
     }
 
@@ -372,7 +411,10 @@ Options:
   -g, --include-gitignored         Include files matched by .gitignore and .gitingestignore.
   -F, --ignore-file <file>         Also load ignore patterns from this file name, for example .customignore.
   -s, --max-size <bytes>           Maximum size of one file to include. Default: 10485760.
-      --include-pdf                  Extract text from PDF files and include it in the digest.
+      --include-pdf                Extract text from PDF files and include it in the digest.
+      --include-env                Include .env files that are excluded by built-in defaults and templates.
+  -N, --line-numbers               Prefix each line of file content with its line number.
+      --dry-run                    Print the files that would be included with sizes without producing or copying a digest.
 
 By default the digest is copied to the clipboard with clipboardy.
 `;

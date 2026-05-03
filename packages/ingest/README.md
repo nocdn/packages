@@ -88,6 +88,9 @@ bunx repo-squeeze . --include-dangerous
 | `-g`, `--include-gitignored` | ignore `.gitignore` and `.gitingestignore` filtering |
 | `-F`, `--ignore-file <file>` | also load ignore patterns from an additional ignore file name |
 | `-s`, `--max-size <bytes>` | maximum size of a single included file; default `10485760` |
+| `-N`, `--line-numbers` | prefix each line of file content with its line number |
+| `--include-env` | include `.env` files that are excluded by built-in defaults and templates |
+| `--dry-run` | preview the files that would be included with sizes, without producing a digest |
 
 ## matching and ignore rules
 
@@ -120,6 +123,7 @@ Current templates:
 - `python`
 - `react`
 - `rust`
+- `typescript`
 - `vite`
 
 Inspect the available templates from the CLI:

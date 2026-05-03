@@ -32,11 +32,13 @@ export async function ingestPath(source = ".", options = {}) {
   const ignoreFilePatterns = options.includeDangerous
     ? loadedIgnorePatterns.filter((pattern) => !isDangerousIgnorePattern(pattern))
     : loadedIgnorePatterns;
-  const templatePatterns = collectTemplatePatterns(options.templates ?? []);
+  const rawTemplatePatterns = collectTemplatePatterns(options.templates ?? []);
   const userExcludePatterns = parsePatterns(options.exclude ?? []);
-  const builtInPatterns = options.includeDangerous
+  const rawBuiltInPatterns = options.includeDangerous
     ? []
     : filterPdfPattern(BUILT_IN_EXCLUDE_PATTERNS, options.includePdf);
+  const builtInPatterns = options.includeEnv ? filterEnvPatterns(rawBuiltInPatterns) : rawBuiltInPatterns;
+  const templatePatterns = options.includeEnv ? filterEnvPatterns(rawTemplatePatterns) : rawTemplatePatterns;
   const excludePatterns = [
     ...builtInPatterns,
     ...ignoreFilePatterns,
@@ -50,6 +52,8 @@ export async function ingestPath(source = ".", options = {}) {
     resolvedRoot,
     maxFileSize: options.maxFileSize ?? MAX_FILE_SIZE,
     verbose: options.verbose ?? false,
+    lineNumbers: options.lineNumbers ?? false,
+    dryRun: options.dryRun ?? false,
     filesAnalyzed: 0,
     totalSize: 0,
     excludedDirectories: new Set(),
@@ -64,7 +68,7 @@ export async function ingestPath(source = ".", options = {}) {
   }
 
   const tree = `Directory structure:\n${createTree(rootNode)}`;
-  const content = gatherFileContents(rootNode).trimEnd();
+  const content = gatherFileContents(rootNode, state.lineNumbers).trimEnd();
   let summary = createSummary({
     rootName,
     resolvedRoot,
@@ -84,8 +88,23 @@ export async function ingestPath(source = ".", options = {}) {
     digest: `${summary}\n\n${tree}\n\n${content}\n`,
     filesAnalyzed: state.filesAnalyzed,
     excludedDirectories: [...state.excludedDirectories].sort(),
+    files: collectFileList(rootNode),
+    totalSize: state.totalSize,
     path: resolvedRoot,
   };
+}
+
+function collectFileList(node) {
+  const files = [];
+  const walk = (current) => {
+    if (current.type === "directory") {
+      current.children.forEach(walk);
+      return;
+    }
+    files.push({ relativePath: current.relativePath, type: current.type, size: current.size ?? 0 });
+  };
+  walk(node);
+  return files;
 }
 
 export async function writeDigest(outputPath, digest, cwd = process.cwd()) {
@@ -202,7 +221,7 @@ async function processFile(filePath, name, relativePath, state, includePdf) {
     path: filePath,
     relativePath,
     size: fileStats.size,
-    content: await readFileContent(filePath, name, includePdf, state.verbose),
+    content: state.dryRun ? "" : await readFileContent(filePath, name, includePdf, state.verbose),
   };
 }
 
@@ -271,6 +290,13 @@ function suppressStderr(suppress) {
   return () => {
     process.stderr.write = original;
   };
+}
+
+function filterEnvPatterns(patterns) {
+  return patterns.filter((pattern) => {
+    const normalized = String(pattern).replace(/^!/, "").replaceAll("\\", "/").replace(/^\.\/+/, "");
+    return !normalized.startsWith(".env");
+  });
 }
 
 function filterPdfPattern(patterns, includePdf) {
@@ -366,14 +392,28 @@ function formatTreeName(node) {
   return node.name;
 }
 
-function gatherFileContents(node) {
+function gatherFileContents(node, lineNumbers = false) {
   if (node.type === "directory") {
-    return node.children.map((child) => gatherFileContents(child)).join("\n");
+    return node.children.map((child) => gatherFileContents(child, lineNumbers)).join("\n");
   }
 
   const label = node.type === "symlink" ? "SYMLINK" : "FILE";
   const target = node.type === "symlink" ? ` -> ${node.target}` : "";
-  return `${SEPARATOR}\n${label}: ${node.relativePath}${target}\n${SEPARATOR}\n${node.content}\n\n`;
+  const body = lineNumbers && node.type === "file" ? addLineNumbers(node.content) : node.content;
+  return `${SEPARATOR}\n${label}: ${node.relativePath}${target}\n${SEPARATOR}\n${body}\n\n`;
+}
+
+function addLineNumbers(content) {
+  if (!content) {
+    return content;
+  }
+
+  const hadTrailingNewline = content.endsWith("\n");
+  const body = hadTrailingNewline ? content.slice(0, -1) : content;
+  const lines = body.split("\n");
+  const width = String(lines.length).length;
+  const numbered = lines.map((line, index) => `${String(index + 1).padStart(width, " ")} | ${line}`).join("\n");
+  return hadTrailingNewline ? `${numbered}\n` : numbered;
 }
 
 function sortChildren(children) {

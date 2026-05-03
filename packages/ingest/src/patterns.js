@@ -1,6 +1,19 @@
 const SPLIT_PATTERN = /[,\s]+/;
 
 export const TEMPLATE_PATTERNS = {
+  typescript: [
+    "dist/",
+    "build/",
+    "out/",
+    "lib/",
+    "coverage/",
+    "*.tsbuildinfo",
+    "tsconfig.tsbuildinfo",
+    "*.d.ts.map",
+    "*.js.map",
+    "*.log",
+    ".env*.local",
+  ],
   nextjs: [
     ".next/",
     "out/",

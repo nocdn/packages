@@ -1,0 +1,202 @@
+.TH REPO-SQUEEZE 1 "May 2026" "repo-squeeze" "User Commands"
+.SH NAME
+repo-squeeze \- squeeze a local repository into an LLM-friendly digest
+.SH SYNOPSIS
+.B repo-squeeze
+.RI [ path ]
+.RI [ options ]
+.br
+.B ingest
+.RI [ path ]
+.RI [ options ]
+.SH DESCRIPTION
+.B repo-squeeze
+turns a local repository or folder into a single text digest suitable for pasting into a large language model. The output contains a summary, a tree-style directory view, and the contents of each included file separated by path headers.
+.PP
+By default the digest is copied to the system clipboard with
+.BR clipboardy (1).
+The default target is the current working directory. Only local paths are supported.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help text and exit.
+.TP
+.BR \-v ", " \-\-version
+Show the package version and exit.
+.TP
+.B \-\-verbose
+Print debug information to stderr while files are processed.
+.TP
+.BR \-L ", " \-\-list\-templates
+List the available exclusion templates.
+.TP
+.BR \-o ", " "\-\-output \fR[\fIfile\fR]"
+Write the digest to a file. If
+.I file
+is omitted, writes
+.B digest.txt
+in the current directory.
+.TP
+.BR \-S ", " \-\-stdout
+Write the full digest to standard output and do not print status text.
+.TP
+.BR \-n ", " \-\-no\-clipboard
+Skip every digest output target and print only the summary.
+.TP
+.BR \-i ", " "\-\-include \fIpatterns...\fR"
+Include only files matching one or more glob patterns. Directories are still traversed to find matches.
+.TP
+.BR \-e ", " "\-\-exclude \fIpatterns...\fR"
+Exclude files or directories matching the given patterns. Repeated, space-separated, and comma-separated forms are accepted.
+.TP
+.BR \-T ", " "\-\-template \fIname\fR"
+Apply an exclusion template on top of the built-in defaults. Available templates include
+.BR typescript ", " bun ", " docs ", " go ", " hono ", " nextjs ", " node ", " python ", " react ", " rust ", and " vite .
+The alias
+.B \-\-exclude\-template
+is also accepted.
+.TP
+.BR \-d ", " \-\-include\-dangerous
+Include paths that are excluded by the built-in safety defaults, such as
+.B node_modules
+and
+.BR .git .
+.TP
+.BR \-g ", " \-\-include\-gitignored
+Skip loading patterns from
+.B .gitignore
+and
+.B .gitingestignore
+files.
+.TP
+.BR \-F ", " "\-\-ignore\-file \fIfile\fR"
+Also load ignore patterns from this additional ignore file name, for example
+.BR .customignore .
+.TP
+.BR \-s ", " "\-\-max\-size \fIbytes\fR"
+Maximum size of one file to include. Default:
+.BR 10485760 .
+.TP
+.B \-\-include\-pdf
+Extract text from PDF files using
+.B unpdf
+and include the result in the digest.
+.TP
+.B \-\-include\-env
+Include
+.B .env
+files that are otherwise excluded by built-in defaults and templates.
+.TP
+.BR \-N ", " \-\-line\-numbers
+Prefix each line of file content with a right-padded line number, separated by
+.RB \(dq " | " \(dq.
+.TP
+.B \-\-dry\-run
+Print the tree and the list of files (with sizes) that would be included, without reading file contents or producing a digest. Useful for previewing what an ingest run would capture.
+.SH OUTPUT FORMAT
+The digest is composed of three sections, joined with blank lines:
+.IP \(bu 2
+A
+.B summary
+with directory name, resolved path, file count, and excluded directories.
+.IP \(bu 2
+A
+.B tree
+in
+.BR tree (1)
+style.
+.IP \(bu 2
+.B File sections
+separated by headers of the form
+.BR "FILE: relative/path" ,
+each followed by the file contents.
+.SH MATCHING RULES
+.B repo-squeeze
+supports glob-style include and exclude patterns such as
+.BR *.ts ,
+.BR src/**/*.ts ,
+and
+.BR .next/ .
+By default it applies built-in exclude patterns for common generated, dependency, cache, binary, and version control paths, plus patterns from
+.B .gitignore
+and
+.BR .gitingestignore .
+Use
+.B \-\-include\-gitignored
+to skip ignore-file loading,
+.B \-\-include\-dangerous
+to override built-in safety defaults, and
+.B \-\-include\-env
+to allow
+.B .env
+files through.
+.SH EXAMPLES
+Copy a digest of the current directory to the clipboard:
+.PP
+.RS 4
+.nf
+repo\-squeeze
+.fi
+.RE
+.PP
+Write a digest to
+.B digest.txt
+in the current directory:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-o
+.fi
+.RE
+.PP
+Stream the digest to standard output and pipe it elsewhere:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-\-stdout | pbcopy
+.fi
+.RE
+.PP
+Limit the digest to TypeScript sources and apply the
+.B typescript
+template:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-i "src/**/*.ts" README.md \-T typescript
+.fi
+.RE
+.PP
+Preview what would be included without producing a digest:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-\-dry\-run
+.fi
+.RE
+.PP
+Include
+.B .env
+files and prefix each line with its line number:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-\-include\-env \-\-line\-numbers
+.fi
+.RE
+.SH EXIT STATUS
+.B repo-squeeze
+exits with status
+.B 0
+on success and
+.B 1
+on any error during argument parsing or ingestion.
+.SH SEE ALSO
+.BR git (1),
+.BR tree (1),
+.BR pbcopy (1),
+.BR xclip (1)
+.SH AUTHOR
+Written for the
+.B repo-squeeze
+project. See the project README for licensing and contribution information.
