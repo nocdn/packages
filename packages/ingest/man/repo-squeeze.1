@@ -93,6 +93,13 @@ Prefix each line of file content with a right-padded line number, separated by
 .TP
 .B \-\-dry\-run
 Print the tree and the list of files (with sizes) that would be included, without reading file contents or producing a digest. Useful for previewing what an ingest run would capture.
+.TP
+.B \-\-ipynb
+Convert
+.B .ipynb
+(Jupyter Notebook) files to a readable text format that includes cell sources, execution counts, and text outputs. Without this flag,
+.B .ipynb
+files are included as raw JSON.
 .SH OUTPUT FORMAT
 The digest is composed of three sections, joined with blank lines:
 .IP \(bu 2
@@ -182,6 +189,14 @@ files and prefix each line with its line number:
 .RS 4
 .nf
 repo\-squeeze \-\-include\-env \-\-line\-numbers
+.fi
+.RE
+.PP
+Convert Jupyter notebooks to readable text instead of raw JSON:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-\-ipynb
 .fi
 .RE
 .SH EXIT STATUS

@@ -91,6 +91,7 @@ bunx repo-squeeze . --include-dangerous
 | `-N`, `--line-numbers` | prefix each line of file content with its line number |
 | `--include-env` | include `.env` files that are excluded by built-in defaults and templates |
 | `--dry-run` | preview the files that would be included with sizes, without producing a digest |
+| `--ipynb` | convert `.ipynb` files to a readable text format (cell sources and outputs) instead of raw JSON |
 
 ## matching and ignore rules
 

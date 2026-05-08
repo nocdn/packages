@@ -44,6 +44,7 @@ async function main() {
       includeEnv: args.includeEnv,
       lineNumbers: args.lineNumbers,
       dryRun: args.dryRun,
+      ipynb: args.ipynb,
       verbose: args.verbose,
     });
 
@@ -106,6 +107,7 @@ function parseArgs(argv, packageInfo) {
     includeEnv: false,
     lineNumbers: false,
     dryRun: false,
+    ipynb: false,
     verbose: false,
     listTemplates: false,
     maxSize: 10 * 1024 * 1024,
@@ -175,6 +177,11 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "--dry-run") {
       args.dryRun = true;
+      continue;
+    }
+
+    if (arg === "--ipynb") {
+      args.ipynb = true;
       continue;
     }
 
@@ -395,6 +402,7 @@ Examples:
   ${command} . -i "src/**/*.ts" README.md
   ${command} . -e "*.ts" ".next/" -T nextjs
   ${command} --stdout | pbcopy
+  ${command} . --ipynb
 
 Options:
   -h, --help                       Show this help text.
@@ -415,6 +423,7 @@ Options:
       --include-env                Include .env files that are excluded by built-in defaults and templates.
   -N, --line-numbers               Prefix each line of file content with its line number.
       --dry-run                    Print the files that would be included with sizes without producing or copying a digest.
+      --ipynb                      Convert .ipynb files to a readable text format (cell sources and outputs). Without this flag, .ipynb files are included as raw JSON.
 
 By default the digest is copied to the clipboard with clipboardy.
 `;

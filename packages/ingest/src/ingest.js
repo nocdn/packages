@@ -54,6 +54,7 @@ export async function ingestPath(source = ".", options = {}) {
     verbose: options.verbose ?? false,
     lineNumbers: options.lineNumbers ?? false,
     dryRun: options.dryRun ?? false,
+    convertIpynb: options.ipynb ?? false,
     filesAnalyzed: 0,
     totalSize: 0,
     excludedDirectories: new Set(),
@@ -221,7 +222,7 @@ async function processFile(filePath, name, relativePath, state, includePdf) {
     path: filePath,
     relativePath,
     size: fileStats.size,
-    content: state.dryRun ? "" : await readFileContent(filePath, name, includePdf, state.verbose),
+    content: state.dryRun ? "" : await readFileContent(filePath, name, includePdf, state.verbose, state.convertIpynb),
   };
 }
 
@@ -243,9 +244,13 @@ async function processSymlink(filePath, name, relativePath) {
   };
 }
 
-async function readFileContent(filePath, name, includePdf, verbose) {
+async function readFileContent(filePath, name, includePdf, verbose, convertIpynb) {
   if (includePdf && path.extname(name).toLowerCase() === ".pdf") {
     return await extractPdfText(filePath, verbose);
+  }
+
+  if (convertIpynb && path.extname(name).toLowerCase() === ".ipynb") {
+    return await extractIpynbContent(filePath, verbose);
   }
 
   const data = await readFile(filePath);
@@ -276,6 +281,87 @@ async function extractPdfText(filePath, verbose) {
     return text.trim() ? `${header}\n\n${text}` : `${header}\n\n[No extractable text]`;
   } catch (error) {
     return `[PDF text extraction failed: ${error.message}]`;
+  } finally {
+    restoreStderr();
+  }
+}
+
+async function extractIpynbContent(filePath, verbose) {
+  const restoreStderr = suppressStderr(!verbose);
+  try {
+    const data = await readFile(filePath, "utf8");
+    const notebook = JSON.parse(data);
+    const parts = [];
+
+    parts.push(`[Jupyter Notebook]`);
+
+    const kernel = notebook.metadata?.kernelspec?.display_name;
+    const lang = notebook.metadata?.language_info?.name;
+    const langVersion = notebook.metadata?.language_info?.version;
+    if (kernel) {
+      parts.push(`Kernel: ${kernel}`);
+    }
+    if (lang) {
+      parts.push(`Language: ${lang}${langVersion ? ` ${langVersion}` : ""}`);
+    }
+    parts.push(`nbformat: ${notebook.nbformat}.${notebook.nbformat_minor}`);
+
+    const cells = notebook.cells || [];
+    if (cells.length > 0) {
+      parts.push(`Cells: ${cells.length}`);
+    }
+    parts.push("");
+
+    for (let index = 0; index < cells.length; index += 1) {
+      const cell = cells[index];
+      const cellType = cell.cell_type;
+      const cellNumber = `[cell ${index + 1}]`;
+      const executed = cell.execution_count != null && cell.execution_count !== undefined;
+
+      let header = "";
+      if (cellType === "markdown") {
+        header = `${cellNumber} markdown`;
+      } else if (cellType === "raw") {
+        header = `${cellNumber} raw`;
+      } else {
+        const execInfo = executed ? ` (execution ${cell.execution_count})` : "";
+        header = `${cellNumber} code${execInfo}`;
+      }
+      parts.push(header);
+
+      const source = Array.isArray(cell.source) ? cell.source.join("") : cell.source;
+      parts.push(source);
+
+      if (cell.outputs && cell.outputs.length > 0) {
+        parts.push("");
+        for (let oi = 0; oi < cell.outputs.length; oi += 1) {
+          const output = cell.outputs[oi];
+          parts.push(`${cellNumber} output [${output.output_type}]`);
+
+          if (output.text) {
+            const text = Array.isArray(output.text) ? output.text.join("") : output.text;
+            parts.push(text);
+          }
+
+          if (output.data) {
+            if (output.data["text/plain"]) {
+              const plain = Array.isArray(output.data["text/plain"])
+                ? output.data["text/plain"].join("")
+                : output.data["text/plain"];
+              parts.push(plain);
+            } else {
+              parts.push(`[output types: ${Object.keys(output.data).join(", ")}]`);
+            }
+          }
+        }
+      }
+
+      parts.push("");
+    }
+
+    return parts.join("\n");
+  } catch (error) {
+    return `[Notebook parsing failed: ${error.message}]`;
   } finally {
     restoreStderr();
   }
