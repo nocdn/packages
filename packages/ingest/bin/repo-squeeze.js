@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 import path from "node:path";
+import os from "node:os";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 
 import { ingestPath, writeDigest } from "../src/ingest.js";
 import { TEMPLATE_PATTERNS } from "../src/patterns.js";
@@ -10,6 +11,8 @@ const DEFAULT_OUTPUT = "digest.txt";
 
 async function main() {
   const packageInfo = await readPackageInfo();
+
+  let tempDir = "";
 
   try {
     const args = parseArgs(process.argv.slice(2), packageInfo);
@@ -30,6 +33,11 @@ async function main() {
     }
 
     validateOutputMode(args);
+
+    if (args.repo) {
+      tempDir = await cloneRepo(args.repo);
+      args.source = tempDir;
+    }
 
     const result = await ingestPath(args.source, {
       cwd: process.cwd(),
@@ -88,6 +96,10 @@ async function main() {
   } catch (error) {
     process.stderr.write(`Error: ${error.message}\n`);
     process.exitCode = 1;
+  } finally {
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   }
 }
 
@@ -108,6 +120,7 @@ function parseArgs(argv, packageInfo) {
     lineNumbers: false,
     dryRun: false,
     ipynb: false,
+    repo: "",
     verbose: false,
     listTemplates: false,
     maxSize: 10 * 1024 * 1024,
@@ -182,6 +195,21 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "--ipynb") {
       args.ipynb = true;
+      continue;
+    }
+
+    if (arg === "-r" || arg === "--repo") {
+      const next = argv[index + 1];
+      if (!next || next.startsWith("-")) {
+        throw new Error(`${arg} requires a repository URL.`);
+      }
+      args.repo = next;
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--repo=")) {
+      args.repo = arg.slice("--repo=".length);
       continue;
     }
 
@@ -287,10 +315,21 @@ function parseArgs(argv, packageInfo) {
   }
 
   if (positionals[0]) {
+    if (args.repo) {
+      throw new Error("Cannot specify both a path and --repo.");
+    }
     args.source = positionals[0];
   }
 
+  if (args.repo && !isValidRepoUrl(args.repo)) {
+    throw new Error(`Invalid repository URL: "${args.repo}"`);
+  }
+
   return args;
+}
+
+function isValidRepoUrl(url) {
+  return /^https?:\/\/.+.git$/i.test(url) || /^https?:\/\/github\.com\/[^/]+\/[^/]+$/i.test(url);
 }
 
 function collectValues(argv, startIndex, optionName) {
@@ -378,6 +417,40 @@ async function readPackageInfo() {
   return JSON.parse(rawPackageJson);
 }
 
+async function cloneRepo(repoUrl) {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "repo-squeeze-"));
+  const url = repoUrl.endsWith(".git") ? repoUrl : `${repoUrl}.git`;
+
+  try {
+    await execGit(["clone", "--depth", "1", url, tempDir]);
+    return tempDir;
+  } catch (error) {
+    await rm(tempDir, { recursive: true, force: true });
+    throw new Error(`Failed to clone repository: ${error.message}`);
+  }
+}
+
+function execGit(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+
+    child.stdout.on("data", () => {});
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(stderr.trim() || `git exited with code ${code}`));
+      }
+    });
+  });
+}
+
 function availableTemplates() {
   return Object.keys(TEMPLATE_PATTERNS).join(", ");
 }
@@ -403,6 +476,8 @@ Examples:
   ${command} . -e "*.ts" ".next/" -T nextjs
   ${command} --stdout | pbcopy
   ${command} . --ipynb
+  ${command} -r https://github.com/torvalds/linux
+  ${command} --repo https://github.com/torvalds/linux.git
 
 Options:
   -h, --help                       Show this help text.
@@ -424,6 +499,7 @@ Options:
   -N, --line-numbers               Prefix each line of file content with its line number.
       --dry-run                    Print the files that would be included with sizes without producing or copying a digest.
       --ipynb                      Convert .ipynb files to a readable text format (cell sources and outputs). Without this flag, .ipynb files are included as raw JSON.
+  -r, --repo <url>                Clone a remote Git repository to a temp directory, squeeze it, then clean up.
 
 By default the digest is copied to the clipboard with clipboardy.
 `;

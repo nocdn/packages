@@ -68,6 +68,7 @@ bunx repo-squeeze . --exclude "*.log" coverage/ .next/
 bunx repo-squeeze . --template nextjs
 bunx repo-squeeze . --ignore-file .customignore
 bunx repo-squeeze . --include-dangerous
+bunx repo-squeeze --repo https://github.com/torvalds/linux.git
 ```
 
 ## options
@@ -92,6 +93,7 @@ bunx repo-squeeze . --include-dangerous
 | `--include-env` | include `.env` files that are excluded by built-in defaults and templates |
 | `--dry-run` | preview the files that would be included with sizes, without producing a digest |
 | `--ipynb` | convert `.ipynb` files to a readable text format (cell sources and outputs) instead of raw JSON |
+| `-r`, `--repo <url>` | clone a remote Git repo to a temp directory, run the squeeze, then clean up |
 
 ## matching and ignore rules
 

@@ -100,6 +100,14 @@ Convert
 (Jupyter Notebook) files to a readable text format that includes cell sources, execution counts, and text outputs. Without this flag,
 .B .ipynb
 files are included as raw JSON.
+.TP
+.BR \-r ", " "\-\-repo \fIurl\fR"
+Clone the remote Git repository at
+.I url
+to a temporary directory, squeeze it to a digest, and then delete the temporary directory. Accepts URLs such as
+.B https://github.com/torvalds/linux
+or
+.BR https://github.com/torvalds/linux.git .
 .SH OUTPUT FORMAT
 The digest is composed of three sections, joined with blank lines:
 .IP \(bu 2
@@ -197,6 +205,14 @@ Convert Jupyter notebooks to readable text instead of raw JSON:
 .RS 4
 .nf
 repo\-squeeze \-\-ipynb
+.fi
+.RE
+.PP
+Clone and squeeze a remote repository:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-r https://github.com/torvalds/linux.git
 .fi
 .RE
 .SH EXIT STATUS
