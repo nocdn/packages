@@ -60,22 +60,41 @@ export async function ingestPath(source = ".", options = {}) {
     excludedDirectories: new Set(),
   };
 
-  const rootNode = rootStats.isDirectory()
-    ? await processDirectory(rootPath, rootName, "", 0, shouldExclude, shouldInclude, state, options.includePdf)
-    : await processRootFile(rootPath, rootName, path.basename(rootPath), shouldInclude, state, options.includePdf);
+  const isRootFile = !rootStats.isDirectory();
+
+  const rootNode = isRootFile
+    ? await processRootFile(rootPath, rootName, path.basename(rootPath), shouldInclude, state, options.includePdf)
+    : await processDirectory(rootPath, rootName, "", 0, shouldExclude, shouldInclude, state, options.includePdf);
 
   if (!rootNode) {
     throw new Error("No files were available to ingest after exclusions were applied.");
   }
 
-  const tree = `Directory structure:\n${createTree(rootNode)}`;
-  const content = gatherFileContents(rootNode, state.lineNumbers).trimEnd();
-  let summary = createSummary({
-    rootName,
-    resolvedRoot,
-    filesAnalyzed: state.filesAnalyzed,
-    excludedDirectories: state.excludedDirectories,
-  });
+  let summary;
+  let tree;
+  let content;
+  let digest;
+
+  if (isRootFile) {
+    tree = "";
+    content = renderSingleFile(rootNode, state.lineNumbers);
+    summary = createFileSummary({
+      relativePath: rootNode.relativePath,
+      resolvedRoot,
+      size: rootNode.size ?? 0,
+    });
+    digest = `${content}\n`;
+  } else {
+    tree = `Directory structure:\n${createTree(rootNode)}`;
+    content = gatherFileContents(rootNode, state.lineNumbers).trimEnd();
+    summary = createSummary({
+      rootName,
+      resolvedRoot,
+      filesAnalyzed: state.filesAnalyzed,
+      excludedDirectories: state.excludedDirectories,
+    });
+    digest = `${summary}\n\n${tree}\n\n${content}\n`;
+  }
 
   if (state.verbose) {
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
@@ -86,13 +105,31 @@ export async function ingestPath(source = ".", options = {}) {
     summary,
     tree,
     content,
-    digest: `${summary}\n\n${tree}\n\n${content}\n`,
+    digest,
     filesAnalyzed: state.filesAnalyzed,
     excludedDirectories: [...state.excludedDirectories].sort(),
     files: collectFileList(rootNode),
     totalSize: state.totalSize,
     path: resolvedRoot,
+    isFile: isRootFile,
   };
+}
+
+function renderSingleFile(node, lineNumbers) {
+  const label = `${node.type === "symlink" ? "SYMLINK" : "FILE"}: ${node.relativePath}${
+    node.type === "symlink" ? ` -> ${node.target}` : ""
+  }`;
+  const separator = "=".repeat(label.length);
+  const body = lineNumbers && node.type === "file" ? addLineNumbers(node.content) : node.content;
+  return `${separator}\n${label}\n${separator}\n${body}`;
+}
+
+function createFileSummary({ relativePath, resolvedRoot, size }) {
+  return [
+    `File: ${relativePath}`,
+    `Path: ${resolvedRoot}`,
+    `Size: ${size.toLocaleString("en-US")} bytes`,
+  ].join("\n");
 }
 
 function collectFileList(node) {
