@@ -33,14 +33,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          # Trusted publishing requires Node >= 22.14.0.
-          node-version: "22"
+          # Trusted publishing requires Node >= 22.14.0 and npm >= 11.5.1.
+          # Node 24 already ships with npm 11.x, and it avoids the
+          # `Cannot find module 'promise-retry'` regression that breaks
+          # `npm install -g npm@latest` on Node 22.22.2.
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      # Trusted publishing requires npm >= 11.5.1. Node 22 ships with an
-      # older npm, so upgrade explicitly before publishing.
-      - name: Upgrade npm to a trusted-publishing-capable version
-        run: npm install -g npm@latest
+      # Belt-and-braces upgrade in case the bundled npm is older than 11.5.1.
+      # `-f` avoids the self-update bug seen on some Node 22 images.
+      - name: Ensure npm >= 11.5.1
+        run: npm install -fg npm@latest
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
