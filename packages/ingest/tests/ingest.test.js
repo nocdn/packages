@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 
 import { ingestPath } from "../src/ingest.js";
 
@@ -32,56 +33,56 @@ describe("ingestPath", () => {
     const result = await ingestPath(root);
     const resolvedRoot = await realpath(root);
 
-    expect(result.summary).toContain("Files analyzed: 5");
-    expect(result.summary).toContain(`Path: ${resolvedRoot}`);
-    expect(result.summary).toContain("Excluded directories: .git, .next, node_modules");
-    expect(result.summary).not.toContain("Estimated tokens");
-    expect(result.digest).not.toContain("Estimated tokens");
-    expect(result.tree).toContain("Directory structure:");
-    expect(result.tree).toContain("README.md");
-    expect(result.tree).toContain("src/");
-    expect(result.content).toContain("FILE: README.md");
-    expect(result.content).toContain("FILE: src/index.js");
-    expect(result.content).toContain("FILE: src/main.ts");
-    expect(result.content).toContain("FILE: src/nested/deep.ts");
-    expect(result.digest).toContain("================================================");
+    assert.ok(result.summary.includes("Files analyzed: 5"));
+    assert.ok(result.summary.includes(`Path: ${resolvedRoot}`));
+    assert.ok(result.summary.includes("Excluded directories: .git, .next, node_modules"));
+    assert.ok(!result.summary.includes("Estimated tokens"));
+    assert.ok(!result.digest.includes("Estimated tokens"));
+    assert.ok(result.tree.includes("Directory structure:"));
+    assert.ok(result.tree.includes("README.md"));
+    assert.ok(result.tree.includes("src/"));
+    assert.ok(result.content.includes("FILE: README.md"));
+    assert.ok(result.content.includes("FILE: src/index.js"));
+    assert.ok(result.content.includes("FILE: src/main.ts"));
+    assert.ok(result.content.includes("FILE: src/nested/deep.ts"));
+    assert.ok(result.digest.includes("================================================"));
   });
 
   test("applies user exclude patterns", async () => {
     const root = await createFixture();
     const result = await ingestPath(root, { exclude: ["*.js"] });
 
-    expect(result.summary).toContain("Files analyzed: 4");
-    expect(result.content).toContain("FILE: README.md");
-    expect(result.content).not.toContain("FILE: src/index.js");
+    assert.ok(result.summary.includes("Files analyzed: 4"));
+    assert.ok(result.content.includes("FILE: README.md"));
+    assert.ok(!result.content.includes("FILE: src/index.js"));
   });
 
   test("applies include patterns while traversing directories", async () => {
     const root = await createFixture();
     const result = await ingestPath(root, { include: ["src/**/*.ts", "README.md"] });
 
-    expect(result.summary).toContain("Files analyzed: 3");
-    expect(result.content).toContain("FILE: README.md");
-    expect(result.content).toContain("FILE: src/main.ts");
-    expect(result.content).toContain("FILE: src/nested/deep.ts");
-    expect(result.content).not.toContain("FILE: src/index.js");
+    assert.ok(result.summary.includes("Files analyzed: 3"));
+    assert.ok(result.content.includes("FILE: README.md"));
+    assert.ok(result.content.includes("FILE: src/main.ts"));
+    assert.ok(result.content.includes("FILE: src/nested/deep.ts"));
+    assert.ok(!result.content.includes("FILE: src/index.js"));
   });
 
   test("applies the nextjs exclusion template", async () => {
     const root = await createFixture();
     const result = await ingestPath(root, { includeDangerous: true, templates: ["nextjs"] });
 
-    expect(result.excludedDirectories).toContain(".next");
-    expect(result.excludedDirectories).not.toContain("node_modules");
-    expect(result.content).toContain("node_modules/left-pad/index.js");
-    expect(result.content).not.toContain(".next/build-manifest.json");
+    assert.ok(result.excludedDirectories.includes(".next"));
+    assert.ok(!result.excludedDirectories.includes("node_modules"));
+    assert.ok(result.content.includes("node_modules/left-pad/index.js"));
+    assert.ok(!result.content.includes(".next/build-manifest.json"));
   });
 
   test("loads additional ignore file names", async () => {
     const root = await createFixture();
     const result = await ingestPath(root, { ignoreFiles: [".gitignore", ".gitingestignore", ".customignore"] });
 
-    expect(result.content).not.toContain("FILE: src/index.js");
-    expect(result.content).toContain("FILE: src/main.ts");
+    assert.ok(!result.content.includes("FILE: src/index.js"));
+    assert.ok(result.content.includes("FILE: src/main.ts"));
   });
 });
