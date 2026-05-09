@@ -43,6 +43,48 @@ Write the full digest to standard output and do not print status text.
 .BR \-n ", " \-\-no\-clipboard
 Skip every digest output target and print only the summary.
 .TP
+.BR \-a ", " \-\-all
+Enable every special include option:
+.BR \-\-include\-dangerous ,
+.BR \-\-include\-gitignored ,
+.BR \-\-include\-pdf ,
+.BR \-\-include\-env ,
+and
+.BR \-\-ipynb .
+.TP
+.B \-\-exclude\-dangerous
+With
+.BR \-\-all ,
+keep built-in safety defaults excluded.
+.TP
+.B \-\-exclude\-gitignored
+With
+.BR \-\-all ,
+keep
+.B .gitignore
+and
+.B .gitingestignore
+filtering enabled.
+.TP
+.B \-\-exclude\-pdf
+With
+.BR \-\-all ,
+keep PDF files excluded.
+.TP
+.B \-\-exclude\-env
+With
+.BR \-\-all ,
+keep
+.B .env
+files excluded.
+.TP
+.B \-\-exclude\-ipynb
+With
+.BR \-\-all ,
+keep
+.B .ipynb
+files as raw JSON instead of converting them.
+.TP
 .BR \-i ", " "\-\-include \fIpatterns...\fR"
 Include only files matching one or more glob patterns. Directories are still traversed to find matches.
 .TP
@@ -187,6 +229,24 @@ Preview what would be included without producing a digest:
 .RS 4
 .nf
 repo\-squeeze \-\-dry\-run
+.fi
+.RE
+.PP
+Include every special include category, including ignored paths, built-in safety defaults, PDFs, env files, and converted notebooks:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-\-all
+.fi
+.RE
+.PP
+Run with most special includes, but keep gitignored and
+.B .env
+files excluded:
+.PP
+.RS 4
+.nf
+repo\-squeeze \-\-all \-\-exclude\-gitignored \-\-exclude\-env
 .fi
 .RE
 .PP

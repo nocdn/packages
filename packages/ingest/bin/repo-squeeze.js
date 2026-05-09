@@ -8,6 +8,13 @@ import { ingestPath, writeDigest } from "../src/ingest.js";
 import { TEMPLATE_PATTERNS } from "../src/patterns.js";
 
 const DEFAULT_OUTPUT = "digest.txt";
+const ALL_INCLUDE_OPTIONS = [
+  { key: "includeDangerous", includeFlag: "--include-dangerous", excludeFlag: "--exclude-dangerous" },
+  { key: "includeGitignored", includeFlag: "--include-gitignored", excludeFlag: "--exclude-gitignored" },
+  { key: "includePdf", includeFlag: "--include-pdf", excludeFlag: "--exclude-pdf", excludePatterns: ["*.pdf"] },
+  { key: "includeEnv", includeFlag: "--include-env", excludeFlag: "--exclude-env", excludePatterns: [".env"] },
+  { key: "ipynb", includeFlag: "--ipynb", excludeFlag: "--exclude-ipynb" },
+];
 
 async function main() {
   const packageInfo = await readPackageInfo();
@@ -33,6 +40,10 @@ async function main() {
     }
 
     validateOutputMode(args);
+
+    if (args.all) {
+      process.stderr.write(`Running with: ${enabledAllIncludeFlags(args).join(", ")}\n`);
+    }
 
     if (args.repo) {
       tempDir = await cloneRepo(args.repo);
@@ -117,6 +128,8 @@ function parseArgs(argv, packageInfo) {
     includeGitignored: false,
     includePdf: false,
     includeEnv: false,
+    all: false,
+    excludedAllIncludes: new Set(),
     lineNumbers: false,
     dryRun: false,
     ipynb: false,
@@ -160,6 +173,18 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "-n" || arg === "--no-clipboard") {
       args.noClipboard = true;
+      continue;
+    }
+
+    if (arg === "-a" || arg === "--all") {
+      args.all = true;
+      continue;
+    }
+
+    const allExcludeOption = ALL_INCLUDE_OPTIONS.find((option) => arg === option.excludeFlag);
+    if (allExcludeOption) {
+      args[allExcludeOption.key] = false;
+      args.excludedAllIncludes.add(allExcludeOption.key);
       continue;
     }
 
@@ -325,7 +350,27 @@ function parseArgs(argv, packageInfo) {
     throw new Error(`Invalid repository URL: "${args.repo}"`);
   }
 
+  if (args.all) {
+    enableAllIncludes(args);
+  }
+
   return args;
+}
+
+function enableAllIncludes(args) {
+  for (const option of ALL_INCLUDE_OPTIONS) {
+    if (args.excludedAllIncludes.has(option.key)) {
+      args[option.key] = false;
+      args.exclude.push(...(option.excludePatterns ?? []));
+      continue;
+    }
+
+    args[option.key] = true;
+  }
+}
+
+function enabledAllIncludeFlags(args) {
+  return ALL_INCLUDE_OPTIONS.filter((option) => args[option.key]).map((option) => option.includeFlag);
 }
 
 function isValidRepoUrl(url) {
@@ -475,6 +520,8 @@ Examples:
   ${command} . -i "src/**/*.ts" README.md
   ${command} . -e "*.ts" ".next/" -T nextjs
   ${command} --stdout | pbcopy
+  ${command} . --all
+  ${command} . --all --exclude-gitignored --exclude-env
   ${command} . --ipynb
   ${command} -r https://github.com/torvalds/linux
   ${command} --repo https://github.com/torvalds/linux.git
@@ -487,6 +534,12 @@ Options:
   -o, --output [file]              Write the digest to a file. Without a file, writes digest.txt in the current directory.
   -S, --stdout                     Write the full digest to stdout and do not print status text.
   -n, --no-clipboard               Do not copy or write the digest; print only the status summary.
+  -a, --all                        Enable every special include option: --include-dangerous, --include-gitignored, --include-pdf, --include-env, and --ipynb.
+      --exclude-dangerous          With --all, keep built-in safety defaults excluded.
+      --exclude-gitignored         With --all, keep .gitignore and .gitingestignore filtering enabled.
+      --exclude-pdf                With --all, keep PDF files excluded.
+      --exclude-env                With --all, keep .env files excluded.
+      --exclude-ipynb              With --all, keep .ipynb files as raw JSON instead of converting them.
   -i, --include <patterns...>      Include only matching files. Directories are still traversed to find matches.
   -e, --exclude <patterns...>      Exclude files or directories. Accepts repeated, space-separated, or comma-separated patterns.
   -T, --template <name>            Apply an exclusion template. Alias: --exclude-template. Available: ${availableTemplates()}.

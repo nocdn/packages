@@ -67,6 +67,8 @@ bunx repo-squeeze . --include "src/**/*.ts" README.md
 bunx repo-squeeze . --exclude "*.log" coverage/ .next/
 bunx repo-squeeze . --template nextjs
 bunx repo-squeeze . --ignore-file .customignore
+bunx repo-squeeze . --all
+bunx repo-squeeze . --all --exclude-gitignored --exclude-env
 bunx repo-squeeze . --include-dangerous
 bunx repo-squeeze --repo https://github.com/torvalds/linux.git
 ```
@@ -81,6 +83,12 @@ bunx repo-squeeze --repo https://github.com/torvalds/linux.git
 | `-o`, `--output [file]` | write digest to a file; without a file, writes `digest.txt` |
 | `-S`, `--stdout` | write the full digest to stdout |
 | `-n`, `--no-clipboard` | skip digest output side effects and print only the summary |
+| `-a`, `--all` | enable every special include option: `--include-dangerous`, `--include-gitignored`, `--include-pdf`, `--include-env`, and `--ipynb` |
+| `--exclude-dangerous` | with `--all`, keep built-in safety defaults excluded |
+| `--exclude-gitignored` | with `--all`, keep `.gitignore` and `.gitingestignore` filtering enabled |
+| `--exclude-pdf` | with `--all`, keep PDF files excluded |
+| `--exclude-env` | with `--all`, keep `.env` files excluded |
+| `--exclude-ipynb` | with `--all`, keep `.ipynb` files as raw JSON instead of converting them |
 | `-i`, `--include <patterns...>` | include only matching files; directories are still traversed |
 | `-e`, `--exclude <patterns...>` | exclude files or directories |
 | `-T`, `--template <name>` | apply an exclusion template |
