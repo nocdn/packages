@@ -1,8 +1,12 @@
 {
   "name": "repo-squeeze",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A bunx-runnable CLI that squeezes a local folder or repository into an LLM-friendly digest.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocdn/repo-squeeze.git"
+  },
   "module": "index.js",
   "type": "module",
   "bin": {
