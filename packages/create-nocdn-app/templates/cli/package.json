@@ -1,0 +1,17 @@
+{
+  "name": "{{project-name}}",
+  "version": "0.0.1",
+  "description": "{{project-description}}",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "{{project-name}}": "./bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node ./bin/cli.js"
+  }
+}

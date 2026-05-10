@@ -73,6 +73,7 @@ const VALID_TEMPLATES = [
   "tanstack-start",
   "start",
   "hono",
+  "cli",
 ];
 const VALID_AGENTS = ["none", "blank", "minimal"];
 const VALID_RUNTIMES = ["bun", "npm", "pnpm", "yarn"];
@@ -86,17 +87,17 @@ function showHelp() {
   console.log(`
 create-nocdn-app v${VERSION}
 
-Scaffold a new Next.js, Vite, TanStack Start, or Hono project.
+Scaffold a new Next.js, Vite, TanStack Start, Hono, or CLI project.
 
 Usage:
   bunx create-nocdn-app [project-name] [options]
 
 Template:
-  -t, --template <name>    next | vite | tanstack (or start) | hono
+  -t, --template <name>    next | vite | tanstack (or start) | hono | cli
 
 Project options:
   -p, --port <number>      Port for Hono API (default: 3000)
-  -d, --description <text> Project description (Next.js, TanStack)
+  -d, --description <text> Project description (Next.js, TanStack, CLI)
 
 AGENTS.md:
   -a, --agents <mode>      none | blank | minimal (default: prompt)
@@ -118,6 +119,7 @@ Examples:
   bunx create-nocdn-app my-app -t next -d "My website" --no-agents
   bunx create-nocdn-app my-app -t tanstack --skip-git --skip-install
   bunx create-nocdn-app my-app -t vite --agents minimal --runtime pnpm
+  bunx create-nocdn-app my-cli -t cli -d "My CLI tool"
 `);
   process.exit(0);
 }
@@ -179,6 +181,14 @@ function getFrameworkConfig(framework) {
     };
   }
 
+  if (framework === "cli") {
+    return {
+      templateDir: "cli",
+      installPackageManager: { name: "npm", install: "npm install" },
+      runCommand: () => "npm start",
+    };
+  }
+
   return {
     templateDir: "hono",
     installPackageManager: { name: "bun", install: "bun install" },
@@ -211,6 +221,18 @@ function buildMinimalAgentsContent(framework, runtime) {
       "\n\n" +
       [
         "Prefer the project's custom Link component in components/link.tsx over next/link, because it navigates onMouseDown. Wherever navigation links are used in the app, do not disable prefetching unless the user explicitly asks for that behavior.",
+      ].join("\n\n");
+  }
+
+  if (framework === "cli") {
+    content +=
+      "\n\n" +
+      [
+        "Write all code in plain JavaScript (ESM), not TypeScript, so there is no transpilation step at any point in the workflow.",
+        "Keep dependencies minimal. Prefer Node built-ins (node:fs, node:path, node:child_process, node:url, etc.) over third-party packages whenever possible.",
+        "The CLI entry point lives in `bin/cli.js`. Read the package version and metadata from `package.json` at runtime via `new URL(\"../package.json\", import.meta.url)` so `--version` and help text always stay in sync.",
+        "Always implement `-h`/`--help` and `-v`/`--version` flags. Generate the help text dynamically from the package name, version, and description.",
+        "When you add, change, or remove flags or behavior, update the README.md to reflect the changes.",
       ].join("\n\n");
   }
 
@@ -280,6 +302,7 @@ async function main() {
           label: "TanStack Start (TypeScript, React, Compiler)",
         },
         { value: "hono", label: "Hono (Bun API)" },
+        { value: "cli", label: "CLI (Node, npm, plain JavaScript)" },
       ],
     });
 
@@ -317,7 +340,11 @@ async function main() {
   let projectPort = null;
   let agentsContent = null;
 
-  if (framework === "next" || framework === "tanstack") {
+  if (
+    framework === "next" ||
+    framework === "tanstack" ||
+    framework === "cli"
+  ) {
     if (flags.description !== null) {
       projectDescription = flags.description;
     } else if (!nonInteractive) {
@@ -359,7 +386,9 @@ async function main() {
     } else if (flags.agents === "blank") {
       agentsContent = "";
     } else if (flags.agents === "minimal") {
-      const runtime = flags.runtime ?? (framework === "hono" ? "bun" : null);
+      const runtime =
+        flags.runtime ??
+        (framework === "hono" ? "bun" : framework === "cli" ? "npm" : null);
 
       if (!runtime) {
         const selectedRuntime = await clack.select({
@@ -397,7 +426,9 @@ async function main() {
       const minimalLabel =
         framework === "hono"
           ? "bun runtime, lean containers, .env conventions"
-          : "specify runtime";
+          : framework === "cli"
+            ? "npm runtime, plain JS, bin/cli.js conventions"
+            : "specify runtime";
 
       const agentsOption = await clack.select({
         message: "How would you like to create AGENTS.md?",
@@ -430,9 +461,9 @@ async function main() {
         agentsOption === "minimal" ||
         agentsOption === "minimal-edit"
       ) {
-        let runtime = "bun";
+        let runtime = framework === "cli" ? "npm" : "bun";
 
-        if (framework !== "hono") {
+        if (framework !== "hono" && framework !== "cli") {
           runtime = await clack.select({
             message: "Which runtime are you using?",
             options: [
@@ -583,6 +614,21 @@ async function main() {
         replaceInFile(path.join(projectPath, "src", "index.ts"), replacements),
         replaceInFile(path.join(projectPath, "compose.yaml"), replacements),
         replaceInFile(path.join(projectPath, "Dockerfile"), replacements),
+      ]);
+    } else if (framework === "cli") {
+      const descriptionValue =
+        projectDescription && projectDescription.trim()
+          ? projectDescription.trim()
+          : "A CLI scaffolded with create-nocdn-app";
+
+      const replacements = {
+        "project-name": projectName,
+        "project-description": descriptionValue,
+      };
+
+      await Promise.all([
+        replaceInFile(path.join(projectPath, "README.md"), replacements),
+        replaceInFile(path.join(projectPath, "package.json"), replacements),
       ]);
     }
 
