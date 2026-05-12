@@ -185,6 +185,7 @@ export const BUILT_IN_EXCLUDE_PATTERNS = [
   "*.pdb",
   "*.bin",
   ".build/",
+  ".firecrawl/",
   "*.xcodeproj/",
   "*.xcworkspace/",
   "*.pbxuser",
@@ -275,6 +276,7 @@ export const BUILT_IN_EXCLUDE_PATTERNS = [
 
 const DANGEROUS_PATH_NAMES = new Set([
   ".cache",
+  ".firecrawl",
   ".git",
   ".hg",
   ".next",

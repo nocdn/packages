@@ -109,7 +109,7 @@ bunx repo-squeeze --repo https://github.com/torvalds/linux.git
 
 By default it applies:
 
-- built-in exclude patterns for common generated, dependency, cache, binary, and VCS paths
+- built-in exclude patterns for common generated, dependency, cache, binary, and VCS paths, including `.firecrawl/`
 - patterns from `.gitignore`
 - patterns from `.gitingestignore`
 
@@ -149,7 +149,7 @@ Templates add exclusion patterns on top of the built-in defaults and any user-su
 
 The digest contains:
 
-- a summary with directory name, resolved path, analyzed file count, and excluded directories
+- a summary with directory name, resolved path, analyzed file count, word/line stats, and excluded directories
 - a tree-style directory structure
 - file sections separated by headers in the form `FILE: relative/path`
 

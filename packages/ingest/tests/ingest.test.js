@@ -20,6 +20,7 @@ async function createFixture() {
   await mkdir(path.join(root, "node_modules", "left-pad"), { recursive: true });
   await mkdir(path.join(root, ".git"), { recursive: true });
   await mkdir(path.join(root, ".next"), { recursive: true });
+  await mkdir(path.join(root, ".firecrawl"), { recursive: true });
   await writeFile(path.join(root, "README.md"), "# Fixture\n", "utf8");
   await writeFile(path.join(root, "src", "index.js"), "console.log('hello');\n", "utf8");
   await writeFile(path.join(root, "src", "main.ts"), "export const main = true;\n", "utf8");
@@ -27,6 +28,7 @@ async function createFixture() {
   await writeFile(path.join(root, "node_modules", "left-pad", "index.js"), "module.exports = () => {};\n", "utf8");
   await writeFile(path.join(root, ".git", "config"), "[core]\n", "utf8");
   await writeFile(path.join(root, ".next", "build-manifest.json"), "{}\n", "utf8");
+  await writeFile(path.join(root, ".firecrawl", "search.md"), "junk from web searches\n", "utf8");
   await writeFile(path.join(root, ".gitignore"), "ignored.txt\nnode_modules\n", "utf8");
   await writeFile(path.join(root, ".customignore"), "src/index.js\n", "utf8");
   await writeFile(path.join(root, "ignored.txt"), "ignored\n", "utf8");
@@ -37,12 +39,14 @@ async function createAllFixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "repo-squeeze-all-"));
   await mkdir(path.join(root, "node_modules", "pkg"), { recursive: true });
   await mkdir(path.join(root, ".git"), { recursive: true });
+  await mkdir(path.join(root, ".firecrawl"), { recursive: true });
 
   await writeFile(path.join(root, ".gitignore"), "ignored.txt\n", "utf8");
   await writeFile(path.join(root, "ignored.txt"), "ignored\n", "utf8");
   await writeFile(path.join(root, ".env"), "SECRET=value\n", "utf8");
   await writeFile(path.join(root, "node_modules", "pkg", "index.js"), "module.exports = true;\n", "utf8");
   await writeFile(path.join(root, ".git", "config"), "[core]\n", "utf8");
+  await writeFile(path.join(root, ".firecrawl", "search.md"), "junk from web searches\n", "utf8");
   await writeFile(path.join(root, "document.pdf"), "%PDF-1.1\nnot a complete pdf\n", "utf8");
   await writeFile(
     path.join(root, "notebook.ipynb"),
@@ -65,8 +69,9 @@ describe("ingestPath", () => {
     const resolvedRoot = await realpath(root);
 
     assert.ok(result.summary.includes("Files analyzed: 5"));
+    assert.ok(result.summary.includes("Stats: 14 words, 5 lines"));
     assert.ok(result.summary.includes(`Path: ${resolvedRoot}`));
-    assert.ok(result.summary.includes("Excluded directories: .git, .next, node_modules"));
+    assert.ok(result.summary.includes("Excluded directories: .firecrawl, .git, .next, node_modules"));
     assert.ok(!result.summary.includes("Estimated tokens"));
     assert.ok(!result.digest.includes("Estimated tokens"));
     assert.ok(result.tree.includes("Directory structure:"));
@@ -76,6 +81,7 @@ describe("ingestPath", () => {
     assert.ok(result.content.includes("FILE: src/index.js"));
     assert.ok(result.content.includes("FILE: src/main.ts"));
     assert.ok(result.content.includes("FILE: src/nested/deep.ts"));
+    assert.ok(!result.content.includes("FILE: .firecrawl/search.md"));
     assert.ok(result.digest.includes("================================================"));
   });
 
@@ -105,6 +111,7 @@ describe("ingestPath", () => {
 
     assert.ok(result.excludedDirectories.includes(".next"));
     assert.ok(!result.excludedDirectories.includes("node_modules"));
+    assert.ok(result.content.includes(".firecrawl/search.md"));
     assert.ok(result.content.includes("node_modules/left-pad/index.js"));
     assert.ok(!result.content.includes(".next/build-manifest.json"));
   });
@@ -129,6 +136,7 @@ describe("ingestPath", () => {
     assert.ok(stdout.includes("FILE: .env"));
     assert.ok(stdout.includes("FILE: node_modules/pkg/index.js"));
     assert.ok(stdout.includes("FILE: .git/config"));
+    assert.ok(stdout.includes("FILE: .firecrawl/search.md"));
     assert.ok(stdout.includes("FILE: document.pdf"));
     assert.ok(stdout.includes("[PDF text extraction failed:"));
     assert.ok(stdout.includes("[Jupyter Notebook]"));

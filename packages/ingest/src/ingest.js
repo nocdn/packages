@@ -57,6 +57,8 @@ export async function ingestPath(source = ".", options = {}) {
     convertIpynb: options.ipynb ?? false,
     filesAnalyzed: 0,
     totalSize: 0,
+    totalWords: 0,
+    totalLines: 0,
     excludedDirectories: new Set(),
   };
 
@@ -91,6 +93,9 @@ export async function ingestPath(source = ".", options = {}) {
       rootName,
       resolvedRoot,
       filesAnalyzed: state.filesAnalyzed,
+      totalWords: state.totalWords,
+      totalLines: state.totalLines,
+      includeStats: !state.dryRun,
       excludedDirectories: state.excludedDirectories,
     });
     digest = `${summary}\n\n${tree}\n\n${content}\n`;
@@ -107,6 +112,8 @@ export async function ingestPath(source = ".", options = {}) {
     content,
     digest,
     filesAnalyzed: state.filesAnalyzed,
+    totalWords: state.totalWords,
+    totalLines: state.totalLines,
     excludedDirectories: [...state.excludedDirectories].sort(),
     files: collectFileList(rootNode),
     totalSize: state.totalSize,
@@ -252,6 +259,13 @@ async function processFile(filePath, name, relativePath, state, includePdf) {
 
   state.filesAnalyzed += 1;
   state.totalSize += fileStats.size;
+  const content = state.dryRun ? "" : await readFileContent(filePath, name, includePdf, state.verbose, state.convertIpynb);
+
+  if (!state.dryRun) {
+    const stats = countTextStats(content);
+    state.totalWords += stats.words;
+    state.totalLines += stats.lines;
+  }
 
   return {
     name,
@@ -259,7 +273,7 @@ async function processFile(filePath, name, relativePath, state, includePdf) {
     path: filePath,
     relativePath,
     size: fileStats.size,
-    content: state.dryRun ? "" : await readFileContent(filePath, name, includePdf, state.verbose, state.convertIpynb),
+    content,
   };
 }
 
@@ -476,7 +490,7 @@ function collectTemplatePatterns(templateNames) {
   return patterns;
 }
 
-function createSummary({ rootName, resolvedRoot, filesAnalyzed, excludedDirectories }) {
+function createSummary({ rootName, resolvedRoot, filesAnalyzed, totalWords, totalLines, includeStats, excludedDirectories }) {
   const excludedList = formatExcludedDirectories(excludedDirectories);
   const lines = [
     `Directory: ${rootName}`,
@@ -485,7 +499,31 @@ function createSummary({ rootName, resolvedRoot, filesAnalyzed, excludedDirector
     `Excluded directories: ${excludedList}`,
   ];
 
+  if (includeStats) {
+    lines.splice(3, 0, `Stats: ${totalWords.toLocaleString("en-US")} words, ${totalLines.toLocaleString("en-US")} lines`);
+  }
+
   return lines.join("\n");
+}
+
+function countTextStats(content) {
+  return {
+    words: countWords(content),
+    lines: countLines(content),
+  };
+}
+
+function countWords(content) {
+  return content.trim().match(/\S+/g)?.length ?? 0;
+}
+
+function countLines(content) {
+  if (!content) {
+    return 0;
+  }
+
+  const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return normalized.endsWith("\n") ? normalized.slice(0, -1).split("\n").length : normalized.split("\n").length;
 }
 
 function createTree(node, prefix = "", isLast = true) {

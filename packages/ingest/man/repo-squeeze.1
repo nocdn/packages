@@ -155,7 +155,7 @@ The digest is composed of three sections, joined with blank lines:
 .IP \(bu 2
 A
 .B summary
-with directory name, resolved path, file count, and excluded directories.
+with directory name, resolved path, file count, word and line counts, and excluded directories.
 .IP \(bu 2
 A
 .B tree
@@ -174,7 +174,9 @@ supports glob-style include and exclude patterns such as
 .BR src/**/*.ts ,
 and
 .BR .next/ .
-By default it applies built-in exclude patterns for common generated, dependency, cache, binary, and version control paths, plus patterns from
+By default it applies built-in exclude patterns for common generated, dependency, cache, binary, and version control paths, including
+.BR .firecrawl/ ,
+plus patterns from
 .B .gitignore
 and
 .BR .gitingestignore .
