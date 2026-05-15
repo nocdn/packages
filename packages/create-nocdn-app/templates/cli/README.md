@@ -7,15 +7,15 @@
 Run without installing:
 
 ```bash
-npx {{project-name}}
+npx {{package-name}}
 ```
 
 Or with bun, pnpm, or yarn:
 
 ```bash
-bunx {{project-name}}
-pnpm dlx {{project-name}}
-yarn dlx {{project-name}}
+bunx {{package-name}}
+pnpm dlx {{package-name}}
+yarn dlx {{package-name}}
 ```
 
 ## Usage
@@ -46,6 +46,8 @@ This project includes a GitHub Actions workflow at
 [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) that publishes
 the package to npm with [trusted publishing](https://docs.npmjs.com/trusted-publishers)
 on every push, as long as the version in `package.json` is not already on npm.
+`package.json` sets `publishConfig.access` to `public`, so scoped packages are
+published publicly by default.
 
 To enable it once:
 

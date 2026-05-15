@@ -55,8 +55,13 @@ jobs:
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
+          PUBLISH_FLAGS="--provenance"
+          if [[ "$NAME" == @*/* ]]; then
+            PUBLISH_FLAGS="$PUBLISH_FLAGS --access public"
+          fi
           echo "name=$NAME"       >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "publish_flags=$PUBLISH_FLAGS" >> "$GITHUB_OUTPUT"
           if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "::notice::$NAME@$VERSION is already on npm; skipping publish."
@@ -67,9 +72,9 @@ jobs:
 
       # The npm CLI auto-detects the OIDC environment via id-token: write
       # and exchanges it for a short-lived publish token, so no NODE_AUTH_TOKEN
-      # is needed. --provenance is set explicitly even though it is the
-      # default for trusted publishing on public repos, to surface failures
-      # early if attestation cannot be generated.
+      # is needed. package.json sets publishConfig.access=public so scoped
+      # packages publish publicly by default; --access public is also passed
+      # for scoped packages to keep the workflow explicit.
       - name: Publish to npm with trusted publishing
         if: steps.check.outputs.published == 'false'
-        run: npm publish --provenance --access public
+        run: npm publish ${{ steps.check.outputs.publish_flags }}

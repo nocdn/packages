@@ -1,16 +1,19 @@
 {
-  "name": "{{project-name}}",
+  "name": "{{package-name}}",
   "version": "0.0.1",
   "description": "{{project-description}}",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "{{project-name}}": "./bin/cli.js"
+    "{{project-name}}": "bin/cli.js"
   },
   "files": [
     "bin",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "start": "node ./bin/cli.js"
   }

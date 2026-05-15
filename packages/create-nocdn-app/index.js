@@ -120,6 +120,7 @@ Examples:
   bunx create-nocdn-app my-app -t tanstack --skip-git --skip-install
   bunx create-nocdn-app my-app -t vite --agents minimal --runtime pnpm
   bunx create-nocdn-app my-cli -t cli -d "My CLI tool"
+  bunx create-nocdn-app @nocdn/my-cli -t cli
 `);
   process.exit(0);
 }
@@ -137,6 +138,63 @@ function validateProjectName(value) {
   if (!/^[a-z0-9-]+$/.test(value)) {
     return "Project name must be lowercase, alphanumeric, and can contain hyphens";
   }
+}
+
+function normalizeOrganizationName(value) {
+  return value.startsWith("@") ? value.slice(1) : value;
+}
+
+function validateOrganizationName(value) {
+  if (value.length === 0) return;
+
+  const organization = normalizeOrganizationName(value);
+
+  if (organization.length === 0) return "Organization name cannot be only @";
+  if (!/^[a-z0-9-]+$/.test(organization)) {
+    return "Organization name must be lowercase, alphanumeric, and can contain hyphens";
+  }
+}
+
+function parseProjectNameArg(value) {
+  if (!value.startsWith("@")) {
+    const validationError = validateProjectName(value);
+    return {
+      projectName: value,
+      packageOrganization: null,
+      isScopedPackageName: false,
+      validationError,
+    };
+  }
+
+  const match = value.match(/^@([^/]+)\/(.+)$/);
+
+  if (!match) {
+    return {
+      projectName: null,
+      packageOrganization: null,
+      isScopedPackageName: true,
+      validationError:
+        "Scoped package names must use the format @organization/package-name",
+    };
+  }
+
+  const [, rawOrganization, projectName] = match;
+  const packageOrganization = normalizeOrganizationName(rawOrganization);
+  const organizationError = validateOrganizationName(packageOrganization);
+  const projectNameError = validateProjectName(projectName);
+
+  return {
+    projectName,
+    packageOrganization,
+    isScopedPackageName: true,
+    validationError: organizationError ?? projectNameError,
+  };
+}
+
+function buildPackageName(projectName, packageOrganization) {
+  return packageOrganization
+    ? `@${packageOrganization}/${projectName}`
+    : projectName;
 }
 
 function validatePort(value) {
@@ -313,15 +371,25 @@ async function main() {
   }
 
   let projectName;
+  let packageOrganization = null;
+  let scopedPackageNameArg = false;
 
   if (cliProjectName) {
-    const validationError = validateProjectName(cliProjectName);
+    const parsedProjectName = parseProjectNameArg(cliProjectName);
+    const validationError = parsedProjectName.validationError;
     if (validationError) {
       clack.log.error(validationError);
       clack.cancel("Invalid project name");
       process.exit(1);
     }
-    projectName = cliProjectName;
+    if (parsedProjectName.isScopedPackageName && framework !== "cli") {
+      clack.log.error("Scoped package names are only supported by the CLI template");
+      clack.cancel("Invalid project name");
+      process.exit(1);
+    }
+    projectName = parsedProjectName.projectName;
+    packageOrganization = parsedProjectName.packageOrganization;
+    scopedPackageNameArg = parsedProjectName.isScopedPackageName;
     clack.log.info(`Creating project: ${projectName}`);
   } else {
     projectName = await clack.text({
@@ -334,6 +402,29 @@ async function main() {
       clack.cancel("Operation cancelled");
       process.exit(0);
     }
+  }
+
+  if (framework === "cli" && !packageOrganization && !nonInteractive) {
+    const organizationValue = await clack.text({
+      message: "npm organization (optional, press Enter to skip)",
+      placeholder: "nocdn",
+      validate: validateOrganizationName,
+    });
+
+    if (clack.isCancel(organizationValue)) {
+      clack.cancel("Operation cancelled");
+      process.exit(0);
+    }
+
+    packageOrganization = organizationValue
+      ? normalizeOrganizationName(organizationValue)
+      : null;
+  }
+
+  if (framework === "cli" && scopedPackageNameArg) {
+    clack.log.info(
+      `Using npm package name: ${buildPackageName(projectName, packageOrganization)}`,
+    );
   }
 
   let projectDescription = null;
@@ -555,7 +646,10 @@ async function main() {
 
     const packageJsonPath = path.join(projectPath, "package.json");
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
-    packageJson.name = projectName;
+    packageJson.name =
+      framework === "cli"
+        ? buildPackageName(projectName, packageOrganization)
+        : projectName;
     await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     if (framework === "next") {
@@ -623,6 +717,7 @@ async function main() {
 
       const replacements = {
         "project-name": projectName,
+        "package-name": buildPackageName(projectName, packageOrganization),
         "project-description": descriptionValue,
       };
 
