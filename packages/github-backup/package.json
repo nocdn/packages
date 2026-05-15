@@ -1,0 +1,17 @@
+{
+  "name": "github-backup",
+  "version": "0.0.1",
+  "description": "A CLI to backup a whole github personal profile",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "github-backup": "./bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node ./bin/cli.js"
+  }
+}
