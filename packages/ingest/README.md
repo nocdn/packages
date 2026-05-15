@@ -18,7 +18,7 @@ The package also exposes an `ingest` binary alias when installed or linked.
 
 ## output behavior
 
-Default behavior copies the full digest to the clipboard with `clipboardy`.
+Default behavior copies the full digest to the clipboard with `tinyclip`.
 
 ```bash
 bunx repo-squeeze

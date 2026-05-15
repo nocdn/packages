@@ -411,13 +411,13 @@ function parseSize(value) {
 
 async function copyToClipboard(text) {
   try {
-    const clipboardy = await import("clipboardy");
-    await clipboardy.default.write(text);
+    const { writeText } = await import("tinyclip");
+    await writeText(text);
   } catch (error) {
     try {
       await copyToClipboardWithPlatformTool(text);
     } catch {
-      throw new Error(`Unable to copy to clipboard with clipboardy: ${error.message}`);
+      throw new Error(`Unable to copy to clipboard with tinyclip: ${error.message}`);
     }
   }
 }
@@ -554,7 +554,7 @@ Options:
       --ipynb                      Convert .ipynb files to a readable text format (cell sources and outputs). Without this flag, .ipynb files are included as raw JSON.
   -r, --repo <url>                Clone a remote Git repository to a temp directory, squeeze it, then clean up.
 
-By default the digest is copied to the clipboard with clipboardy.
+By default the digest is copied to the clipboard with tinyclip.
 `;
 }
 
