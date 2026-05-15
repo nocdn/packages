@@ -1,9 +1,12 @@
 {
-  "name": "github-backup",
+  "name": "@nocdn/github-backup",
   "version": "0.0.1",
   "description": "A CLI to backup a whole github personal profile",
   "license": "MIT",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "github-backup": "./bin/cli.js"
   },
