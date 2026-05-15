@@ -1,12 +1,12 @@
 name: Publish to npm
 
-# Run on every push. Publishing is skipped automatically if the
-# version in package.json is already on the npm registry, so a normal
-# code push does not fail the workflow.
+# Run on the default branch and manual dispatch. Publishing is skipped
+# automatically if the version in package.json is already on the npm
+# registry, so a normal code push does not fail the workflow.
 on:
   push:
     branches:
-      - "**"
+      - main
   workflow_dispatch:
 
 # Trusted publishing requires `id-token: write` so GitHub Actions can mint
@@ -39,6 +39,7 @@ jobs:
           # `npm install -g npm@latest` on Node 22.22.2.
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
 
       # Belt-and-braces upgrade in case the bundled npm is older than 11.5.1.
       # `-f` avoids the self-update bug seen on some Node 22 images.

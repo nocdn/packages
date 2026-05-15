@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "repo-squeeze",
+      "name": "@nocdn/ingest",
       "dependencies": {
         "tinyclip": "^0.1.12",
         "unpdf": "^1.6.2",

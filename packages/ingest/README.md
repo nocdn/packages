@@ -1,6 +1,6 @@
-# repo-squeeze
+# @nocdn/ingest
 
-`repo-squeeze` is a Bun CLI for turning a local repository or folder into a single text digest for LLM input. The output includes a summary, a tree-style directory view, and the contents of included files with path headers.
+`@nocdn/ingest` is a Bun CLI for turning a local repository or folder into a single text digest for LLM input. The output includes a summary, a tree-style directory view, and the contents of included files with path headers.
 
 It is designed to feel similar to `gitingest` for local paths, with different defaults:
 
@@ -11,41 +11,41 @@ It is designed to feel similar to `gitingest` for local paths, with different de
 ## install and run
 
 ```bash
-bunx repo-squeeze
+bunx @nocdn/ingest
 ```
 
-The package also exposes an `ingest` binary alias when installed or linked.
+When installed globally or linked, the package exposes an `ingest` binary.
 
 ## output behavior
 
 Default behavior copies the full digest to the clipboard with `tinyclip`.
 
 ```bash
-bunx repo-squeeze
+bunx @nocdn/ingest
 ```
 
 Write to a file:
 
 ```bash
-bunx repo-squeeze -o digest.txt
+bunx @nocdn/ingest -o digest.txt
 ```
 
 Use bare `-o` or `--output` to write `digest.txt` in the current working directory:
 
 ```bash
-bunx repo-squeeze -o
+bunx @nocdn/ingest -o
 ```
 
 Write the full digest to stdout:
 
 ```bash
-bunx repo-squeeze --stdout
+bunx @nocdn/ingest --stdout
 ```
 
 Print only the summary and do not copy or write the digest:
 
 ```bash
-bunx repo-squeeze --no-clipboard
+bunx @nocdn/ingest --no-clipboard
 ```
 
 `--output`, `--stdout`, and `--no-clipboard` are mutually exclusive.
@@ -53,24 +53,24 @@ bunx repo-squeeze --no-clipboard
 ## usage
 
 ```bash
-bunx repo-squeeze [path] [options]
+bunx @nocdn/ingest [path] [options]
 ```
 
 Examples:
 
 ```bash
-bunx repo-squeeze
-bunx repo-squeeze .
-bunx repo-squeeze /path/to/project
-bunx repo-squeeze . --stdout | pbcopy
-bunx repo-squeeze . --include "src/**/*.ts" README.md
-bunx repo-squeeze . --exclude "*.log" coverage/ .next/
-bunx repo-squeeze . --template nextjs
-bunx repo-squeeze . --ignore-file .customignore
-bunx repo-squeeze . --all
-bunx repo-squeeze . --all --exclude-gitignored --exclude-env
-bunx repo-squeeze . --include-dangerous
-bunx repo-squeeze --repo https://github.com/torvalds/linux.git
+bunx @nocdn/ingest
+bunx @nocdn/ingest .
+bunx @nocdn/ingest /path/to/project
+bunx @nocdn/ingest . --stdout | pbcopy
+bunx @nocdn/ingest . --include "src/**/*.ts" README.md
+bunx @nocdn/ingest . --exclude "*.log" coverage/ .next/
+bunx @nocdn/ingest . --template nextjs
+bunx @nocdn/ingest . --ignore-file .customignore
+bunx @nocdn/ingest . --all
+bunx @nocdn/ingest . --all --exclude-gitignored --exclude-env
+bunx @nocdn/ingest . --include-dangerous
+bunx @nocdn/ingest --repo https://github.com/torvalds/linux.git
 ```
 
 ## options
@@ -101,11 +101,11 @@ bunx repo-squeeze --repo https://github.com/torvalds/linux.git
 | `--include-env` | include `.env` files that are excluded by built-in defaults and templates |
 | `--dry-run` | preview the files that would be included with sizes, without producing a digest |
 | `--ipynb` | convert `.ipynb` files to a readable text format (cell sources and outputs) instead of raw JSON |
-| `-r`, `--repo <url>` | clone a remote Git repo to a temp directory, run the squeeze, then clean up |
+| `-r`, `--repo <url>` | clone a remote Git repo to a temp directory, ingest it, then clean up |
 
 ## matching and ignore rules
 
-`repo-squeeze` supports glob-style include and exclude patterns such as `*.ts`, `src/**/*.ts`, and `.next/`.
+`@nocdn/ingest` supports glob-style include and exclude patterns such as `*.ts`, `src/**/*.ts`, and `.next/`.
 
 By default it applies:
 
@@ -116,7 +116,7 @@ By default it applies:
 Add more ignore file names with `--ignore-file`:
 
 ```bash
-bunx repo-squeeze . --ignore-file .customignore --ignore-file .dockerignore
+bunx @nocdn/ingest . --ignore-file .customignore --ignore-file .dockerignore
 ```
 
 Use `--include-gitignored` to skip loading ignore-file patterns entirely.
@@ -140,7 +140,7 @@ Current templates:
 Inspect the available templates from the CLI:
 
 ```bash
-bunx repo-squeeze --list-templates
+bunx @nocdn/ingest --list-templates
 ```
 
 Templates add exclusion patterns on top of the built-in defaults and any user-supplied excludes.

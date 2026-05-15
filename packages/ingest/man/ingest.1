@@ -1,16 +1,12 @@
-.TH REPO-SQUEEZE 1 "May 2026" "repo-squeeze" "User Commands"
+.TH INGEST 1 "May 2026" "ingest" "User Commands"
 .SH NAME
-repo-squeeze \- squeeze a local repository into an LLM-friendly digest
+ingest \- ingest a local repository into an LLM-friendly digest
 .SH SYNOPSIS
-.B repo-squeeze
-.RI [ path ]
-.RI [ options ]
-.br
 .B ingest
 .RI [ path ]
 .RI [ options ]
 .SH DESCRIPTION
-.B repo-squeeze
+.B ingest
 turns a local repository or folder into a single text digest suitable for pasting into a large language model. The output contains a summary, a tree-style directory view, and the contents of each included file separated by path headers.
 .PP
 By default the digest is copied to the system clipboard with
@@ -146,7 +142,7 @@ files are included as raw JSON.
 .BR \-r ", " "\-\-repo \fIurl\fR"
 Clone the remote Git repository at
 .I url
-to a temporary directory, squeeze it to a digest, and then delete the temporary directory. Accepts URLs such as
+to a temporary directory, ingest it to a digest, and then delete the temporary directory. Accepts URLs such as
 .B https://github.com/torvalds/linux
 or
 .BR https://github.com/torvalds/linux.git .
@@ -168,7 +164,7 @@ separated by headers of the form
 .BR "FILE: relative/path" ,
 each followed by the file contents.
 .SH MATCHING RULES
-.B repo-squeeze
+.B ingest
 supports glob-style include and exclude patterns such as
 .BR *.ts ,
 .BR src/**/*.ts ,
@@ -194,7 +190,7 @@ Copy a digest of the current directory to the clipboard:
 .PP
 .RS 4
 .nf
-repo\-squeeze
+ingest
 .fi
 .RE
 .PP
@@ -204,7 +200,7 @@ in the current directory:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-o
+ingest \-o
 .fi
 .RE
 .PP
@@ -212,7 +208,7 @@ Stream the digest to standard output and pipe it elsewhere:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-\-stdout | pbcopy
+ingest \-\-stdout | pbcopy
 .fi
 .RE
 .PP
@@ -222,7 +218,7 @@ template:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-i "src/**/*.ts" README.md \-T typescript
+ingest \-i "src/**/*.ts" README.md \-T typescript
 .fi
 .RE
 .PP
@@ -230,7 +226,7 @@ Preview what would be included without producing a digest:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-\-dry\-run
+ingest \-\-dry\-run
 .fi
 .RE
 .PP
@@ -238,7 +234,7 @@ Include every special include category, including ignored paths, built-in safety
 .PP
 .RS 4
 .nf
-repo\-squeeze \-\-all
+ingest \-\-all
 .fi
 .RE
 .PP
@@ -248,7 +244,7 @@ files excluded:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-\-all \-\-exclude\-gitignored \-\-exclude\-env
+ingest \-\-all \-\-exclude\-gitignored \-\-exclude\-env
 .fi
 .RE
 .PP
@@ -258,7 +254,7 @@ files and prefix each line with its line number:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-\-include\-env \-\-line\-numbers
+ingest \-\-include\-env \-\-line\-numbers
 .fi
 .RE
 .PP
@@ -266,19 +262,19 @@ Convert Jupyter notebooks to readable text instead of raw JSON:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-\-ipynb
+ingest \-\-ipynb
 .fi
 .RE
 .PP
-Clone and squeeze a remote repository:
+Clone and ingest a remote repository:
 .PP
 .RS 4
 .nf
-repo\-squeeze \-r https://github.com/torvalds/linux.git
+ingest \-r https://github.com/torvalds/linux.git
 .fi
 .RE
 .SH EXIT STATUS
-.B repo-squeeze
+.B ingest
 exits with status
 .B 0
 on success and
@@ -291,5 +287,5 @@ on any error during argument parsing or ingestion.
 .BR xclip (1)
 .SH AUTHOR
 Written for the
-.B repo-squeeze
+.B ingest
 project. See the project README for licensing and contribution information.

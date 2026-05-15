@@ -11,10 +11,10 @@ import assert from "node:assert/strict";
 import { ingestPath } from "../src/ingest.js";
 
 const execFileAsync = promisify(execFile);
-const CLI_PATH = fileURLToPath(new URL("../bin/repo-squeeze.js", import.meta.url));
+const CLI_PATH = fileURLToPath(new URL("../bin/ingest.js", import.meta.url));
 
 async function createFixture() {
-  const root = await mkdtemp(path.join(os.tmpdir(), "repo-squeeze-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "ingest-"));
   await mkdir(path.join(root, "src"), { recursive: true });
   await mkdir(path.join(root, "src", "nested"), { recursive: true });
   await mkdir(path.join(root, "node_modules", "left-pad"), { recursive: true });
@@ -36,7 +36,7 @@ async function createFixture() {
 }
 
 async function createAllFixture() {
-  const root = await mkdtemp(path.join(os.tmpdir(), "repo-squeeze-all-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "ingest-all-"));
   await mkdir(path.join(root, "node_modules", "pkg"), { recursive: true });
   await mkdir(path.join(root, ".git"), { recursive: true });
   await mkdir(path.join(root, ".firecrawl"), { recursive: true });

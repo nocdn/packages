@@ -463,7 +463,7 @@ async function readPackageInfo() {
 }
 
 async function cloneRepo(repoUrl) {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "repo-squeeze-"));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "ingest-"));
   const url = repoUrl.endsWith(".git") ? repoUrl : `${repoUrl}.git`;
 
   try {
@@ -506,7 +506,7 @@ function templateListText() {
 }
 
 function helpText(packageInfo) {
-  const command = packageInfo.name;
+  const command = Object.keys(packageInfo.bin ?? {})[0] ?? packageInfo.name;
   return `${command} ${packageInfo.version}
 
 Usage:
@@ -516,7 +516,7 @@ Examples:
   ${command}
   ${command} .
   ${command} ../my-app -o
-  ${command} ../my-app -o squeeze.txt
+  ${command} ../my-app -o digest.txt
   ${command} . -i "src/**/*.ts" README.md
   ${command} . -e "*.ts" ".next/" -T nextjs
   ${command} --stdout | pbcopy
@@ -552,7 +552,7 @@ Options:
   -N, --line-numbers               Prefix each line of file content with its line number.
       --dry-run                    Print the files that would be included with sizes without producing or copying a digest.
       --ipynb                      Convert .ipynb files to a readable text format (cell sources and outputs). Without this flag, .ipynb files are included as raw JSON.
-  -r, --repo <url>                Clone a remote Git repository to a temp directory, squeeze it, then clean up.
+  -r, --repo <url>                Clone a remote Git repository to a temp directory, ingest it, then clean up.
 
 By default the digest is copied to the clipboard with tinyclip.
 `;

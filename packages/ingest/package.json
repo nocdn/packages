@@ -1,19 +1,21 @@
 {
-  "name": "repo-squeeze",
+  "name": "@nocdn/ingest",
   "version": "0.4.6",
-  "description": "A bunx-runnable CLI that squeezes a local folder or repository into an LLM-friendly digest.",
+  "description": "A bunx-runnable CLI that ingests a local folder or repository into an LLM-friendly digest.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nocdn/repo-squeeze.git"
+    "url": "git+https://github.com/nocdn/ingest.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "module": "index.js",
   "type": "module",
   "bin": {
-    "repo-squeeze": "./bin/repo-squeeze.js",
-    "ingest": "./bin/repo-squeeze.js"
+    "ingest": "./bin/ingest.js"
   },
-  "man": "./man/repo-squeeze.1",
+  "man": "./man/ingest.1",
   "files": [
     "bin",
     "src",
@@ -22,7 +24,7 @@
     "README.md"
   ],
   "scripts": {
-    "start": "node ./bin/repo-squeeze.js",
+    "start": "node ./bin/ingest.js",
     "test": "node --test \"tests/*.test.js\""
   },
   "dependencies": {
