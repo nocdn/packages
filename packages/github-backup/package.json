@@ -1,9 +1,13 @@
 {
   "name": "@nocdn/github-backup",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A CLI to backup a whole github personal profile",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nocdn/github-backup"
+  },
   "publishConfig": {
     "access": "public"
   },
