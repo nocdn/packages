@@ -100,6 +100,7 @@ function parseArgs(argv, packageInfo) {
     excludedReposProvided: false,
     help: false,
     removeZipAfterUpload: false,
+    removeZipAfterUploadProvided: false,
     upload: null,
     uploadRequested: false,
     user: null,
@@ -191,6 +192,7 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "--rm") {
       args.removeZipAfterUpload = true;
+      args.removeZipAfterUploadProvided = true;
       continue;
     }
 
@@ -340,6 +342,7 @@ async function collectConfig(args) {
           bucketPath: args.bucketPath,
           credentialsFile: args.b2CredentialsFile,
           removeZipAfterUpload: args.removeZipAfterUpload,
+          removeZipAfterUploadProvided: args.removeZipAfterUploadProvided,
           target: args.upload,
         })
       : null;
@@ -450,6 +453,10 @@ async function prepareUploadConfig(args) {
     prompt: "Backblaze B2 bucket: ",
   });
   const bucketPath = normalizeB2BucketPath(args.bucketPath ?? DEFAULT_B2_BUCKET_PATH);
+  const removeZipAfterUpload = await resolveRemoveZipAfterUpload({
+    provided: args.removeZipAfterUploadProvided,
+    value: args.removeZipAfterUpload,
+  });
   const credentialsFile = await prepareB2CredentialsFile(args.credentialsFile);
   const credentials = await readB2Credentials(credentialsFile);
 
@@ -468,7 +475,7 @@ async function prepareUploadConfig(args) {
     bucketName,
     bucketPath,
     credentials,
-    removeZipAfterUpload: args.removeZipAfterUpload,
+    removeZipAfterUpload,
     target: "b2",
   };
 }
@@ -502,6 +509,35 @@ async function resolveRequiredUploadValue(value, { name, prompt }) {
     name,
     required: true,
   });
+}
+
+async function resolveRemoveZipAfterUpload({ provided, value }) {
+  if (provided) {
+    return value;
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return false;
+  }
+
+  const answer = await promptWithNewInterface(
+    "Remove local zip after successful upload? [Y/n]: ",
+    {
+      fallback: "y",
+      name: "remove local zip after successful upload",
+    },
+  );
+  const normalized = answer.toLowerCase();
+
+  if (["y", "yes"].includes(normalized)) {
+    return true;
+  }
+
+  if (["n", "no"].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error("Remove local zip answer must be yes or no.");
 }
 
 async function promptWithNewInterface(prompt, options) {
@@ -676,14 +712,14 @@ async function runBackup(config) {
 
     if (config.upload.removeZipAfterUpload) {
       await rm(zipPath);
-      process.stdout.write(`Removed local zip archive: ${displayPath(zipPath)}\n`);
+      process.stdout.write(`Removed local zip archive: ${zipPath}\n`);
     }
   }
 
   process.stdout.write("Done.\n");
   process.stdout.write(`Backup directory: ${config.backupDir}\n`);
   if (!config.upload?.removeZipAfterUpload) {
-    process.stdout.write(`Zip archive: ${displayPath(zipPath)}\n`);
+    process.stdout.write(`Zip archive: ${zipPath}\n`);
   }
   process.stdout.write(`Zip size: ${formatBytes(zipInfo.size)}\n`);
   if (uploadResult) {
@@ -1132,7 +1168,7 @@ Options:
   --bucket <name>                   Backblaze B2 bucket name. Prompts with --upload b2 when omitted.
   --bucket-path <path>              Backblaze B2 folder prefix. Defaults to ${DEFAULT_B2_BUCKET_PATH}.
   --b2-credentials-file <path>      Backblaze B2 credentials file. Defaults to ${DEFAULT_B2_CREDENTIALS_FILE}.
-  --rm                              Remove the local zip after a successful upload.
+  --rm                              Remove the local zip after a successful upload. Interactive upload mode prompts when omitted.
 
 Requirements:
   docker                            Must be installed, running, and usable by this user.

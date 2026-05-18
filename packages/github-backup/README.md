@@ -58,7 +58,7 @@ npx @nocdn/github-backup [options]
 | `--bucket <name>` | Backblaze B2 bucket name; prompts with `--upload b2` when omitted |
 | `--bucket-path <path>` | Backblaze B2 folder prefix, defaulting to `/github` |
 | `--b2-credentials-file <path>` | Backblaze B2 credentials file, defaulting to `~/.config/github-backup/b2` |
-| `--rm` | remove the local zip archive after a successful upload |
+| `--rm` | remove the local zip archive after a successful upload; interactive upload mode prompts when omitted |
 
 Examples:
 
@@ -103,8 +103,9 @@ path with `--b2-credentials-file`.
 
 The B2 key needs permission to list the target bucket and write files to it.
 
-By default, the local zip remains after upload. Add `--rm` to remove the local
-zip only after the B2 upload succeeds.
+In interactive upload mode, the command asks whether to remove the local zip
+after a successful upload and defaults to yes. In non-interactive mode, the
+local zip remains unless you add `--rm`.
 
 This first B2 implementation uses B2's single-file upload API. If the zip is
 larger than 5 GiB, the command exits with a clear error instead of attempting
