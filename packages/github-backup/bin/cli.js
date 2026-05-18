@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   access,
   chmod,
@@ -26,10 +28,14 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_BACKUP_DIR = "~/backups/github";
 const DEFAULT_TOKEN_FILE = "~/.config/github-backup/token";
+const DEFAULT_B2_CREDENTIALS_FILE = "~/.config/github-backup/b2";
+const DEFAULT_B2_BUCKET_PATH = "/github";
 const DOCKER_IMAGE = "ghcr.io/josegonzalez/python-github-backup";
 const TOKEN_CREATE_URL = "https://github.com/settings/personal-access-tokens/new";
 const TOKEN_DOCS_URL =
   "https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token";
+const B2_AUTHORIZE_URL = "https://api.backblazeb2.com/b2api/v4/b2_authorize_account";
+const B2_MAX_SINGLE_UPLOAD_SIZE = 5 * 1024 * 1024 * 1024;
 const BACKUP_FLAGS = [
   "-P",
   "-F",
@@ -74,8 +80,8 @@ async function main() {
       return;
     }
 
-    checkRuntimeDependencies();
     const config = await collectConfig(args);
+    checkRuntimeDependencies();
     await runBackup(config);
   } catch (error) {
     process.stderr.write(`Error: ${error.message}\n`);
@@ -87,9 +93,15 @@ async function main() {
 function parseArgs(argv, packageInfo) {
   const args = {
     backupDir: null,
+    b2CredentialsFile: null,
+    bucket: null,
+    bucketPath: null,
     excludedRepos: [],
     excludedReposProvided: false,
     help: false,
+    removeZipAfterUpload: false,
+    upload: null,
+    uploadRequested: false,
     user: null,
     version: false,
   };
@@ -126,6 +138,59 @@ function parseArgs(argv, packageInfo) {
 
     if (arg.startsWith("--backup-dir=")) {
       args.backupDir = readInlineOptionValue(arg, "--backup-dir", packageInfo);
+      continue;
+    }
+
+    if (arg === "--upload") {
+      args.uploadRequested = true;
+      if (argv[index + 1] && !argv[index + 1].startsWith("-")) {
+        args.upload = argv[index + 1];
+        index += 1;
+      }
+      continue;
+    }
+
+    if (arg.startsWith("--upload=")) {
+      args.uploadRequested = true;
+      args.upload = arg.slice("--upload=".length).trim() || null;
+      continue;
+    }
+
+    if (arg === "--bucket") {
+      args.bucket = readRequiredOptionValue(argv, index, arg, packageInfo);
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--bucket=")) {
+      args.bucket = readInlineOptionValue(arg, "--bucket", packageInfo);
+      continue;
+    }
+
+    if (arg === "--bucket-path") {
+      args.bucketPath = readRequiredOptionValue(argv, index, arg, packageInfo);
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--bucket-path=")) {
+      args.bucketPath = readInlineOptionValue(arg, "--bucket-path", packageInfo);
+      continue;
+    }
+
+    if (arg === "--b2-credentials-file") {
+      args.b2CredentialsFile = readRequiredOptionValue(argv, index, arg, packageInfo);
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--b2-credentials-file=")) {
+      args.b2CredentialsFile = readInlineOptionValue(arg, "--b2-credentials-file", packageInfo);
+      continue;
+    }
+
+    if (arg === "--rm") {
+      args.removeZipAfterUpload = true;
       continue;
     }
 
@@ -167,7 +232,40 @@ function parseArgs(argv, packageInfo) {
   }
 
   args.excludedRepos = unique(args.excludedRepos);
+  validateUploadArgs(args);
   return args;
+}
+
+function validateUploadArgs(args) {
+  if (args.upload && args.upload !== "b2") {
+    throw new Error(`Unsupported upload target "${args.upload}". Supported target: b2.`);
+  }
+
+  if (!args.uploadRequested) {
+    const uploadOnlyOptions = [];
+
+    if (args.bucket) {
+      uploadOnlyOptions.push("--bucket");
+    }
+
+    if (args.bucketPath) {
+      uploadOnlyOptions.push("--bucket-path");
+    }
+
+    if (args.b2CredentialsFile) {
+      uploadOnlyOptions.push("--b2-credentials-file");
+    }
+
+    if (args.removeZipAfterUpload) {
+      uploadOnlyOptions.push("--rm");
+    }
+
+    if (uploadOnlyOptions.length > 0) {
+      throw new Error(`${uploadOnlyOptions.join(", ")} requires --upload b2.`);
+    }
+
+    return;
+  }
 }
 
 function readRequiredOptionValue(argv, index, option, packageInfo) {
@@ -236,11 +334,21 @@ async function collectConfig(args) {
 
     const backupDir = await prepareBackupDir(backupDirInput);
     const tokenFile = await prepareTokenFile();
+    const upload = args.uploadRequested
+      ? await prepareUploadConfig({
+          bucket: args.bucket,
+          bucketPath: args.bucketPath,
+          credentialsFile: args.b2CredentialsFile,
+          removeZipAfterUpload: args.removeZipAfterUpload,
+          target: args.upload,
+        })
+      : null;
 
     return {
       backupDir,
       excludedRepos: unique(excludedRepos),
       tokenFile,
+      upload,
       user: validateRequired(user, "GitHub username"),
     };
   } catch (error) {
@@ -328,6 +436,142 @@ async function prepareTokenFile() {
 
   await chmod(tokenFile, 0o600);
   return tokenFile;
+}
+
+async function prepareUploadConfig(args) {
+  const target = await resolveUploadTarget(args.target);
+
+  if (target !== "b2") {
+    throw new Error(`Unsupported upload target "${target}". Supported target: b2.`);
+  }
+
+  const bucketName = await resolveRequiredUploadValue(args.bucket, {
+    name: "B2 bucket",
+    prompt: "Backblaze B2 bucket: ",
+  });
+  const bucketPath = normalizeB2BucketPath(args.bucketPath ?? DEFAULT_B2_BUCKET_PATH);
+  const credentialsFile = await prepareB2CredentialsFile(args.credentialsFile);
+  const credentials = await readB2Credentials(credentialsFile);
+
+  process.stdout.write(`Checking B2 bucket before backup: ${bucketName}\n`);
+  const session = await authorizeB2(credentials);
+  const bucket = await findB2Bucket(session, bucketName);
+
+  if (!bucket) {
+    throw new Error(`B2 bucket "${bucketName}" does not exist or this key cannot access it.`);
+  }
+
+  await ensureB2BucketPath(session, bucket, bucketPath);
+
+  return {
+    bucket,
+    bucketName,
+    bucketPath,
+    credentials,
+    removeZipAfterUpload: args.removeZipAfterUpload,
+    target: "b2",
+  };
+}
+
+async function resolveUploadTarget(target) {
+  if (target) {
+    return target;
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error("--upload requires a target when running non-interactively. Supported target: b2.");
+  }
+
+  return promptWithNewInterface("Upload target [b2]: ", {
+    fallback: "b2",
+    name: "upload target",
+    required: true,
+  });
+}
+
+async function resolveRequiredUploadValue(value, { name, prompt }) {
+  if (value) {
+    return validateRequired(value, name);
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(`${name} is required when running non-interactively.`);
+  }
+
+  return promptWithNewInterface(prompt, {
+    name,
+    required: true,
+  });
+}
+
+async function promptWithNewInterface(prompt, options) {
+  const promptRl = createInterface({ input: process.stdin, output: process.stdout });
+
+  try {
+    return await promptForValue(promptRl, prompt, options);
+  } finally {
+    promptRl.close();
+  }
+}
+
+async function prepareB2CredentialsFile(input) {
+  const credentialsFile = expandHome(input ?? DEFAULT_B2_CREDENTIALS_FILE);
+  const credentialsDir = dirname(credentialsFile);
+
+  await mkdir(credentialsDir, { recursive: true });
+  await chmod(credentialsDir, 0o700);
+
+  if (!(await fileHasContent(credentialsFile))) {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      throw new Error(
+        `Backblaze B2 credentials not found at ${credentialsFile}. Run interactively once or create that file manually.`,
+      );
+    }
+
+    process.stdout.write("Backblaze B2 credentials not found, or the credentials file is empty.\n");
+    process.stdout.write("This needs a B2 application key ID and application key.\n");
+    const applicationKeyId = await promptWithNewInterface("B2 application key ID: ", {
+      name: "B2 application key ID",
+      required: true,
+    });
+    const applicationKey = await promptHidden("Paste your B2 application key and press Enter: ");
+    const normalizedKey = validateRequired(applicationKey, "B2 application key");
+
+    await writeFile(
+      credentialsFile,
+      `${JSON.stringify(
+        {
+          applicationKey: normalizedKey,
+          applicationKeyId,
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+  }
+
+  await chmod(credentialsFile, 0o600);
+  return credentialsFile;
+}
+
+async function readB2Credentials(credentialsFile) {
+  let parsed;
+
+  try {
+    parsed = JSON.parse(await readFile(credentialsFile, "utf8"));
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Backblaze B2 credentials file is not valid JSON: ${credentialsFile}`);
+    }
+
+    throw error;
+  }
+
+  return {
+    applicationKey: validateRequired(parsed.applicationKey, "B2 application key"),
+    applicationKeyId: validateRequired(parsed.applicationKeyId, "B2 application key ID"),
+  };
 }
 
 async function fileHasContent(path) {
@@ -425,11 +669,27 @@ async function runBackup(config) {
   });
 
   const zipInfo = await stat(zipPath);
+  let uploadResult = null;
+
+  if (config.upload) {
+    uploadResult = await uploadBackupArchive(config.upload, zipPath, zipInfo);
+
+    if (config.upload.removeZipAfterUpload) {
+      await rm(zipPath);
+      process.stdout.write(`Removed local zip archive: ${displayPath(zipPath)}\n`);
+    }
+  }
 
   process.stdout.write("Done.\n");
   process.stdout.write(`Backup directory: ${config.backupDir}\n`);
-  process.stdout.write(`Zip archive: ${displayPath(zipPath)}\n`);
+  if (!config.upload?.removeZipAfterUpload) {
+    process.stdout.write(`Zip archive: ${displayPath(zipPath)}\n`);
+  }
   process.stdout.write(`Zip size: ${formatBytes(zipInfo.size)}\n`);
+  if (uploadResult) {
+    process.stdout.write(`B2 bucket: ${uploadResult.bucketName}\n`);
+    process.stdout.write(`B2 path: ${uploadResult.fileName}\n`);
+  }
 }
 
 function dockerArgs(config) {
@@ -566,6 +826,196 @@ function runCommand(command, args, { cwd = process.cwd(), failureMessage }) {
   });
 }
 
+async function uploadBackupArchive(uploadConfig, zipPath, zipInfo) {
+  if (zipInfo.size > B2_MAX_SINGLE_UPLOAD_SIZE) {
+    throw new Error(
+      `B2 single-file upload supports files up to ${formatBytes(B2_MAX_SINGLE_UPLOAD_SIZE)}. The zip is ${formatBytes(zipInfo.size)}.`,
+    );
+  }
+
+  const fileName = joinB2FileName(uploadConfig.bucketPath, basename(zipPath));
+
+  process.stdout.write("Uploading zip archive to Backblaze B2...\n");
+  process.stdout.write(`B2 bucket: ${uploadConfig.bucketName}\n`);
+  process.stdout.write(`B2 path: ${fileName}\n`);
+
+  const session = await authorizeB2(uploadConfig.credentials);
+  const uploadUrl = await getB2UploadUrl(session, uploadConfig.bucket.bucketId);
+  const contentSha1 = await sha1File(zipPath);
+  const response = await fetch(uploadUrl.uploadUrl, {
+    body: createReadStream(zipPath),
+    duplex: "half",
+    headers: {
+      Authorization: uploadUrl.authorizationToken,
+      "Content-Length": String(zipInfo.size),
+      "Content-Type": "application/zip",
+      "X-Bz-Content-Sha1": contentSha1,
+      "X-Bz-File-Name": encodeB2FileName(fileName),
+      "X-Bz-Info-src_last_modified_millis": String(Math.round(zipInfo.mtimeMs)),
+    },
+    method: "POST",
+  });
+  const result = await readB2Response(response, "B2 upload failed.");
+
+  process.stdout.write(`B2 file ID: ${result.fileId}\n`);
+
+  return {
+    bucketName: uploadConfig.bucketName,
+    fileName: result.fileName ?? fileName,
+  };
+}
+
+async function authorizeB2(credentials) {
+  ensureFetchAvailable();
+  const auth = Buffer.from(
+    `${credentials.applicationKeyId}:${credentials.applicationKey}`,
+    "utf8",
+  ).toString("base64");
+  const response = await fetch(B2_AUTHORIZE_URL, {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+  });
+  const result = await readB2Response(response, "B2 authorization failed.");
+  const storageApi = result.apiInfo?.storageApi ?? result;
+  const apiUrl = storageApi.apiUrl;
+  const authorizationToken = result.authorizationToken ?? storageApi.authorizationToken;
+
+  if (!apiUrl || !authorizationToken || !result.accountId) {
+    throw new Error("B2 authorization response did not include the expected API details.");
+  }
+
+  return {
+    accountId: result.accountId,
+    apiUrl,
+    authorizationToken,
+  };
+}
+
+async function findB2Bucket(session, bucketName) {
+  const result = await b2JsonRequest(
+    `${session.apiUrl}/b2api/v4/b2_list_buckets`,
+    session.authorizationToken,
+    {
+      accountId: session.accountId,
+      bucketName,
+    },
+    "B2 bucket check failed.",
+  );
+
+  return result.buckets?.find((bucket) => bucket.bucketName === bucketName) ?? null;
+}
+
+async function getB2UploadUrl(session, bucketId) {
+  return b2JsonRequest(
+    `${session.apiUrl}/b2api/v4/b2_get_upload_url`,
+    session.authorizationToken,
+    { bucketId },
+    "B2 upload URL request failed.",
+  );
+}
+
+async function ensureB2BucketPath(session, bucket, bucketPath) {
+  if (!bucketPath) {
+    return;
+  }
+
+  const markerName = joinB2FileName(bucketPath, ".keep");
+  process.stdout.write(`Ensuring B2 bucket path exists: /${bucketPath}\n`);
+  await uploadB2Bytes(session, bucket.bucketId, markerName, Buffer.alloc(0), {
+    contentType: "application/octet-stream",
+    failureMessage: "B2 bucket path creation failed.",
+  });
+}
+
+async function uploadB2Bytes(
+  session,
+  bucketId,
+  fileName,
+  body,
+  { contentType, failureMessage },
+) {
+  const uploadUrl = await getB2UploadUrl(session, bucketId);
+  const response = await fetch(uploadUrl.uploadUrl, {
+    body,
+    headers: {
+      Authorization: uploadUrl.authorizationToken,
+      "Content-Length": String(body.length),
+      "Content-Type": contentType,
+      "X-Bz-Content-Sha1": createHash("sha1").update(body).digest("hex"),
+      "X-Bz-File-Name": encodeB2FileName(fileName),
+    },
+    method: "POST",
+  });
+
+  return readB2Response(response, failureMessage);
+}
+
+async function b2JsonRequest(url, authorizationToken, body, failureMessage) {
+  ensureFetchAvailable();
+  const response = await fetch(url, {
+    body: JSON.stringify(body),
+    headers: {
+      Authorization: authorizationToken,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  return readB2Response(response, failureMessage);
+}
+
+async function readB2Response(response, failureMessage) {
+  const text = await response.text();
+  let body = null;
+
+  if (text.trim()) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { message: text.trim() };
+    }
+  }
+
+  if (!response.ok) {
+    const details = body?.message || body?.code || response.statusText || "Unknown B2 error.";
+    throw new Error(`${failureMessage} ${response.status} ${details}`);
+  }
+
+  return body ?? {};
+}
+
+function ensureFetchAvailable() {
+  if (typeof fetch !== "function") {
+    throw new Error("Backblaze B2 uploads require Node.js 18 or newer for built-in fetch.");
+  }
+}
+
+function normalizeB2BucketPath(path) {
+  const value = validateRequired(path, "B2 bucket path").replace(/\\/g, "/").trim();
+  const normalized = value.replace(/^\/+/, "").replace(/\/+$/, "");
+  return normalized;
+}
+
+function joinB2FileName(bucketPath, fileName) {
+  return [bucketPath, fileName].filter(Boolean).join("/");
+}
+
+function encodeB2FileName(fileName) {
+  return fileName.split("/").map(encodeURIComponent).join("/");
+}
+
+function sha1File(path) {
+  return new Promise((resolveHash, rejectHash) => {
+    const hash = createHash("sha1");
+    const stream = createReadStream(path);
+
+    stream.on("error", rejectHash);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolveHash(hash.digest("hex")));
+  });
+}
+
 function expandHome(path) {
   const value = String(path ?? "").trim();
 
@@ -668,6 +1118,7 @@ Examples:
   npx ${command}
   npx ${command} --user octocat --backup-dir ~/backups/github
   npx ${command} --user octocat --exclude repo1 repo2
+  npx ${command} --user octocat --upload b2 --bucket backups --bucket-path /github
   npx ${command} --help
   npx ${command} --version
 
@@ -677,6 +1128,11 @@ Options:
   -h, --help                        Show this help text.
   -u, --user <username>             GitHub username to back up.
   -v, --version                     Show the package version.
+  --upload [target]                 Upload target. Prompts when omitted. Supported target: b2.
+  --bucket <name>                   Backblaze B2 bucket name. Prompts with --upload b2 when omitted.
+  --bucket-path <path>              Backblaze B2 folder prefix. Defaults to ${DEFAULT_B2_BUCKET_PATH}.
+  --b2-credentials-file <path>      Backblaze B2 credentials file. Defaults to ${DEFAULT_B2_CREDENTIALS_FILE}.
+  --rm                              Remove the local zip after a successful upload.
 
 Requirements:
   docker                            Must be installed, running, and usable by this user.
@@ -688,6 +1144,13 @@ Token:
   Docs: ${TOKEN_DOCS_URL}.
   The token is stored at ${DEFAULT_TOKEN_FILE}.
   If it does not exist, you will be prompted for it and it will be saved for later runs.
+
+Backblaze B2:
+  B2 uploads use a stored application key ID and application key.
+  The credentials are stored at ${DEFAULT_B2_CREDENTIALS_FILE}.
+  If they do not exist, you will be prompted for them and they will be saved for later runs.
+  The B2 bucket is checked before the GitHub backup starts.
+  The B2 bucket path is created before the GitHub backup starts.
 `;
 }
 
