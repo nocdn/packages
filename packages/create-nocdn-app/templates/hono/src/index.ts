@@ -48,19 +48,8 @@ app.get("/", (c) => {
       "",
       "Health check:",
       `  curl ${base}/api/health`,
-      "",
-      "App info:",
-      `  curl ${base}/api`,
     ].join("\n") + "\n",
   );
-});
-
-app.get("/api", (c) => {
-  return c.json({
-    name: "{{project-name}}",
-    status: "ok",
-    port,
-  });
 });
 
 const server = Bun.serve({

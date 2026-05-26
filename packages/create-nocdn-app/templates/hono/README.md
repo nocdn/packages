@@ -22,7 +22,6 @@ Open http://localhost:{{port}}
 | Method | Path | Description |
 | ------ | ---- | ----------- |
 | `GET` | `/` | Plain-text API usage explainer |
-| `GET` | `/api` | App info |
 | `GET` | `/api/health` | Health check |
 
 ## Environment variables
