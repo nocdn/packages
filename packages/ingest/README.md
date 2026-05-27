@@ -69,6 +69,7 @@ bunx @nocdn/ingest . --template nextjs
 bunx @nocdn/ingest . --ignore-file .customignore
 bunx @nocdn/ingest . --all
 bunx @nocdn/ingest . --all --exclude-gitignored --exclude-env
+bunx @nocdn/ingest . --exclude-pdf
 bunx @nocdn/ingest . --include-dangerous
 bunx @nocdn/ingest --repo https://github.com/torvalds/linux.git
 ```
@@ -83,10 +84,10 @@ bunx @nocdn/ingest --repo https://github.com/torvalds/linux.git
 | `-o`, `--output [file]` | write digest to a file; without a file, writes `digest.txt` |
 | `-S`, `--stdout` | write the full digest to stdout |
 | `-n`, `--no-clipboard` | skip digest output side effects and print only the summary |
-| `-a`, `--all` | enable every special include option: `--include-dangerous`, `--include-gitignored`, `--include-pdf`, `--include-env`, and `--ipynb` |
+| `-a`, `--all` | enable every special include option: `--include-dangerous`, `--include-gitignored`, `--include-env`, and `--ipynb` |
 | `--exclude-dangerous` | with `--all`, keep built-in safety defaults excluded |
 | `--exclude-gitignored` | with `--all`, keep `.gitignore` and `.gitingestignore` filtering enabled |
-| `--exclude-pdf` | with `--all`, keep PDF files excluded |
+| `--exclude-pdf` | exclude PDF files; PDFs are parsed by LiteParse and included by default |
 | `--exclude-env` | with `--all`, keep `.env` files excluded |
 | `--exclude-ipynb` | with `--all`, keep `.ipynb` files as raw JSON instead of converting them |
 | `-i`, `--include <patterns...>` | include only matching files; directories are still traversed |
@@ -98,6 +99,7 @@ bunx @nocdn/ingest --repo https://github.com/torvalds/linux.git
 | `-F`, `--ignore-file <file>` | also load ignore patterns from an additional ignore file name |
 | `-s`, `--max-size <bytes>` | maximum size of a single included file; default `10485760` |
 | `-N`, `--line-numbers` | prefix each line of file content with its line number |
+| `--include-pdf` | compatibility no-op; PDF files are included by default |
 | `--include-env` | include `.env` files that are excluded by built-in defaults and templates |
 | `--dry-run` | preview the files that would be included with sizes, without producing a digest |
 | `--ipynb` | convert `.ipynb` files to a readable text format (cell sources and outputs) instead of raw JSON |
@@ -112,6 +114,8 @@ By default it applies:
 - built-in exclude patterns for common generated, dependency, cache, binary, and VCS paths, including `.firecrawl/`
 - patterns from `.gitignore`
 - patterns from `.gitingestignore`
+
+PDF files are included by default and parsed locally with LiteParse. Exclude them with `--exclude-pdf`, `--exclude "*.pdf"`, or `--exclude PDF`.
 
 Add more ignore file names with `--ignore-file`:
 

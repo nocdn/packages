@@ -43,7 +43,6 @@ Skip every digest output target and print only the summary.
 Enable every special include option:
 .BR \-\-include\-dangerous ,
 .BR \-\-include\-gitignored ,
-.BR \-\-include\-pdf ,
 .BR \-\-include\-env ,
 and
 .BR \-\-ipynb .
@@ -63,9 +62,7 @@ and
 filtering enabled.
 .TP
 .B \-\-exclude\-pdf
-With
-.BR \-\-all ,
-keep PDF files excluded.
+Exclude PDF files. PDF files are parsed by LiteParse and included by default.
 .TP
 .B \-\-exclude\-env
 With
@@ -116,9 +113,7 @@ Maximum size of one file to include. Default:
 .BR 10485760 .
 .TP
 .B \-\-include\-pdf
-Extract text from PDF files using
-.B unpdf
-and include the result in the digest.
+Compatibility no-op. PDF files are included by default.
 .TP
 .B \-\-include\-env
 Include
@@ -230,7 +225,7 @@ ingest \-\-dry\-run
 .fi
 .RE
 .PP
-Include every special include category, including ignored paths, built-in safety defaults, PDFs, env files, and converted notebooks:
+Include every special include category, including ignored paths, built-in safety defaults, env files, and converted notebooks:
 .PP
 .RS 4
 .nf

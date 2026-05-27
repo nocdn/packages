@@ -12,6 +12,39 @@ import { ingestPath } from "../src/ingest.js";
 
 const execFileAsync = promisify(execFile);
 const CLI_PATH = fileURLToPath(new URL("../bin/ingest.js", import.meta.url));
+const SIMPLE_PDF = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 44 >>
+stream
+BT /F1 24 Tf 72 720 Td (Hello LiteParse PDF) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Root 1 0 R /Size 6 >>
+startxref
+405
+%%EOF
+`;
 
 async function createFixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "ingest-"));
@@ -47,7 +80,7 @@ async function createAllFixture() {
   await writeFile(path.join(root, "node_modules", "pkg", "index.js"), "module.exports = true;\n", "utf8");
   await writeFile(path.join(root, ".git", "config"), "[core]\n", "utf8");
   await writeFile(path.join(root, ".firecrawl", "search.md"), "junk from web searches\n", "utf8");
-  await writeFile(path.join(root, "document.pdf"), "%PDF-1.1\nnot a complete pdf\n", "utf8");
+  await writeFile(path.join(root, "document.pdf"), SIMPLE_PDF, "utf8");
   await writeFile(
     path.join(root, "notebook.ipynb"),
     JSON.stringify({
@@ -124,6 +157,40 @@ describe("ingestPath", () => {
     assert.ok(result.content.includes("FILE: src/main.ts"));
   });
 
+  test("returns raw content without a file header for a single file", async () => {
+    const root = await createFixture();
+    const result = await ingestPath(path.join(root, "README.md"));
+
+    assert.equal(result.content, "# Fixture\n");
+    assert.equal(result.digest, "# Fixture\n\n");
+    assert.ok(!result.content.includes("FILE: README.md"));
+    assert.ok(result.summary.includes("File: README.md"));
+    assert.equal(result.tree, "");
+  });
+
+  test("includes PDF files by default using LiteParse", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "ingest-pdf-"));
+    await writeFile(path.join(root, "README.md"), "# Fixture\n", "utf8");
+    await writeFile(path.join(root, "document.pdf"), SIMPLE_PDF, "utf8");
+
+    const result = await ingestPath(root);
+
+    assert.ok(result.content.includes("FILE: document.pdf"));
+    assert.ok(result.content.includes("[PDF document - 1 page parsed by LiteParse]"));
+    assert.ok(result.content.includes("Hello LiteParse PDF"));
+  });
+
+  test("excludes PDF files when explicitly requested", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "ingest-pdf-exclude-"));
+    await writeFile(path.join(root, "README.md"), "# Fixture\n", "utf8");
+    await writeFile(path.join(root, "document.pdf"), SIMPLE_PDF, "utf8");
+
+    const result = await ingestPath(root, { includePdf: false });
+
+    assert.ok(result.content.includes("FILE: README.md"));
+    assert.ok(!result.content.includes("FILE: document.pdf"));
+  });
+
   test("CLI --all enables every special include option", async () => {
     const root = await createAllFixture();
 
@@ -131,14 +198,14 @@ describe("ingestPath", () => {
       maxBuffer: 1024 * 1024,
     });
 
-    assert.equal(stderr, "Running with: --include-dangerous, --include-gitignored, --include-pdf, --include-env, --ipynb\n");
+    assert.equal(stderr, "Running with: --include-dangerous, --include-gitignored, --include-env, --ipynb\n");
     assert.ok(stdout.includes("FILE: ignored.txt"));
     assert.ok(stdout.includes("FILE: .env"));
     assert.ok(stdout.includes("FILE: node_modules/pkg/index.js"));
     assert.ok(stdout.includes("FILE: .git/config"));
     assert.ok(stdout.includes("FILE: .firecrawl/search.md"));
     assert.ok(stdout.includes("FILE: document.pdf"));
-    assert.ok(stdout.includes("[PDF text extraction failed:"));
+    assert.ok(stdout.includes("Hello LiteParse PDF"));
     assert.ok(stdout.includes("[Jupyter Notebook]"));
     assert.ok(stdout.includes("[cell 1] markdown"));
   });
@@ -152,12 +219,26 @@ describe("ingestPath", () => {
       { maxBuffer: 1024 * 1024 },
     );
 
-    assert.equal(stderr, "Running with: --include-dangerous, --include-pdf, --ipynb\n");
+    assert.equal(stderr, "Running with: --include-dangerous, --ipynb\n");
     assert.ok(!stdout.includes("FILE: ignored.txt"));
     assert.ok(!stdout.includes("FILE: .env"));
     assert.ok(stdout.includes("FILE: node_modules/pkg/index.js"));
     assert.ok(stdout.includes("FILE: .git/config"));
     assert.ok(stdout.includes("FILE: document.pdf"));
     assert.ok(stdout.includes("[Jupyter Notebook]"));
+  });
+
+  test("CLI excludes PDFs with --exclude-pdf or --exclude PDF", async () => {
+    const root = await createAllFixture();
+
+    const excludedByFlag = await execFileAsync(process.execPath, [CLI_PATH, root, "--all", "--exclude-pdf", "--stdout"], {
+      maxBuffer: 1024 * 1024,
+    });
+    const excludedByPattern = await execFileAsync(process.execPath, [CLI_PATH, root, "--all", "--exclude", "PDF", "--stdout"], {
+      maxBuffer: 1024 * 1024,
+    });
+
+    assert.ok(!excludedByFlag.stdout.includes("FILE: document.pdf"));
+    assert.ok(!excludedByPattern.stdout.includes("FILE: document.pdf"));
   });
 });

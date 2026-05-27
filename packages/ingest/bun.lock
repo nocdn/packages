@@ -5,14 +5,24 @@
     "": {
       "name": "@nocdn/ingest",
       "dependencies": {
+        "@llamaindex/liteparse": "^2.0.1",
         "tinyclip": "^0.1.12",
-        "unpdf": "^1.6.2",
       },
     },
   },
   "packages": {
-    "tinyclip": ["tinyclip@0.1.12", "", {}, "sha512-Ae3OVUqifDw0wBriIBS7yVaW44Dp6eSHQcyq4Igc7eN2TJH/2YsicswaW+J/OuMvhpDPOKEgpAZCjkb4hpoyeA=="],
+    "@llamaindex/liteparse": ["@llamaindex/liteparse@2.0.1", "", { "dependencies": { "commander": "^12.0.0" }, "optionalDependencies": { "@llamaindex/liteparse-darwin-arm64": "2.0.1", "@llamaindex/liteparse-linux-arm64-gnu": "2.0.1", "@llamaindex/liteparse-linux-x64-gnu": "2.0.1", "@llamaindex/liteparse-win32-x64-msvc": "2.0.1" }, "bin": { "lit": "dist/cli.js", "liteparse": "dist/cli.js" } }, "sha512-8LGmIflr6AL3zFqy7PU/bRBIgRJtZWLco6XQc9Hsvk6GKpQ4GFsH6GDlk5HTdvuAbdoDb0g4PYLxd/r8SNCENg=="],
 
-    "unpdf": ["unpdf@1.6.2", "", { "peerDependencies": { "@napi-rs/canvas": "^0.1.69" }, "optionalPeers": ["@napi-rs/canvas"] }, "sha512-zQ80ySoPuPHOsvIoRp/nJyQt8TOUoTh1+WBCGcBvlddQNgKDLRwm0AY3x8Q35I7+kIiRSgqMx+Ma2pl9McIp7A=="],
+    "@llamaindex/liteparse-darwin-arm64": ["@llamaindex/liteparse-darwin-arm64@2.0.1", "", { "os": "darwin", "cpu": "arm64" }, "sha512-/f8hH6R8CEtc5/2QMQvER4gt3RKgvcM4K6OzCvqlEIiJtyob67RkZhkFA8x2h4dAzgAtqMegQCo1vFHs31IPXg=="],
+
+    "@llamaindex/liteparse-linux-arm64-gnu": ["@llamaindex/liteparse-linux-arm64-gnu@2.0.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-oir+ZNsDs9aAPG4BmYHTAhQRb+wBVTXvWgPDY+qn6bAJjY4qMIrlVbUPSzRnKCXZ+4nuuj7PJsRxkXHrmxoQ5A=="],
+
+    "@llamaindex/liteparse-linux-x64-gnu": ["@llamaindex/liteparse-linux-x64-gnu@2.0.1", "", { "os": "linux", "cpu": "x64" }, "sha512-cMoAkgMMF9V/Mwy7kkeGMBC0q22xVHGTR27ZYpmh56eQdsLTt7YnjcACNLlD9ULJ5ha7DvKIuS0Bmu+agiJvsg=="],
+
+    "@llamaindex/liteparse-win32-x64-msvc": ["@llamaindex/liteparse-win32-x64-msvc@2.0.1", "", { "os": "win32", "cpu": "x64" }, "sha512-d/CD/Hidf1GL72pQTyy3gKTeJScElDyRZyPDhFzZYHdFBQY/3zRaUfzzdMZGnjhdwMB10uJeuCYux8pKEcW2Kw=="],
+
+    "commander": ["commander@12.1.0", "", {}, "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA=="],
+
+    "tinyclip": ["tinyclip@0.1.12", "", {}, "sha512-Ae3OVUqifDw0wBriIBS7yVaW44Dp6eSHQcyq4Igc7eN2TJH/2YsicswaW+J/OuMvhpDPOKEgpAZCjkb4hpoyeA=="],
   }
 }

@@ -1,7 +1,6 @@
 import { lstat, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { TextDecoder } from "node:util";
-import { extractText, getDocumentProxy } from "unpdf";
 
 import {
   BUILT_IN_EXCLUDE_PATTERNS,
@@ -19,6 +18,9 @@ const MAX_FILES = 10_000;
 const MAX_TOTAL_SIZE_BYTES = 500 * 1024 * 1024;
 const MAX_DIRECTORY_DEPTH = 20;
 const SAMPLE_SIZE = 8192;
+const PDF_EXCLUDE_PATTERNS = ["*.pdf"];
+
+let liteParseParserPromise;
 
 export async function ingestPath(source = ".", options = {}) {
   const startTime = performance.now();
@@ -33,16 +35,19 @@ export async function ingestPath(source = ".", options = {}) {
     ? loadedIgnorePatterns.filter((pattern) => !isDangerousIgnorePattern(pattern))
     : loadedIgnorePatterns;
   const rawTemplatePatterns = collectTemplatePatterns(options.templates ?? []);
-  const userExcludePatterns = parsePatterns(options.exclude ?? []);
+  const userExcludePatterns = parsePatterns(options.exclude ?? []).map(normalizePdfExcludePattern);
+  const includePdf = options.includePdf ?? true;
   const rawBuiltInPatterns = options.includeDangerous
     ? []
-    : filterPdfPattern(BUILT_IN_EXCLUDE_PATTERNS, options.includePdf);
+    : filterPdfPattern(BUILT_IN_EXCLUDE_PATTERNS, includePdf);
   const builtInPatterns = options.includeEnv ? filterEnvPatterns(rawBuiltInPatterns) : rawBuiltInPatterns;
   const templatePatterns = options.includeEnv ? filterEnvPatterns(rawTemplatePatterns) : rawTemplatePatterns;
+  const pdfExcludePatterns = includePdf ? [] : PDF_EXCLUDE_PATTERNS;
   const excludePatterns = [
     ...builtInPatterns,
     ...ignoreFilePatterns,
     ...templatePatterns,
+    ...pdfExcludePatterns,
     ...userExcludePatterns,
   ];
   const shouldExclude = createPatternMatcher(excludePatterns);
@@ -65,8 +70,8 @@ export async function ingestPath(source = ".", options = {}) {
   const isRootFile = !rootStats.isDirectory();
 
   const rootNode = isRootFile
-    ? await processRootFile(rootPath, rootName, path.basename(rootPath), shouldInclude, state, options.includePdf)
-    : await processDirectory(rootPath, rootName, "", 0, shouldExclude, shouldInclude, state, options.includePdf);
+    ? await processRootFile(rootPath, rootName, path.basename(rootPath), shouldExclude, shouldInclude, state, includePdf)
+    : await processDirectory(rootPath, rootName, "", 0, shouldExclude, shouldInclude, state, includePdf);
 
   if (!rootNode) {
     throw new Error("No files were available to ingest after exclusions were applied.");
@@ -79,7 +84,7 @@ export async function ingestPath(source = ".", options = {}) {
 
   if (isRootFile) {
     tree = "";
-    content = renderSingleFile(rootNode, state.lineNumbers);
+    content = renderSingleFileContent(rootNode, state.lineNumbers);
     summary = createFileSummary({
       relativePath: rootNode.relativePath,
       resolvedRoot,
@@ -122,13 +127,8 @@ export async function ingestPath(source = ".", options = {}) {
   };
 }
 
-function renderSingleFile(node, lineNumbers) {
-  const label = `${node.type === "symlink" ? "SYMLINK" : "FILE"}: ${node.relativePath}${
-    node.type === "symlink" ? ` -> ${node.target}` : ""
-  }`;
-  const separator = "=".repeat(label.length);
-  const body = lineNumbers && node.type === "file" ? addLineNumbers(node.content) : node.content;
-  return `${separator}\n${label}\n${separator}\n${body}`;
+function renderSingleFileContent(node, lineNumbers) {
+  return lineNumbers && node.type === "file" ? addLineNumbers(node.content) : node.content;
 }
 
 function createFileSummary({ relativePath, resolvedRoot, size }) {
@@ -229,7 +229,11 @@ async function processDirectory(directoryPath, name, relativePath, depth, should
   };
 }
 
-async function processRootFile(filePath, name, relativePath, shouldInclude, state, includePdf) {
+async function processRootFile(filePath, name, relativePath, shouldExclude, shouldInclude, state, includePdf) {
+  if (shouldExclude(relativePath, false)) {
+    return null;
+  }
+
   if (shouldInclude && !shouldInclude(relativePath, false)) {
     return null;
   }
@@ -325,16 +329,31 @@ async function readFileContent(filePath, name, includePdf, verbose, convertIpynb
 async function extractPdfText(filePath, verbose) {
   const restoreStderr = suppressStderr(!verbose);
   try {
-    const data = await readFile(filePath);
-    const pdf = await getDocumentProxy(new Uint8Array(data));
-    const { totalPages, text } = await extractText(pdf, { mergePages: true });
-    const header = `[PDF document — ${totalPages} page${totalPages === 1 ? "" : "s"}]`;
+    const parser = await getLiteParseParser();
+    const result = await parser.parse(filePath);
+    const totalPages = result.pages?.length ?? 0;
+    const text = result.text?.trim() ?? "";
+    const header = `[PDF document - ${totalPages} page${totalPages === 1 ? "" : "s"} parsed by LiteParse]`;
     return text.trim() ? `${header}\n\n${text}` : `${header}\n\n[No extractable text]`;
   } catch (error) {
     return `[PDF text extraction failed: ${error.message}]`;
   } finally {
     restoreStderr();
   }
+}
+
+async function getLiteParseParser() {
+  if (!liteParseParserPromise) {
+    liteParseParserPromise = import("@llamaindex/liteparse").then(({ LiteParse }) =>
+      new LiteParse({
+        ocrEnabled: false,
+        outputFormat: "text",
+        quiet: true,
+      }),
+    );
+  }
+
+  return liteParseParserPromise;
 }
 
 async function extractIpynbContent(filePath, verbose) {
@@ -441,6 +460,10 @@ function filterPdfPattern(patterns, includePdf) {
     return patterns;
   }
   return patterns.filter((pattern) => pattern !== "*.pdf");
+}
+
+function normalizePdfExcludePattern(pattern) {
+  return String(pattern).toLowerCase() === "pdf" ? PDF_EXCLUDE_PATTERNS[0] : pattern;
 }
 
 async function loadIgnorePatterns(rootPath, ignoreFileNames) {

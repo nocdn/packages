@@ -8,10 +8,10 @@ import { ingestPath, writeDigest } from "../src/ingest.js";
 import { TEMPLATE_PATTERNS } from "../src/patterns.js";
 
 const DEFAULT_OUTPUT = "digest.txt";
+const PDF_EXCLUDE_PATTERNS = ["*.pdf"];
 const ALL_INCLUDE_OPTIONS = [
   { key: "includeDangerous", includeFlag: "--include-dangerous", excludeFlag: "--exclude-dangerous" },
   { key: "includeGitignored", includeFlag: "--include-gitignored", excludeFlag: "--exclude-gitignored" },
-  { key: "includePdf", includeFlag: "--include-pdf", excludeFlag: "--exclude-pdf", excludePatterns: ["*.pdf"] },
   { key: "includeEnv", includeFlag: "--include-env", excludeFlag: "--exclude-env", excludePatterns: [".env"] },
   { key: "ipynb", includeFlag: "--ipynb", excludeFlag: "--exclude-ipynb" },
 ];
@@ -126,7 +126,7 @@ function parseArgs(argv, packageInfo) {
     noClipboard: false,
     includeDangerous: false,
     includeGitignored: false,
-    includePdf: false,
+    includePdf: true,
     includeEnv: false,
     all: false,
     excludedAllIncludes: new Set(),
@@ -203,6 +203,11 @@ function parseArgs(argv, packageInfo) {
       continue;
     }
 
+    if (arg === "--exclude-pdf") {
+      args.includePdf = false;
+      continue;
+    }
+
     if (arg === "-N" || arg === "--line-numbers") {
       args.lineNumbers = true;
       continue;
@@ -268,13 +273,13 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "-e" || arg === "--exclude") {
       const values = collectValues(argv, index + 1, "--exclude");
-      args.exclude.push(...values.items);
+      args.exclude.push(...values.items.map(normalizeExcludePattern));
       index = values.nextIndex - 1;
       continue;
     }
 
     if (arg.startsWith("--exclude=")) {
-      args.exclude.push(arg.slice("--exclude=".length));
+      args.exclude.push(normalizeExcludePattern(arg.slice("--exclude=".length)));
       continue;
     }
 
@@ -367,6 +372,11 @@ function enableAllIncludes(args) {
 
     args[option.key] = true;
   }
+}
+
+function normalizeExcludePattern(pattern) {
+  const value = String(pattern).trim();
+  return value.toLowerCase() === "pdf" ? PDF_EXCLUDE_PATTERNS[0] : value;
 }
 
 function enabledAllIncludeFlags(args) {
@@ -522,6 +532,7 @@ Examples:
   ${command} --stdout | pbcopy
   ${command} . --all
   ${command} . --all --exclude-gitignored --exclude-env
+  ${command} . --exclude-pdf
   ${command} . --ipynb
   ${command} -r https://github.com/torvalds/linux
   ${command} --repo https://github.com/torvalds/linux.git
@@ -534,10 +545,10 @@ Options:
   -o, --output [file]              Write the digest to a file. Without a file, writes digest.txt in the current directory.
   -S, --stdout                     Write the full digest to stdout and do not print status text.
   -n, --no-clipboard               Do not copy or write the digest; print only the status summary.
-  -a, --all                        Enable every special include option: --include-dangerous, --include-gitignored, --include-pdf, --include-env, and --ipynb.
+  -a, --all                        Enable every special include option: --include-dangerous, --include-gitignored, --include-env, and --ipynb.
       --exclude-dangerous          With --all, keep built-in safety defaults excluded.
       --exclude-gitignored         With --all, keep .gitignore and .gitingestignore filtering enabled.
-      --exclude-pdf                With --all, keep PDF files excluded.
+      --exclude-pdf                Exclude PDF files. PDFs are included by default.
       --exclude-env                With --all, keep .env files excluded.
       --exclude-ipynb              With --all, keep .ipynb files as raw JSON instead of converting them.
   -i, --include <patterns...>      Include only matching files. Directories are still traversed to find matches.
@@ -547,7 +558,7 @@ Options:
   -g, --include-gitignored         Include files matched by .gitignore and .gitingestignore.
   -F, --ignore-file <file>         Also load ignore patterns from this file name, for example .customignore.
   -s, --max-size <bytes>           Maximum size of one file to include. Default: 10485760.
-      --include-pdf                Extract text from PDF files and include it in the digest.
+      --include-pdf                Compatibility no-op; PDF files are included by default.
       --include-env                Include .env files that are excluded by built-in defaults and templates.
   -N, --line-numbers               Prefix each line of file content with its line number.
       --dry-run                    Print the files that would be included with sizes without producing or copying a digest.
