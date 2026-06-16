@@ -1,16 +1,20 @@
 {
-  "name": "@nocdn/create-repo",
+  "name": "@nocdn/quick-repo",
   "version": "0.0.1",
   "description": "A CLI to quickly create a new github repo",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "create-repo": "bin/cli.js"
+    "quick-repo": "bin/cli.js"
   },
   "files": [
     "bin",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocdn/quick-repo.git"
+  },
   "publishConfig": {
     "access": "public"
   },
