@@ -1,0 +1,20 @@
+{
+  "name": "@nocdn/create-repo",
+  "version": "0.0.1",
+  "description": "A CLI to quickly create a new github repo",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-repo": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "start": "node ./bin/cli.js"
+  }
+}
