@@ -36,6 +36,12 @@ npm exec @nocdn/quick-repo
 quick-repo [repo-name] [options]
 ```
 
+You can answer the prompts interactively or pass values up front:
+
+```bash
+bunx @nocdn/quick-repo my-repo --private --description "My app" --init
+```
+
 When `repo-name` is omitted, the CLI defaults to the current folder name. Use
 `owner/name` to create the repository under an organization you can access.
 
@@ -72,13 +78,32 @@ git add .
 git commit -m "init: initial file upload"
 ```
 
+Use `--push` to add the new GitHub repository as `origin`, rename the local
+branch to `main`, and push:
+
+```bash
+bunx @nocdn/quick-repo --init --push
+```
+
+That runs these commands after creating the GitHub repository:
+
+```bash
+git remote add origin https://github.com/OWNER/REPO.git
+git branch -M main
+git push -u origin main
+```
+
 | argument | description |
 | --- | --- |
 | `repo-name` | optional repository name; defaults to the current folder name |
 
 | flag | description |
 | --- | --- |
+| `-d`, `--description <text>` | use this repository description without prompting |
+| `--public` | create a public repository without prompting |
+| `--private` | create a private repository without prompting |
 | `--init` | run `git init`, `git add .`, and `git commit -m "init: initial file upload"` before creating the GitHub repo |
+| `--push` | add `origin`, rename the branch to `main`, and push after creating the GitHub repo |
 | `-h`, `--help` | show help |
 | `-v`, `--version` | show version |
 

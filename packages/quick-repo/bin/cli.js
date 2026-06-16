@@ -26,7 +26,7 @@ async function main() {
     await ensureGitHubCli();
     await ensureGitHubAuth();
 
-    const answers = await promptForRepository(args.repoName);
+    const answers = await promptForRepository(args);
     const repository = await resolveRepository(answers.repoName);
 
     if (args.init) {
@@ -36,6 +36,14 @@ async function main() {
 
     process.stdout.write(`\nCreating ${repository.fullName} on GitHub...\n`);
     await createBlankRepository(repository.fullName, answers);
+
+    if (args.push) {
+      process.stdout.write("\nPushing local repository to GitHub...\n");
+      await pushLocalRepository(repository);
+      process.stdout.write(`\nCreated and pushed https://${githubHost}/${repository.fullName}\n`);
+      return;
+    }
+
     process.stdout.write(`\n${setupInstructions(repository)}\n`);
   } catch (error) {
     process.stderr.write(`Error: ${error.message}\n`);
@@ -48,6 +56,9 @@ function parseArgs(argv, packageInfo) {
     help: false,
     version: false,
     init: false,
+    push: false,
+    description: undefined,
+    visibility: "",
     repoName: "",
   };
 
@@ -69,6 +80,34 @@ function parseArgs(argv, packageInfo) {
       continue;
     }
 
+    if (arg === "--push") {
+      args.push = true;
+      continue;
+    }
+
+    if (arg === "--public" || arg === "--private") {
+      const visibility = arg.slice(2);
+
+      if (args.visibility && args.visibility !== visibility) {
+        throw new Error('Choose either "--public" or "--private", not both.');
+      }
+
+      args.visibility = visibility;
+      continue;
+    }
+
+    if (arg === "-d" || arg === "--description") {
+      const value = readOptionValue(argv, index, arg, packageInfo);
+      args.description = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--description=")) {
+      args.description = arg.slice("--description=".length);
+      continue;
+    }
+
     if (arg.startsWith("-")) {
       throw new Error(
         `Unknown option "${arg}". Run ${commandName(packageInfo)} --help for usage.`,
@@ -85,6 +124,33 @@ function parseArgs(argv, packageInfo) {
   }
 
   return args;
+}
+
+function readOptionValue(argv, index, option, packageInfo) {
+  const value = argv[index + 1];
+
+  if (value === undefined || isKnownOption(value)) {
+    throw new Error(
+      `Option "${option}" requires a value. Run ${commandName(packageInfo)} --help for usage.`,
+    );
+  }
+
+  return value;
+}
+
+function isKnownOption(value) {
+  return [
+    "-h",
+    "--help",
+    "-v",
+    "--version",
+    "--init",
+    "--push",
+    "--public",
+    "--private",
+    "-d",
+    "--description",
+  ].includes(value);
 }
 
 async function ensureGitHubCli() {
@@ -117,14 +183,17 @@ async function ensureGitHubAuth() {
   }
 }
 
-async function promptForRepository(repoNameFromArgs) {
+async function promptForRepository(args) {
   const prompt = createPrompt();
 
   try {
     const defaultRepoName = path.basename(process.cwd());
-    const repoName = repoNameFromArgs || (await askWithDefault(prompt, "Repository name", defaultRepoName));
-    const description = (await prompt.question("Description (optional): ")).trim();
-    const visibility = await askVisibility(prompt);
+    const repoName = args.repoName || (await askWithDefault(prompt, "Repository name", defaultRepoName));
+    const description =
+      args.description === undefined
+        ? (await prompt.question("Description (optional): ")).trim()
+        : args.description.trim();
+    const visibility = args.visibility || (await askVisibility(prompt));
 
     return {
       repoName: normalizeRepositoryInput(repoName),
@@ -334,7 +403,12 @@ async function createBlankRepository(fullName, answers) {
 async function initializeLocalRepository() {
   await runGitStep(["init"]);
   await runGitStep(["add", "."]);
-  await runGitStep(["commit", "-m", "init: initial file upload"]);
+
+  try {
+    await runGit(["commit", "-m", "init: initial file upload"]);
+  } catch (error) {
+    throw friendlyGitCommitError(error);
+  }
 }
 
 async function runGitStep(args) {
@@ -347,8 +421,53 @@ async function runGitStep(args) {
   }
 }
 
+function friendlyGitCommitError(error) {
+  const output = commandErrorOutput(error);
+  const normalizedOutput = output.toLowerCase();
+
+  if (
+    normalizedOutput.includes("author identity unknown") ||
+    normalizedOutput.includes("please tell me who you are") ||
+    normalizedOutput.includes("unable to auto-detect email address")
+  ) {
+    return new Error(
+      'Git needs your name and email before it can create the initial commit. Run `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"`, then try again.',
+    );
+  }
+
+  if (normalizedOutput.includes("nothing to commit")) {
+    if (normalizedOutput.includes("working tree clean")) {
+      return new Error(
+        "There are no staged changes to commit. If this repository already has a commit, run without `--init` or use `--push` only.",
+      );
+    }
+
+    return new Error(
+      "No files were available to commit. Add files to this folder or run without `--init`.",
+    );
+  }
+
+  if (normalizedOutput.includes("no changes added to commit")) {
+    return new Error(
+      "No files were staged for the initial commit. Add files to this folder or run without `--init`.",
+    );
+  }
+
+  return new Error(
+    `Could not run \`git commit -m "init: initial file upload"\`. ${output}`,
+  );
+}
+
+async function pushLocalRepository(repository) {
+  const remoteUrl = repositoryRemoteUrl(repository);
+
+  await runGitStep(["remote", "add", "origin", remoteUrl]);
+  await runGitStep(["branch", "-M", "main"]);
+  await runGitStep(["push", "-u", "origin", "main"]);
+}
+
 function setupInstructions(repository) {
-  const remoteUrl = `https://${githubHost}/${repository.fullName}.git`;
+  const remoteUrl = repositoryRemoteUrl(repository);
 
   return `Created https://${githubHost}/${repository.fullName}
 
@@ -357,6 +476,10 @@ If you'd like to push an existing repository from the command line:
 git remote add origin ${remoteUrl}
 git branch -M main
 git push -u origin main`;
+}
+
+function repositoryRemoteUrl(repository) {
+  return `https://${githubHost}/${repository.fullName}.git`;
 }
 
 async function runGh(args) {
@@ -422,6 +545,8 @@ Examples:
   ${command}
   ${command} my-new-repo
   ${command} my-org/my-new-repo
+  ${command} my-new-repo --private --description "My app" --init
+  ${command} --init --push
   ${command} --init
   ${command} --help
   ${command} --version
@@ -432,8 +557,14 @@ Arguments:
                                     create under an organization.
 
 Options:
+  -d, --description <text>         Use this repository description without
+                                    prompting.
+      --public                     Create a public repository without prompting.
+      --private                    Create a private repository without prompting.
       --init                       Run git init, git add ., and git commit
                                     before creating the GitHub repo.
+      --push                       Add origin, rename the branch to main, and
+                                    push after creating the GitHub repo.
   -h, --help                       Show this help text.
   -v, --version                    Show the package version.
 `;
