@@ -1,6 +1,6 @@
 {
   "name": "@nocdn/quick-repo",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A CLI to quickly create a new github repo",
   "license": "MIT",
   "type": "module",

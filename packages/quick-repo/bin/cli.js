@@ -2,7 +2,6 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -30,6 +29,11 @@ async function main() {
     const answers = await promptForRepository(args.repoName);
     const repository = await resolveRepository(answers.repoName);
 
+    if (args.init) {
+      process.stdout.write("\nInitializing local git repository...\n");
+      await initializeLocalRepository();
+    }
+
     process.stdout.write(`\nCreating ${repository.fullName} on GitHub...\n`);
     await createBlankRepository(repository.fullName, answers);
     process.stdout.write(`\n${setupInstructions(repository)}\n`);
@@ -43,6 +47,7 @@ function parseArgs(argv, packageInfo) {
   const args = {
     help: false,
     version: false,
+    init: false,
     repoName: "",
   };
 
@@ -56,6 +61,11 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "-v" || arg === "--version") {
       args.version = true;
+      continue;
+    }
+
+    if (arg === "--init") {
+      args.init = true;
       continue;
     }
 
@@ -127,21 +137,99 @@ async function promptForRepository(repoNameFromArgs) {
 }
 
 function createPrompt() {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: process.stdin.isTTY,
-  });
-  const lines = rl[Symbol.asyncIterator]();
+  const input = process.stdin;
+  const wasPaused = input.isPaused();
+  const lines = [];
+  const waiters = [];
+  let buffer = "";
+  let ended = false;
+
+  input.setEncoding("utf8");
+
+  function queueLine(line) {
+    const waiter = waiters.shift();
+
+    if (waiter) {
+      waiter(line);
+      return;
+    }
+
+    lines.push(line);
+  }
+
+  function readBufferedLine() {
+    const lineFeedIndex = buffer.indexOf("\n");
+    const carriageReturnIndex = buffer.indexOf("\r");
+
+    if (lineFeedIndex === -1 && carriageReturnIndex === -1) {
+      return null;
+    }
+
+    const indexes = [lineFeedIndex, carriageReturnIndex].filter((index) => index !== -1);
+    const newlineIndex = Math.min(...indexes);
+    const line = buffer.slice(0, newlineIndex);
+    const hasWindowsNewline =
+      buffer[newlineIndex] === "\r" && buffer[newlineIndex + 1] === "\n";
+
+    buffer = buffer.slice(newlineIndex + (hasWindowsNewline ? 2 : 1));
+
+    return line;
+  }
+
+  function flushLines() {
+    let line = readBufferedLine();
+
+    while (line !== null) {
+      queueLine(line);
+      line = readBufferedLine();
+    }
+  }
+
+  function onData(chunk) {
+    buffer += chunk;
+    flushLines();
+  }
+
+  function onEnd() {
+    ended = true;
+
+    if (buffer) {
+      queueLine(buffer);
+      buffer = "";
+    }
+
+    while (waiters.length > 0) {
+      waiters.shift()("");
+    }
+  }
+
+  input.on("data", onData);
+  input.on("end", onEnd);
+  input.resume();
 
   return {
     async question(message) {
       process.stdout.write(message);
-      const nextLine = await lines.next();
-      return nextLine.done ? "" : nextLine.value;
+
+      if (lines.length > 0) {
+        return lines.shift();
+      }
+
+      if (ended) {
+        return "";
+      }
+
+      return new Promise((resolve) => {
+        waiters.push(resolve);
+      });
     },
     close() {
-      rl.close();
+      input.off("data", onData);
+      input.off("end", onEnd);
+
+      if (wasPaused) {
+        input.pause();
+      }
     },
   };
 }
@@ -243,25 +331,28 @@ async function createBlankRepository(fullName, answers) {
   }
 }
 
+async function initializeLocalRepository() {
+  await runGitStep(["init"]);
+  await runGitStep(["add", "."]);
+  await runGitStep(["commit", "-m", "init: initial file upload"]);
+}
+
+async function runGitStep(args) {
+  try {
+    await runGit(args);
+  } catch (error) {
+    throw new Error(
+      `Could not run \`${formatCommand("git", args)}\`. ${commandErrorOutput(error)}`,
+    );
+  }
+}
+
 function setupInstructions(repository) {
   const remoteUrl = `https://${githubHost}/${repository.fullName}.git`;
 
   return `Created https://${githubHost}/${repository.fullName}
 
-Quick setup — if you've done this kind of thing before
-  HTTPS: ${remoteUrl}
-
-…or create a new repository on the command line
-
-echo "# ${repository.name}" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin ${remoteUrl}
-git push -u origin main
-
-…or push an existing repository from the command line
+If you'd like to push an existing repository from the command line:
 
 git remote add origin ${remoteUrl}
 git branch -M main
@@ -273,6 +364,25 @@ async function runGh(args) {
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
   });
+}
+
+async function runGit(args) {
+  return execFileAsync("git", args, {
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+}
+
+function formatCommand(command, args) {
+  return [command, ...args.map(shellQuote)].join(" ");
+}
+
+function shellQuote(value) {
+  if (/^[A-Za-z0-9_./:=@%+-]+$/.test(value)) {
+    return value;
+  }
+
+  return JSON.stringify(value);
 }
 
 function commandErrorOutput(error) {
@@ -302,8 +412,8 @@ ${description ? `\n${description}\n` : ""}
 Usage:
   ${command} [repo-name] [options]
 
-Creates a blank GitHub repository with GitHub CLI, then prints the same
-command-line setup instructions GitHub shows for a new empty repository.
+Creates a blank GitHub repository with GitHub CLI, then prints the commands to
+push an existing local repository.
 
 Before using this CLI, install GitHub CLI and authenticate:
   gh auth login
@@ -312,6 +422,7 @@ Examples:
   ${command}
   ${command} my-new-repo
   ${command} my-org/my-new-repo
+  ${command} --init
   ${command} --help
   ${command} --version
 
@@ -321,6 +432,8 @@ Arguments:
                                     create under an organization.
 
 Options:
+      --init                       Run git init, git add ., and git commit
+                                    before creating the GitHub repo.
   -h, --help                       Show this help text.
   -v, --version                    Show the package version.
 `;

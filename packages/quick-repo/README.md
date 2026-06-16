@@ -46,27 +46,30 @@ The CLI asks for:
 - `public` or `private` visibility
 
 It creates a blank GitHub repository: no README, license, or `.gitignore` is
-added remotely. After creation, it prints GitHub-style setup commands:
+added remotely. After creation, it prints the commands to push your existing
+local repository:
 
 ```bash
-Quick setup — if you've done this kind of thing before
-  HTTPS: https://github.com/OWNER/REPO.git
+If you'd like to push an existing repository from the command line:
 
-…or create a new repository on the command line
+git remote add origin https://github.com/OWNER/REPO.git
+git branch -M main
+git push -u origin main
+```
 
-echo "# REPO" >> README.md
+Use `--init` to make an initial local commit before the GitHub repository is
+created:
+
+```bash
+npx @nocdn/quick-repo --init
+```
+
+That runs:
+
+```bash
 git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/OWNER/REPO.git
-git push -u origin main
-
-…or push an existing repository from the command line
-
-git remote add origin https://github.com/OWNER/REPO.git
-git branch -M main
-git push -u origin main
+git add .
+git commit -m "init: initial file upload"
 ```
 
 | argument | description |
@@ -75,6 +78,7 @@ git push -u origin main
 
 | flag | description |
 | --- | --- |
+| `--init` | run `git init`, `git add .`, and `git commit -m "init: initial file upload"` before creating the GitHub repo |
 | `-h`, `--help` | show help |
 | `-v`, `--version` | show version |
 
