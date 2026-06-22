@@ -45,13 +45,17 @@ binary can be invoked with any package runner (`npx`, `bunx`, `pnpm dlx`, ...).
 This project includes a GitHub Actions workflow at
 [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) that publishes
 the package to npm with [trusted publishing](https://docs.npmjs.com/trusted-publishers)
-on every push, as long as the version in `package.json` is not already on npm.
-`package.json` sets `publishConfig.access` to `public`, so scoped packages are
-published publicly by default.
+from the `main` branch, as long as the version in `package.json` is not already
+on npm. `package.json` sets `publishConfig.access` to `public`, so scoped
+packages are published publicly by default.
 
 To enable it once:
 
 1. Push the repository to GitHub.
-2. On npmjs.com, configure the package as a trusted publisher pointing at the
-   `publish.yml` workflow in this repository.
-3. Bump the version in `package.json` and push - the workflow will publish.
+2. Add a `repository.url` field to `package.json` that exactly matches the
+   GitHub repository URL.
+3. On npmjs.com, configure the package as a GitHub Actions trusted publisher:
+   use this repository owner/name, workflow filename `publish.yml`, and allow
+   `npm publish`.
+4. Bump the version in `package.json` and push to `main` - the workflow will
+   publish without an npm token.

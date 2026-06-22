@@ -1,12 +1,18 @@
 name: Publish to npm
 
-# Run on every push. Publishing is skipped automatically if the
-# version in package.json is already on the npm registry, so a normal
+# Before this can publish, configure the package on npmjs.com as a
+# Trusted Publisher for this GitHub repository and workflow filename
+# (`publish.yml`). Also make sure package.json has a repository.url that
+# exactly matches the GitHub repository URL.
+#
+# Publishes from the default release branch. Change `main` if your repo
+# uses a different release branch. Publishing is skipped automatically if
+# the package.json version is already on the npm registry, so a normal
 # code push does not fail the workflow.
 on:
   push:
     branches:
-      - "**"
+      - main
   workflow_dispatch:
 
 # Trusted publishing requires `id-token: write` so GitHub Actions can mint
@@ -28,25 +34,33 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           # Trusted publishing requires Node >= 22.14.0 and npm >= 11.5.1.
-          # Node 24 already ships with npm 11.x, and it avoids the
-          # `Cannot find module 'promise-retry'` regression that breaks
-          # `npm install -g npm@latest` on Node 22.22.2.
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
 
       # Belt-and-braces upgrade in case the bundled npm is older than 11.5.1.
-      # `-f` avoids the self-update bug seen on some Node 22 images.
       - name: Ensure npm >= 11.5.1
-        run: npm install -fg npm@latest
+        run: npm install -g npm@^11.5.1 --no-audit --no-fund
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Run build
+        run: npm run build --if-present
+
+      - name: Run tests
+        run: npm test --if-present
 
       # Compare the local package.json version to whatever is currently on
       # npm. If they match there is nothing to publish, so skip cleanly.
@@ -55,9 +69,9 @@ jobs:
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          PUBLISH_FLAGS="--provenance"
+          PUBLISH_FLAGS=""
           if [[ "$NAME" == @*/* ]]; then
-            PUBLISH_FLAGS="$PUBLISH_FLAGS --access public"
+            PUBLISH_FLAGS="--access public"
           fi
           echo "name=$NAME"       >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -72,9 +86,10 @@ jobs:
 
       # The npm CLI auto-detects the OIDC environment via id-token: write
       # and exchanges it for a short-lived publish token, so no NODE_AUTH_TOKEN
-      # is needed. package.json sets publishConfig.access=public so scoped
-      # packages publish publicly by default; --access public is also passed
-      # for scoped packages to keep the workflow explicit.
+      # is needed. Trusted publishing automatically creates provenance for
+      # public packages published from public GitHub repositories. package.json
+      # sets publishConfig.access=public, and --access public is also passed for
+      # scoped packages to keep first publishes explicit.
       - name: Publish to npm with trusted publishing
         if: steps.check.outputs.published == 'false'
         run: npm publish ${{ steps.check.outputs.publish_flags }}

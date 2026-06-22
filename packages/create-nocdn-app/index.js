@@ -291,6 +291,7 @@ function buildMinimalAgentsContent(framework, runtime) {
         "The CLI entry point lives in `bin/cli.js`. Read the package version and metadata from `package.json` at runtime via `new URL(\"../package.json\", import.meta.url)` so `--version` and help text always stay in sync.",
         "Always implement `-h`/`--help` and `-v`/`--version` flags. Generate the help text dynamically from the package name, version, and description.",
         "When you add, change, or remove flags or behavior, update the README.md to reflect the changes.",
+        "A GitHub Actions workflow for npm trusted publishing has been created at `.github/workflows/publish.yml`; before relying on it, fill in the npm Trusted Publisher details correctly and make sure `package.json` has a `repository.url` that exactly matches the GitHub repository. You may not know what the exact values you need are, so please ask the user, then fill them in.",
       ].join("\n\n");
   }
 
