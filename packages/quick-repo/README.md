@@ -93,6 +93,11 @@ git branch -M main
 git push -u origin main
 ```
 
+`--push` needs an existing local commit. If you use `--push` without `--init`
+and the current folder is not a git repository (or has no commits yet), it
+exits with an error before creating anything on GitHub. Pair it with `--init`
+to create the commit for you.
+
 | argument | description |
 | --- | --- |
 | `repo-name` | optional repository name; defaults to the current folder name |

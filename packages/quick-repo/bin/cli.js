@@ -23,6 +23,10 @@ async function main() {
       return;
     }
 
+    if (args.push && !args.init) {
+      await ensurePushableRepository();
+    }
+
     await ensureGitHubCli();
     await ensureGitHubAuth();
 
@@ -207,7 +211,6 @@ async function promptForRepository(args) {
 
 function createPrompt() {
   const input = process.stdin;
-  const wasPaused = input.isPaused();
   const lines = [];
   const waiters = [];
   let buffer = "";
@@ -296,9 +299,9 @@ function createPrompt() {
       input.off("data", onData);
       input.off("end", onEnd);
 
-      if (wasPaused) {
-        input.pause();
-      }
+      // Always pause stdin so a resumed (ref'd) TTY doesn't keep the
+      // event loop alive and prevent the process from exiting.
+      input.pause();
     },
   };
 }
@@ -456,6 +459,30 @@ function friendlyGitCommitError(error) {
   return new Error(
     `Could not run \`git commit -m "init: initial file upload"\`. ${output}`,
   );
+}
+
+async function ensurePushableRepository() {
+  try {
+    await runGit(["rev-parse", "--git-dir"]);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw new Error(
+        "Git is required for `--push`. Install Git and try again.",
+      );
+    }
+
+    throw new Error(
+      "There is no local git repository here. Run `git init` and make a commit first, or use `--init` to do it for you.",
+    );
+  }
+
+  try {
+    await runGit(["rev-parse", "--verify", "HEAD"]);
+  } catch {
+    throw new Error(
+      "This repository has no commits yet. Make a commit first, or use `--init` to do it for you.",
+    );
+  }
 }
 
 async function pushLocalRepository(repository) {
