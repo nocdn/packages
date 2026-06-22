@@ -3,9 +3,14 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { createLogger, logDirectory } from "./logger.js";
 
 const execFileAsync = promisify(execFile);
 const githubHost = "github.com";
+
+// Set once main() starts so the central command runners can record every
+// gh/git invocation without threading the logger through every function.
+let logger = null;
 
 async function main() {
   const packageInfo = await readPackageInfo();
@@ -22,6 +27,13 @@ async function main() {
       process.stdout.write(`${packageInfo.version}\n`);
       return;
     }
+
+    logger = await createLogger({
+      version: packageInfo.version,
+      argv: process.argv.slice(2),
+      cwd: process.cwd(),
+      platform: process.platform,
+    });
 
     if (args.push && !args.init) {
       await ensurePushableRepository();
@@ -45,12 +57,20 @@ async function main() {
       process.stdout.write("\nPushing local repository to GitHub...\n");
       await pushLocalRepository(repository);
       process.stdout.write(`\nCreated and pushed https://${githubHost}/${repository.fullName}\n`);
+      await logger?.event("run.success", { repository: repository.fullName, pushed: true });
       return;
     }
 
     process.stdout.write(`\n${setupInstructions(repository)}\n`);
+    await logger?.event("run.success", { repository: repository.fullName, pushed: false });
   } catch (error) {
+    await logger?.error(error);
     process.stderr.write(`Error: ${error.message}\n`);
+
+    if (logger) {
+      process.stderr.write(`Detailed log: ${logger.filePath}\n`);
+    }
+
     process.exitCode = 1;
   }
 }
@@ -490,7 +510,19 @@ async function pushLocalRepository(repository) {
 
   await runGitStep(["remote", "add", "origin", remoteUrl]);
   await runGitStep(["branch", "-M", "main"]);
-  await runGitStep(["push", "-u", "origin", "main"]);
+  await runGitStep([
+    // Authenticate the push through GitHub CLI so it works even when no git
+    // credential helper is configured. Without this, `git push` over HTTPS
+    // blocks waiting for credentials and the CLI appears to hang.
+    "-c",
+    `credential.https://${githubHost}.helper=`,
+    "-c",
+    `credential.https://${githubHost}.helper=!gh auth git-credential`,
+    "push",
+    "-u",
+    "origin",
+    "main",
+  ]);
 }
 
 function setupInstructions(repository) {
@@ -510,17 +542,46 @@ function repositoryRemoteUrl(repository) {
 }
 
 async function runGh(args) {
-  return execFileAsync("gh", args, {
+  return runCommand("gh", args, {
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
   });
 }
 
 async function runGit(args) {
-  return execFileAsync("git", args, {
+  return runCommand("git", args, {
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
+    // Never let git block on an interactive credential prompt; fail fast with
+    // a readable error instead of hanging the CLI.
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
   });
+}
+
+// Runs an external command and records the invocation (args, exit code, output,
+// and duration) to the debug log, whether it succeeds or fails.
+async function runCommand(command, args, options) {
+  const startedAt = Date.now();
+
+  try {
+    const result = await execFileAsync(command, args, options);
+    await logger?.command(command, args, {
+      code: 0,
+      durationMs: Date.now() - startedAt,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
+    return result;
+  } catch (error) {
+    await logger?.command(command, args, {
+      code: error.code,
+      durationMs: Date.now() - startedAt,
+      stdout: error.stdout,
+      stderr: error.stderr,
+      message: error.message,
+    });
+    throw error;
+  }
 }
 
 function formatCommand(command, args) {
@@ -594,6 +655,10 @@ Options:
                                     push after creating the GitHub repo.
   -h, --help                       Show this help text.
   -v, --version                    Show the package version.
+
+Logs:
+  Detailed run logs are written to:
+  ${path.join(logDirectory(), "quick-repo.log")}
 `;
 }
 

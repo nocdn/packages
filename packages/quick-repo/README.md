@@ -98,6 +98,10 @@ and the current folder is not a git repository (or has no commits yet), it
 exits with an error before creating anything on GitHub. Pair it with `--init`
 to create the commit for you.
 
+The push authenticates through GitHub CLI, so it works even when git has no
+credential helper configured. Git is also run with `GIT_TERMINAL_PROMPT=0` so it
+fails with a clear error instead of hanging on a credential prompt.
+
 | argument | description |
 | --- | --- |
 | `repo-name` | optional repository name; defaults to the current folder name |
@@ -111,6 +115,22 @@ to create the commit for you.
 | `--push` | add `origin`, rename the branch to `main`, and push after creating the GitHub repo |
 | `-h`, `--help` | show help |
 | `-v`, `--version` | show version |
+
+## Logs
+
+Every run writes a detailed JSON-lines log (arguments, each `gh`/`git` command
+with its exit code, output, and duration, plus any error) so issues can be
+debugged after the fact. When a run fails, the log path is printed in the error
+output. The log lives at a platform-appropriate location:
+
+| platform | path |
+| --- | --- |
+| macOS | `~/Library/Logs/quick-repo/quick-repo.log` |
+| Windows | `%LOCALAPPDATA%\quick-repo\logs\quick-repo.log` |
+| Linux | `$XDG_STATE_HOME/quick-repo/logs/quick-repo.log` (defaults to `~/.local/state/...`) |
+
+Run `quick-repo --help` to print the exact path on your system. Logging is
+best-effort: if the log file can't be written, the CLI still runs normally.
 
 ## Develop
 
