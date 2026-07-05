@@ -186,8 +186,6 @@ export const BUILT_IN_EXCLUDE_PATTERNS = [
   "*.bin",
   ".build/",
   ".firecrawl/",
-  "*.xcodeproj/",
-  "*.xcworkspace/",
   "*.pbxuser",
   "*.mode1v3",
   "*.mode2v3",
