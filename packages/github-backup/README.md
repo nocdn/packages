@@ -35,8 +35,9 @@ The interactive flow asks for:
 
 - backup directory, defaulting to `~/backups/github`
 - GitHub username
-- repositories to exclude, with `extensions` shown as an example
 - GitHub token, only if one is not already saved
+
+To skip repositories, pass `-e` / `--exclude` on the command line.
 
 The token is stored at `~/.config/github-backup/token` with restricted file
 permissions and reused on later runs.

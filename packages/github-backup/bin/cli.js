@@ -97,7 +97,6 @@ function parseArgs(argv, packageInfo) {
     bucket: null,
     bucketPath: null,
     excludedRepos: [],
-    excludedReposProvided: false,
     help: false,
     noForks: false,
     removeZipAfterUpload: false,
@@ -214,7 +213,6 @@ function parseArgs(argv, packageInfo) {
       }
 
       args.excludedRepos.push(...repos);
-      args.excludedReposProvided = true;
       continue;
     }
 
@@ -224,7 +222,6 @@ function parseArgs(argv, packageInfo) {
         throw new Error("--exclude requires at least one repository name.");
       }
       args.excludedRepos.push(...repos);
-      args.excludedReposProvided = true;
       continue;
     }
 
@@ -327,17 +324,6 @@ async function collectConfig(args) {
         required: true,
       }));
 
-    let excludedRepos = args.excludedRepos;
-    if (!args.excludedReposProvided && rl) {
-      process.stdout.write("Repositories to exclude\n");
-      process.stdout.write("Separate with spaces, for example: extensions repo2 repo3\n");
-      const excludedInput = await promptForValue(rl, "Excluded repos [none]: ", {
-        fallback: "",
-        name: "excluded repos",
-      });
-      excludedRepos = excludedInput.split(/\s+/).filter(Boolean);
-    }
-
     rl?.close();
 
     const backupDir = await prepareBackupDir(backupDirInput);
@@ -355,7 +341,7 @@ async function collectConfig(args) {
 
     return {
       backupDir,
-      excludedRepos: unique(excludedRepos),
+      excludedRepos: unique(args.excludedRepos),
       noForks: args.noForks,
       tokenFile,
       upload,
