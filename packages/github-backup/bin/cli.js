@@ -99,6 +99,7 @@ function parseArgs(argv, packageInfo) {
     excludedRepos: [],
     excludedReposProvided: false,
     help: false,
+    noForks: false,
     removeZipAfterUpload: false,
     removeZipAfterUploadProvided: false,
     upload: null,
@@ -139,6 +140,11 @@ function parseArgs(argv, packageInfo) {
 
     if (arg.startsWith("--backup-dir=")) {
       args.backupDir = readInlineOptionValue(arg, "--backup-dir", packageInfo);
+      continue;
+    }
+
+    if (arg === "--no-forks") {
+      args.noForks = true;
       continue;
     }
 
@@ -350,6 +356,7 @@ async function collectConfig(args) {
     return {
       backupDir,
       excludedRepos: unique(excludedRepos),
+      noForks: args.noForks,
       tokenFile,
       upload,
       user: validateRequired(user, "GitHub username"),
@@ -689,6 +696,9 @@ async function runBackup(config) {
   process.stdout.write("Starting GitHub backup...\n");
   process.stdout.write(`User: ${config.user}\n`);
   process.stdout.write(`Backup directory: ${config.backupDir}\n`);
+  if (config.noForks) {
+    process.stdout.write("Forked repositories are excluded.\n");
+  }
   process.stdout.write("Release asset files are excluded. Release metadata is still included.\n");
 
   await runCommand("docker", dockerArgs(config), {
@@ -732,6 +742,9 @@ function dockerArgs(config) {
   const containerName = `github-backup-${process.pid}-${Date.now().toString(36)}`;
   const userId = typeof process.getuid === "function" ? process.getuid() : 0;
   const groupId = typeof process.getgid === "function" ? process.getgid() : 0;
+  const backupFlags = config.noForks
+    ? BACKUP_FLAGS.filter((flag) => flag !== "-F")
+    : BACKUP_FLAGS;
   const args = [
     "run",
     "--rm",
@@ -748,7 +761,7 @@ function dockerArgs(config) {
     "file:///run/secrets/github_token",
     "-o",
     "/data",
-    ...BACKUP_FLAGS,
+    ...backupFlags,
   ];
 
   if (config.excludedRepos.length > 0) {
@@ -1153,6 +1166,7 @@ Usage:
 Examples:
   npx ${command}
   npx ${command} --user octocat --backup-dir ~/backups/github
+  npx ${command} --user octocat --no-forks
   npx ${command} --user octocat --exclude repo1 repo2
   npx ${command} --user octocat --upload b2 --bucket backups --bucket-path /github
   npx ${command} --help
@@ -1164,6 +1178,7 @@ Options:
   -h, --help                        Show this help text.
   -u, --user <username>             GitHub username to back up.
   -v, --version                     Show the package version.
+  --no-forks                        Exclude forked repositories from the backup.
   --upload [target]                 Upload target. Prompts when omitted. Supported target: b2.
   --bucket <name>                   Backblaze B2 bucket name. Prompts with --upload b2 when omitted.
   --bucket-path <path>              Backblaze B2 folder prefix. Defaults to ${DEFAULT_B2_BUCKET_PATH}.

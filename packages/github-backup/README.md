@@ -54,6 +54,7 @@ npx @nocdn/github-backup [options]
 | `-h`, `--help` | show help |
 | `-u`, `--user <username>` | GitHub username to back up |
 | `-v`, `--version` | show version |
+| `--no-forks` | exclude forked repositories from the backup |
 | `--upload [target]` | upload target; currently supports `b2`; prompts when omitted |
 | `--bucket <name>` | Backblaze B2 bucket name; prompts with `--upload b2` when omitted |
 | `--bucket-path <path>` | Backblaze B2 folder prefix, defaulting to `/github` |
@@ -65,6 +66,7 @@ Examples:
 ```bash
 npx @nocdn/github-backup
 npx @nocdn/github-backup --user octocat --backup-dir ~/backups/github
+npx @nocdn/github-backup --user octocat --no-forks
 npx @nocdn/github-backup --user octocat --exclude repo1 repo2
 npx @nocdn/github-backup --user octocat --exclude repo1 --exclude repo2
 npx @nocdn/github-backup --user octocat --upload b2 --bucket backups --bucket-path /github
