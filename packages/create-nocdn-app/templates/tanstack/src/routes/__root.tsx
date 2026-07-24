@@ -21,7 +21,8 @@ export const Route = createRootRoute({
       },
       {
         name: "description",
-        content: "{{project-description}}",
+        // prettier-ignore
+        content: "{{project-description-escaped}}",
       },
     ],
     links: [

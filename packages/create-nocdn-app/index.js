@@ -258,7 +258,7 @@ async function replaceInFile(filePath, replacements) {
   let content = await fs.readFile(filePath, "utf-8");
 
   for (const [placeholder, value] of Object.entries(replacements)) {
-    content = content.replaceAll(`{{${placeholder}}}`, value);
+    content = content.replaceAll(`{{${placeholder}}}`, () => String(value));
   }
 
   await fs.writeFile(filePath, content);
@@ -651,7 +651,7 @@ async function main() {
       framework === "cli"
         ? buildPackageName(projectName, packageOrganization)
         : projectName;
-    await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    await fs.writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
 
     if (framework === "next") {
       const layoutPath = path.join(projectPath, "app", "layout.tsx");
@@ -684,6 +684,10 @@ async function main() {
       const replacements = {
         "project-name": projectName,
         "project-description": descriptionValue,
+        "project-description-escaped": JSON.stringify(descriptionValue).slice(
+          1,
+          -1,
+        ),
       };
 
       await Promise.all([

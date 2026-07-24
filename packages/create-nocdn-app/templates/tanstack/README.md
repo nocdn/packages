@@ -1,5 +1,7 @@
 # {{project-name}}
 
+Requires Node.js 22.12 or newer.
+
 To install dependencies:
 
 ```sh
@@ -18,10 +20,23 @@ To build for production:
 bun run build
 ```
 
-To run tests:
+The production build includes a TypeScript check. You can also run it separately:
 
 ```sh
-bun run test
+bun run typecheck
+```
+
+To run the production server after building:
+
+```sh
+bun run start
+```
+
+To lint or format the project:
+
+```sh
+bun run lint
+bun run format
 ```
 
 Shared base styles live in `src/globals.css`.
