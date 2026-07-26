@@ -1,10 +1,12 @@
 "use client"
 
+import type { Route } from "next"
 import NextLink from "next/link"
 import { useRouter } from "next/navigation"
-import { forwardRef, type ComponentProps, type MouseEvent } from "react"
+import { useRef, type ComponentProps, type MouseEvent } from "react"
 
 type LinkProps = ComponentProps<typeof NextLink>
+type OnNavigateEvent = Parameters<NonNullable<LinkProps["onNavigate"]>>[0]
 
 function toHrefString(href: LinkProps["href"]) {
   if (typeof href === "string") {
@@ -62,19 +64,26 @@ function shouldNavigateOnMouseDown(event: MouseEvent<HTMLAnchorElement>, href: s
   return url.origin === window.location.origin
 }
 
-const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
-  { href, onMouseDown, replace, scroll, ...props },
-  ref
-) {
+export default function Link({
+  href,
+  onClick,
+  onMouseDown,
+  onNavigate,
+  replace,
+  scroll,
+  ...props
+}: LinkProps) {
   const router = useRouter()
+  const handledOnMouseDown = useRef(false)
 
   return (
     <NextLink
-      ref={ref}
       href={href}
       replace={replace}
       scroll={scroll}
+      onNavigate={onNavigate}
       onMouseDown={(event) => {
+        handledOnMouseDown.current = false
         onMouseDown?.(event)
 
         if (event.defaultPrevented) {
@@ -87,18 +96,37 @@ const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
           return
         }
 
-        event.preventDefault()
+        handledOnMouseDown.current = true
 
-        if (replace) {
-          router.replace(hrefString, { scroll })
+        let navigationPrevented = false
+        onNavigate?.({
+          preventDefault() {
+            navigationPrevented = true
+          },
+        } as OnNavigateEvent)
+
+        if (navigationPrevented) {
           return
         }
 
-        router.push(hrefString, { scroll })
+        const route = hrefString as Route
+
+        if (replace) {
+          router.replace(route, { scroll })
+          return
+        }
+
+        router.push(route, { scroll })
+      }}
+      onClick={(event) => {
+        onClick?.(event)
+
+        if (handledOnMouseDown.current) {
+          handledOnMouseDown.current = false
+          event.preventDefault()
+        }
       }}
       {...props}
     />
   )
-})
-
-export default Link
+}
