@@ -1,60 +1,71 @@
-import { Hono } from "hono";
-import { logger } from "hono/logger";
-import { rateLimiter } from "hono-rate-limiter";
+import { app } from "./app";
 
-const defaultPort = Number.parseInt("{{port}}", 10);
-const configuredPort = Number.parseInt(process.env.PORT ?? "", 10);
-const port = Number.isNaN(configuredPort) ? defaultPort : configuredPort;
+const defaultPort = {{port}};
 
-const mainWindowMs = Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? "", 10) || 15 * 60 * 1000;
-const mainLimit = Number.parseInt(process.env.RATE_LIMIT_MAX ?? "", 10) || 100;
-const healthWindowMs = Number.parseInt(process.env.HEALTH_RATE_LIMIT_WINDOW_MS ?? "", 10) || 500;
-const healthLimit = Number.parseInt(process.env.HEALTH_RATE_LIMIT_MAX ?? "", 10) || 1;
+export function parsePort(value: string | undefined, fallback: number): number {
+  const normalized = value?.trim();
 
-const app = new Hono();
-
-app.use(logger());
-
-const mainLimiter = rateLimiter({
-  windowMs: mainWindowMs,
-  limit: mainLimit,
-  keyGenerator: () => "global",
-});
-
-const healthLimiter = rateLimiter({
-  windowMs: healthWindowMs,
-  limit: healthLimit,
-  keyGenerator: () => "global",
-});
-
-app.use("*", async (c, next) => {
-  if (c.req.path === "/api/health") {
-    return next();
+  if (!normalized) {
+    return fallback;
   }
-  return mainLimiter(c, next);
-});
 
-app.get("/api/health", healthLimiter, (c) => {
-  return c.json({ status: "ok" });
-});
+  if (!/^\d+$/.test(normalized)) {
+    throw new Error("PORT must be an integer between 1 and 65535.");
+  }
 
-app.get("/", (c) => {
-  const host = c.req.header("host") ?? `localhost:${port}`;
-  const base = `${c.req.url.startsWith("https") ? "https" : "http"}://${host}`;
+  const port = Number(normalized);
 
-  return c.text(
-    [
-      "{{project-name}}",
-      "",
-      "Health check:",
-      `  curl ${base}/api/health`,
-    ].join("\n") + "\n",
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) {
+    throw new Error("PORT must be an integer between 1 and 65535.");
+  }
+
+  return port;
+}
+
+export function startServer() {
+  const port = parsePort(process.env.PORT, defaultPort);
+  const server = Bun.serve({
+    development: process.env.NODE_ENV !== "production",
+    fetch: app.fetch,
+    port,
+  });
+
+  let shuttingDown = false;
+
+  const shutdown = (signal: "SIGINT" | "SIGTERM") => {
+    if (shuttingDown) {
+      return;
+    }
+
+    shuttingDown = true;
+    console.log(
+      JSON.stringify({ level: "info", message: "shutting down", signal }),
+    );
+
+    void server.stop().catch((error: unknown) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+  };
+
+  process.once("SIGINT", () => {
+    shutdown("SIGINT");
+  });
+  process.once("SIGTERM", () => {
+    shutdown("SIGTERM");
+  });
+
+  console.log(
+    JSON.stringify({
+      level: "info",
+      message: "server listening",
+      url: server.url.toString(),
+    }),
   );
-});
 
-const server = Bun.serve({
-  fetch: app.fetch,
-  port,
-});
+  return server;
+}
 
-console.log(`Listening on http://localhost:${server.port}`);
+if (import.meta.main) {
+  startServer();
+}

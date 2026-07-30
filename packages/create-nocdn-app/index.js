@@ -714,6 +714,7 @@ async function main() {
       await Promise.all([
         replaceInFile(path.join(projectPath, "README.md"), replacements),
         replaceInFile(path.join(projectPath, ".env.example"), replacements),
+        replaceInFile(path.join(projectPath, "src", "app.ts"), replacements),
         replaceInFile(path.join(projectPath, "src", "index.ts"), replacements),
         replaceInFile(path.join(projectPath, "compose.yaml"), replacements),
         replaceInFile(path.join(projectPath, "Dockerfile"), replacements),

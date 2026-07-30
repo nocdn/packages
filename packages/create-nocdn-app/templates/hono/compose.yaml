@@ -3,13 +3,27 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: {{project-name}}:local
+    image: "{{project-name}}:local"
     env_file:
       - path: .env
         required: false
     environment:
       NODE_ENV: production
-      PORT: ${PORT:-{{port}}}
+      PORT: "${PORT:-{{port}}}"
     ports:
       - "${PORT:-{{port}}}:${PORT:-{{port}}}"
-    restart: always
+    init: true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "const r=await fetch('http://127.0.0.1:'+process.env.PORT+'/api/health');process.exit(r.ok?0:1)",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    stop_grace_period: 30s
