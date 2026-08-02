@@ -135,8 +135,9 @@ if (flags.version) showVersion();
 
 function validateProjectName(value) {
   if (value.length === 0) return "Project name is required";
-  if (!/^[a-z0-9-]+$/.test(value)) {
-    return "Project name must be lowercase, alphanumeric, and can contain hyphens";
+  if (value.length > 214) return "Project name must be 214 characters or fewer";
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)) {
+    return "Project name must start and end with a lowercase letter or number and can contain hyphens";
   }
 }
 
@@ -150,8 +151,14 @@ function validateOrganizationName(value) {
   const organization = normalizeOrganizationName(value);
 
   if (organization.length === 0) return "Organization name cannot be only @";
-  if (!/^[a-z0-9-]+$/.test(organization)) {
-    return "Organization name must be lowercase, alphanumeric, and can contain hyphens";
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(organization)) {
+    return "Organization name must start and end with a lowercase letter or number and can contain hyphens";
+  }
+}
+
+function validatePackageNameLength(projectName, packageOrganization) {
+  if (buildPackageName(projectName, packageOrganization).length > 214) {
+    return "npm package name must be 214 characters or fewer, including its scope";
   }
 }
 
@@ -187,7 +194,10 @@ function parseProjectNameArg(value) {
     projectName,
     packageOrganization,
     isScopedPackageName: true,
-    validationError: organizationError ?? projectNameError,
+    validationError:
+      organizationError ??
+      projectNameError ??
+      validatePackageNameLength(projectName, packageOrganization),
   };
 }
 
@@ -288,10 +298,10 @@ function buildMinimalAgentsContent(framework, runtime) {
       [
         "Write all code in plain JavaScript (ESM), not TypeScript, so there is no transpilation step at any point in the workflow.",
         "Keep dependencies minimal. Prefer Node built-ins (node:fs, node:path, node:child_process, node:url, etc.) over third-party packages whenever possible.",
-        "The CLI entry point lives in `bin/cli.js`. Read the package version and metadata from `package.json` at runtime via `new URL(\"../package.json\", import.meta.url)` so `--version` and help text always stay in sync.",
-        "Always implement `-h`/`--help` and `-v`/`--version` flags. Generate the help text dynamically from the package name, version, and description.",
-        "When you add, change, or remove flags or behavior, update the README.md to reflect the changes.",
-        "A GitHub Actions workflow for npm trusted publishing has been created at `.github/workflows/publish.yml`; before relying on it, fill in the npm Trusted Publisher details correctly and make sure `package.json` has a `repository.url` that exactly matches the GitHub repository. You may not know what the exact values you need are, so please ask the user, then fill them in.",
+        "Keep `bin/cli.js` as the small executable adapter and put testable CLI behavior in `src/cli.js`. Read the package version and metadata from `package.json` at runtime so `--version` and help text always stay in sync.",
+        "Use Node's strict `node:util.parseArgs` for options. Always implement `-h`/`--help` and `-v`/`--version`, reject unsupported input, write normal output to stdout, write diagnostics to stderr, and return a non-zero exit status for errors.",
+        "Use the built-in `node:test` runner. When you add, change, or remove flags or behavior, update both the tests and README.md.",
+        "A GitHub Actions workflow for npm trusted and staged publishing has been created at `.github/workflows/publish.yml`. Before relying on it, make sure the package already exists on npm, configure this exact workflow as a trusted publisher with `npm stage publish` permission, and add a `package.json` repository URL that exactly matches the GitHub repository. Ask the user for unknown repository or npm details rather than guessing.",
       ].join("\n\n");
   }
 
@@ -384,7 +394,9 @@ async function main() {
       process.exit(1);
     }
     if (parsedProjectName.isScopedPackageName && framework !== "cli") {
-      clack.log.error("Scoped package names are only supported by the CLI template");
+      clack.log.error(
+        "Scoped package names are only supported by the CLI template",
+      );
       clack.cancel("Invalid project name");
       process.exit(1);
     }
@@ -409,7 +421,12 @@ async function main() {
     const organizationValue = await clack.text({
       message: "npm organization (optional, press Enter to skip)",
       placeholder: "nocdn",
-      validate: validateOrganizationName,
+      validate: (value) =>
+        validateOrganizationName(value) ??
+        validatePackageNameLength(
+          projectName,
+          value ? normalizeOrganizationName(value) : null,
+        ),
     });
 
     if (clack.isCancel(organizationValue)) {
@@ -432,11 +449,7 @@ async function main() {
   let projectPort = null;
   let agentsContent = null;
 
-  if (
-    framework === "next" ||
-    framework === "tanstack" ||
-    framework === "cli"
-  ) {
+  if (framework === "next" || framework === "tanstack" || framework === "cli") {
     if (flags.description !== null) {
       projectDescription = flags.description;
     } else if (!nonInteractive) {
@@ -651,7 +664,10 @@ async function main() {
       framework === "cli"
         ? buildPackageName(projectName, packageOrganization)
         : projectName;
-    await fs.writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
+    await fs.writeFile(
+      packageJsonPath,
+      `${JSON.stringify(packageJson, null, 2)}\n`,
+    );
 
     if (framework === "next") {
       const layoutPath = path.join(projectPath, "app", "layout.tsx");
@@ -724,16 +740,29 @@ async function main() {
         projectDescription && projectDescription.trim()
           ? projectDescription.trim()
           : "A CLI scaffolded with create-nocdn-app";
+      const cliPackageJson = JSON.parse(
+        await fs.readFile(packageJsonPath, "utf-8"),
+      );
+
+      cliPackageJson.description = descriptionValue;
+      cliPackageJson.bin = {
+        [projectName]: "bin/cli.js",
+      };
+      await fs.writeFile(
+        packageJsonPath,
+        `${JSON.stringify(cliPackageJson, null, 2)}\n`,
+      );
 
       const replacements = {
         "project-name": projectName,
         "package-name": buildPackageName(projectName, packageOrganization),
-        "project-description": descriptionValue,
+        "project-description": descriptionValue.replace(/\s+/g, " "),
+        year: String(new Date().getFullYear()),
       };
 
       await Promise.all([
         replaceInFile(path.join(projectPath, "README.md"), replacements),
-        replaceInFile(path.join(projectPath, "package.json"), replacements),
+        replaceInFile(path.join(projectPath, "LICENSE"), replacements),
       ]);
     }
 
