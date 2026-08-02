@@ -1,6 +1,6 @@
 {
   "name": "@nocdn/ingest",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "A bunx-runnable CLI that ingests a local folder or repository into an LLM-friendly digest.",
   "license": "MIT",
   "repository": {
@@ -28,7 +28,7 @@
     "test": "node --test \"tests/*.test.js\""
   },
   "dependencies": {
-    "@llamaindex/liteparse": "^2.0.1",
-    "tinyclip": "^0.1.12"
+    "@llamaindex/liteparse": "^2.10.1",
+    "tinyclip": "^0.1.15"
   }
 }

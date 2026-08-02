@@ -5,24 +5,30 @@
     "": {
       "name": "@nocdn/ingest",
       "dependencies": {
-        "@llamaindex/liteparse": "^2.0.1",
-        "tinyclip": "^0.1.12",
+        "@llamaindex/liteparse": "^2.10.1",
+        "tinyclip": "^0.1.15",
       },
     },
   },
   "packages": {
-    "@llamaindex/liteparse": ["@llamaindex/liteparse@2.0.1", "", { "dependencies": { "commander": "^12.0.0" }, "optionalDependencies": { "@llamaindex/liteparse-darwin-arm64": "2.0.1", "@llamaindex/liteparse-linux-arm64-gnu": "2.0.1", "@llamaindex/liteparse-linux-x64-gnu": "2.0.1", "@llamaindex/liteparse-win32-x64-msvc": "2.0.1" }, "bin": { "lit": "dist/cli.js", "liteparse": "dist/cli.js" } }, "sha512-8LGmIflr6AL3zFqy7PU/bRBIgRJtZWLco6XQc9Hsvk6GKpQ4GFsH6GDlk5HTdvuAbdoDb0g4PYLxd/r8SNCENg=="],
+    "@llamaindex/liteparse": ["@llamaindex/liteparse@2.10.1", "", { "dependencies": { "commander": "^12.0.0" }, "optionalDependencies": { "@llamaindex/liteparse-darwin-arm64": "2.10.1", "@llamaindex/liteparse-darwin-x64": "2.10.1", "@llamaindex/liteparse-linux-arm64-gnu": "2.10.1", "@llamaindex/liteparse-linux-x64-gnu": "2.10.1", "@llamaindex/liteparse-linux-x64-musl": "2.10.1", "@llamaindex/liteparse-win32-arm64-msvc": "2.10.1", "@llamaindex/liteparse-win32-x64-msvc": "2.10.1" }, "bin": { "lit": "dist/cli.js", "liteparse": "dist/cli.js" } }, "sha512-BhkY1sBzBX9W5VyrTFMMeJ0mE/Hcu3bXFhesTSWTKIHT7F0OneurGa+30tLPNLbWd5M6Jg2EsQsALprDLArz+Q=="],
 
-    "@llamaindex/liteparse-darwin-arm64": ["@llamaindex/liteparse-darwin-arm64@2.0.1", "", { "os": "darwin", "cpu": "arm64" }, "sha512-/f8hH6R8CEtc5/2QMQvER4gt3RKgvcM4K6OzCvqlEIiJtyob67RkZhkFA8x2h4dAzgAtqMegQCo1vFHs31IPXg=="],
+    "@llamaindex/liteparse-darwin-arm64": ["@llamaindex/liteparse-darwin-arm64@2.10.1", "", { "os": "darwin", "cpu": "arm64" }, "sha512-eEngfnfRnKK/0COwehkOl/uWAS/3QMWc84mnJyytNlpxiFnn1lGNVpwB08MagQXX2iRxi/md9BcfVFKGIQuUAA=="],
 
-    "@llamaindex/liteparse-linux-arm64-gnu": ["@llamaindex/liteparse-linux-arm64-gnu@2.0.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-oir+ZNsDs9aAPG4BmYHTAhQRb+wBVTXvWgPDY+qn6bAJjY4qMIrlVbUPSzRnKCXZ+4nuuj7PJsRxkXHrmxoQ5A=="],
+    "@llamaindex/liteparse-darwin-x64": ["@llamaindex/liteparse-darwin-x64@2.10.1", "", { "os": "darwin", "cpu": "x64" }, "sha512-LDOCuPLarZzkePDBM1by9bHreP8qPt9oJtyVVULbwHXI23420P2FLYFYxiXEm3cYgfRGPvuZon0ietXjezTD3w=="],
 
-    "@llamaindex/liteparse-linux-x64-gnu": ["@llamaindex/liteparse-linux-x64-gnu@2.0.1", "", { "os": "linux", "cpu": "x64" }, "sha512-cMoAkgMMF9V/Mwy7kkeGMBC0q22xVHGTR27ZYpmh56eQdsLTt7YnjcACNLlD9ULJ5ha7DvKIuS0Bmu+agiJvsg=="],
+    "@llamaindex/liteparse-linux-arm64-gnu": ["@llamaindex/liteparse-linux-arm64-gnu@2.10.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-9CWqV6rD+J8Bm6n7k3Wpnll+eli78NLnWwfLuO5guC6nDJBNP1r39KBXGD60Sprq3R0vWAOkVV+HuEjZcc2lTQ=="],
 
-    "@llamaindex/liteparse-win32-x64-msvc": ["@llamaindex/liteparse-win32-x64-msvc@2.0.1", "", { "os": "win32", "cpu": "x64" }, "sha512-d/CD/Hidf1GL72pQTyy3gKTeJScElDyRZyPDhFzZYHdFBQY/3zRaUfzzdMZGnjhdwMB10uJeuCYux8pKEcW2Kw=="],
+    "@llamaindex/liteparse-linux-x64-gnu": ["@llamaindex/liteparse-linux-x64-gnu@2.10.1", "", { "os": "linux", "cpu": "x64" }, "sha512-O5Ep8Ykpb4caJsIP3/ohdyWQiXMhjfkxI1oVW7UtnBG8iDsqjQCTYSvcOmnRib7E4ud1dqy+T8m5vAtUcTwA4w=="],
+
+    "@llamaindex/liteparse-linux-x64-musl": ["@llamaindex/liteparse-linux-x64-musl@2.10.1", "", { "os": "linux", "cpu": "x64" }, "sha512-3BMr+6a7YBBtD1kiBQR9VAroqWP9iBzuCX3H9CCkwxL61j+ldPbpdTzf75jhXo1/KkDN6eP6A9ntKDfZX1I0dg=="],
+
+    "@llamaindex/liteparse-win32-arm64-msvc": ["@llamaindex/liteparse-win32-arm64-msvc@2.10.1", "", { "os": "win32", "cpu": "arm64" }, "sha512-eFzr8i8XaiMJ/jaKr3IeGVnpxoF2dcG5BhMkmf1VfuYSxTEFYKa6i+0tMbfdiiPlLBrOsJl2zw8YVr4jydeQmw=="],
+
+    "@llamaindex/liteparse-win32-x64-msvc": ["@llamaindex/liteparse-win32-x64-msvc@2.10.1", "", { "os": "win32", "cpu": "x64" }, "sha512-f+TnS0kBR9PW4fj+UIsksy2aMW4aM64IpsvEV3828aQvk3zi/fc32r5ZY+WtHoyfxXJLSxN4qmD9aWNseTGDNw=="],
 
     "commander": ["commander@12.1.0", "", {}, "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA=="],
 
-    "tinyclip": ["tinyclip@0.1.12", "", {}, "sha512-Ae3OVUqifDw0wBriIBS7yVaW44Dp6eSHQcyq4Igc7eN2TJH/2YsicswaW+J/OuMvhpDPOKEgpAZCjkb4hpoyeA=="],
+    "tinyclip": ["tinyclip@0.1.15", "", {}, "sha512-uo33abH+Ays0xYaDysoBt494Hb3hsEczMpcC0MwFl773pazORx4fmvKhclhR1wonUbB6vvpRsvVMwnhfqeMc+A=="],
   }
 }
