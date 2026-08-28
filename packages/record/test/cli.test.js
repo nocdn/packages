@@ -35,6 +35,8 @@ test("help is generated from package metadata and lists recorder options", () =>
   assert.match(result.stdout, /--region/);
   assert.match(result.stdout, /--for/);
   assert.match(result.stdout, /--only-system-audio/);
+  assert.match(result.stdout, /--only-audio/);
+  assert.match(result.stdout, /--audio-only/);
   assert.match(result.stdout, /--internal/);
   assert.match(result.stdout, /--internal-only/);
   assert.match(result.stdout, /--only-camera/);
@@ -100,6 +102,25 @@ test("internal is an alias for only-system-audio", () => {
   assert.match(
     run("--system-audio-only", "--only-camera").stderr,
     /Choose only one of/,
+  );
+});
+
+test("audio-only combines system and microphone audio", () => {
+  assert.match(
+    run("--only-audio", "--no-mic").stderr,
+    /--only-audio option cannot be combined/,
+  );
+  assert.match(
+    run("--audio-only", "--no-system-audio").stderr,
+    /--only-audio option cannot be combined/,
+  );
+  assert.match(
+    run("--only-audio", "--only-mic").stderr,
+    /Choose only one of/,
+  );
+  assert.match(
+    run("--only-audio", "--camera").stderr,
+    /cannot be combined with --camera/,
   );
 });
 

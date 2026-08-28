@@ -18,6 +18,7 @@ npx @nocdn/record
 npx @nocdn/record [options]
 npx @nocdn/record --only-mic
 npx @nocdn/record --internal
+npx @nocdn/record --only-audio
 npx @nocdn/record --window Safari
 npx @nocdn/record --region
 npx @nocdn/record --for 30s --in 3
@@ -37,6 +38,7 @@ npx @nocdn/record permissions
 | `--here` | save into the current directory (same as `--location .`) |
 | `--only-mic`, `--mic-only`, `--microphone` | record only the microphone as MP3 |
 | `--only-system-audio`, `--system-audio-only`, `--internal`, `--internal-only` | record only system/application audio as MP3 |
+| `--only-audio`, `--audio-only` | record system/application audio and the microphone as MP3, without video |
 | `--only-camera`, `--camera-only` | record only the camera |
 | `--no-mic` | disable microphone capture |
 | `--mic <name>` | select a microphone by name; default is the built-in Mac microphone, not the current system input |
@@ -73,7 +75,8 @@ exact file path. Choose only one of them.
 
 `--only-mic` skips the screen and system audio and writes a timestamped `.mp3`
 file. `--only-system-audio` (also `--internal` or `--internal-only`) does the
-same for internal audio. `--only-camera` writes a camera-only movie.
+same for internal audio. `--only-audio` combines internal audio and the
+microphone in one MP3 without video. `--only-camera` writes a camera-only movie.
 
 `--window Safari` captures that app's window. `--region` with no value lets you
 click-drag a rectangle; `--region 120,80,1280,720` uses display points from the
@@ -84,9 +87,9 @@ starts. `--camera` puts a face cam in the corner. `--hevc` and `--quality high`
 are the simple video knobs; `--codec`, `--scale`, `--video-bitrate`, and
 `--audio-bitrate` override them.
 
-Combine `--only-mic` with `--mic <name>` to pick a microphone, or `-o` to choose
-a path. Names can be a full device name or a unique substring, for example
-`--mic "AirPods"`.
+Combine `--only-mic` or `--only-audio` with `--mic <name>` to pick a microphone,
+or `-o` to choose a path. Names can be a full device name or a unique substring,
+for example `--mic "AirPods"`.
 
 List the devices `--mic` can use:
 

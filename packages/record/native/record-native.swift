@@ -20,6 +20,7 @@ struct NativeOptions {
     var cursor = true
     var onlyMic = false
     var onlySystemAudio = false
+    var onlyAudio = false
     var onlyCamera = false
     var camera = false
     var cameraName: String?
@@ -81,6 +82,10 @@ struct NativeOptions {
             case "--only-system-audio":
                 onlySystemAudio = true
                 microphone = false
+                systemAudio = true
+            case "--only-audio":
+                onlyAudio = true
+                microphone = true
                 systemAudio = true
             case "--only-camera":
                 onlyCamera = true
@@ -303,6 +308,8 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
             try await startMicrophoneRecording()
         } else if options.onlySystemAudio {
             try await startSystemAudioRecording()
+        } else if options.onlyAudio {
+            try await startCombinedAudioRecording()
         } else if options.onlyCamera {
             try await startCameraRecording()
         } else {
@@ -485,6 +492,51 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
         stream = contentStream
         try await contentStream.startCapture()
         emitStarted()
+    }
+
+    private func startCombinedAudioRecording() async throws {
+        try await ensureMicrophonePermission()
+        try ensureScreenPermission()
+
+        let shareableContent = try await SCShareableContent.excludingDesktopWindows(
+            false,
+            onScreenWindowsOnly: true
+        )
+        let display = try resolveDisplay(in: shareableContent)
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let configuration = SCStreamConfiguration()
+        configuration.width = 16
+        configuration.height = 16
+        configuration.minimumFrameInterval = CMTime(seconds: 1, preferredTimescale: 1)
+        configuration.showsCursor = false
+        configuration.queueDepth = 3
+        configuration.capturesAudio = true
+        configuration.captureMicrophone = true
+        configuration.sampleRate = 48_000
+        configuration.channelCount = 2
+
+        let device = try resolveMicrophoneDevice()
+        configuration.microphoneCaptureDeviceID = device.uniqueID
+        selectedMicrophoneName = device.localizedName
+
+        let outputURL = URL(fileURLWithPath: options.outputPath)
+        let temporaryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("record-\(ProcessInfo.processInfo.processIdentifier)-\(UUID().uuidString)")
+            .appendingPathExtension("mp4")
+        pendingMP3URL = outputURL
+        captureURL = temporaryURL
+
+        let recordingConfiguration = SCRecordingOutputConfiguration()
+        recordingConfiguration.outputURL = temporaryURL
+        recordingConfiguration.videoCodecType = .h264
+        recordingConfiguration.outputFileType = .mp4
+        let output = SCRecordingOutput(configuration: recordingConfiguration, delegate: self)
+        let contentStream = SCStream(filter: filter, configuration: configuration, delegate: self)
+        try contentStream.addRecordingOutput(output)
+
+        recordingOutput = output
+        stream = contentStream
+        try await contentStream.startCapture()
     }
 
     private func startScreenRecording() async throws {
@@ -1306,6 +1358,15 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
         if discardRequested {
             finishDiscard()
             return
+        }
+        if options.onlyAudio, let pending = pendingMP3URL, let captureURL {
+            let status = record_encode_audio_file_to_mp3(captureURL.path, pending.path)
+            try? FileManager.default.removeItem(at: captureURL)
+            if status != 0 {
+                emitError("Could not encode the recording as MP3.")
+                complete(status: 1)
+                return
+            }
         }
         emit(["event": "saved", "path": options.outputPath])
         complete(status: 0)
