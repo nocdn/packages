@@ -112,14 +112,21 @@ List the devices `--mic` can use:
 npx @nocdn/record mics
 ```
 
-Stop with `Enter` or `Ctrl+C` to finalize and save. `Ctrl+D` discards the
-recording and deletes the output file. A second `Ctrl+C` is an emergency force
-quit and may leave an unusable file.
+Stop with `Enter` or `Ctrl+C` to finalize and save. `Ctrl+D` or `Esc` discards
+the recording and deletes the output file. A second `Ctrl+C` is an emergency
+force quit and may leave an unusable file.
+
+During recording, the terminal keeps one live duration line above the controls
+hint. Each active audio source also gets a responsive ASCII peak meter, labeled
+`System` or `Mic`. A microphone-only or system-only recording shows one meter,
+recordings with both sources show two, and recordings without audio show none.
+Meters use `░`, `▒`, `▓`, and `█` density steps for finer changes between each
+character position.
+The recording header lists the active sources, for example
+`Recording [microphone, screen]`.
 
 While recording, a square menu-bar stop control appears using the native
-`stop.circle.fill` symbol. Click it to stop and save. When it first appears, a
-native popover identifies the recording as audio, video, or combined and closes
-automatically after two seconds.
+`stop.circle.fill` symbol. Click it to stop and save.
 
 ## Permissions
 

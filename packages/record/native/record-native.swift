@@ -1,4 +1,5 @@
 import AppKit
+import AudioToolbox
 import AVFoundation
 import CoreAudio
 import CoreGraphics
@@ -215,11 +216,12 @@ enum RecorderError: Error, LocalizedError {
     }
 }
 
-final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCStreamOutput, AVCaptureFileOutputRecordingDelegate, AVCaptureVideoDataOutputSampleBufferDelegate {
+final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCStreamOutput, AVCaptureFileOutputRecordingDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     private var options: NativeOptions
     private let outputLock = NSLock()
     private let stateLock = NSLock()
     private let cameraLock = NSLock()
+    private let audioLevelLock = NSLock()
     private var stream: SCStream?
     private var recordingOutput: SCRecordingOutput?
     private var captureSession: AVCaptureSession?
@@ -240,6 +242,8 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
     private var captureURL: URL?
     private var discardRequested = false
     private var recordingStartedAt: Date?
+    private var systemAudioPeakDB = -60.0
+    private var microphonePeakDB = -60.0
     private let sampleQueue = DispatchQueue(label: "com.nocdn.record.samples")
 
     init(options: NativeOptions) {
@@ -375,6 +379,13 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
             throw RecorderError.message("Could not create an audio file output.")
         }
         session.addOutput(fileOutput)
+
+        let levelOutput = AVCaptureAudioDataOutput()
+        levelOutput.setSampleBufferDelegate(self, queue: sampleQueue)
+        guard session.canAddOutput(levelOutput) else {
+            throw RecorderError.message("Could not monitor the microphone audio level.")
+        }
+        session.addOutput(levelOutput)
 
         captureSession = session
         audioFileOutput = fileOutput
@@ -570,6 +581,8 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
         recordingConfiguration.outputFileType = .mp4
         let output = SCRecordingOutput(configuration: recordingConfiguration, delegate: self)
         let contentStream = SCStream(filter: filter, configuration: configuration, delegate: self)
+        try contentStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
+        try contentStream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: sampleQueue)
         try contentStream.addRecordingOutput(output)
 
         recordingOutput = output
@@ -657,7 +670,7 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
             if options.systemAudio {
                 try contentStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
             }
-            if options.separateAudioTracks && options.microphone {
+            if options.microphone {
                 try contentStream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: sampleQueue)
             }
         } else {
@@ -666,6 +679,12 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
             recordingConfiguration.videoCodecType = options.videoCodec
             recordingConfiguration.outputFileType = options.format == "mov" ? .mov : .mp4
             let output = SCRecordingOutput(configuration: recordingConfiguration, delegate: self)
+            if options.systemAudio {
+                try contentStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
+            }
+            if options.microphone {
+                try contentStream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: sampleQueue)
+            }
             try contentStream.addRecordingOutput(output)
             recordingOutput = output
         }
@@ -830,8 +849,10 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
                     : nil
             )
         case .audio:
+            updateAudioLevel(from: sampleBuffer, source: .system)
             streamWriter?.appendAudio(sampleBuffer: sampleBuffer)
         case .microphone:
+            updateAudioLevel(from: sampleBuffer, source: .microphone)
             streamWriter?.appendMicrophone(sampleBuffer: sampleBuffer)
         default:
             break
@@ -843,6 +864,10 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
+        if output is AVCaptureAudioDataOutput {
+            updateAudioLevel(from: sampleBuffer, source: .microphone)
+            return
+        }
         guard let image = CMSampleBufferGetImageBuffer(sampleBuffer) else {
             return
         }
@@ -1092,30 +1117,19 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
         emit(payload)
         recordingStartedAt = Date()
         startProgressTimer()
-        let message = recordingStartedMessage()
         DispatchQueue.main.async { [weak self] in
             guard let self, !self.stopRequested else {
                 return
             }
-            RecordingStatusItem.shared.show(message: message) { [weak self] in
+            RecordingStatusItem.shared.show { [weak self] in
                 self?.requestStop()
             }
         }
     }
 
-    private func recordingStartedMessage() -> String {
-        if options.onlyMic || options.onlySystemAudio || options.onlyAudio {
-            return "Audio recording started"
-        }
-        if options.onlyCamera || (!options.microphone && !options.systemAudio) {
-            return "Video recording started"
-        }
-        return "Recording started"
-    }
-
     private func startProgressTimer() {
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
-        timer.schedule(deadline: .now() + 1, repeating: 1)
+        timer.schedule(deadline: .now() + 0.1, repeating: 0.1)
         timer.setEventHandler { [weak self] in
             guard let self else {
                 return
@@ -1139,14 +1153,137 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
                 return
             }
 
-            self.emit([
+            var payload: [String: Any] = [
                 "event": "progress",
                 "duration": duration,
                 "bytes": bytes,
-            ])
+            ]
+            let levels = self.takeAudioLevels()
+            if self.options.systemAudio {
+                payload["systemLevel"] = levels.system
+            }
+            if self.options.microphone {
+                payload["microphoneLevel"] = levels.microphone
+            }
+            self.emit(payload)
         }
         progressTimer = timer
         timer.resume()
+    }
+
+    private enum AudioLevelSource {
+        case system
+        case microphone
+    }
+
+    private func updateAudioLevel(from sampleBuffer: CMSampleBuffer, source: AudioLevelSource) {
+        guard let level = audioLevelDB(from: sampleBuffer) else {
+            return
+        }
+        audioLevelLock.lock()
+        switch source {
+        case .system:
+            systemAudioPeakDB = max(systemAudioPeakDB, level)
+        case .microphone:
+            microphonePeakDB = max(microphonePeakDB, level)
+        }
+        audioLevelLock.unlock()
+    }
+
+    private func takeAudioLevels() -> (system: Double, microphone: Double) {
+        audioLevelLock.lock()
+        let levels = (systemAudioPeakDB, microphonePeakDB)
+        systemAudioPeakDB = -60
+        microphonePeakDB = -60
+        audioLevelLock.unlock()
+        return levels
+    }
+
+    private func audioLevelDB(from sampleBuffer: CMSampleBuffer) -> Double? {
+        guard let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+              let formatPointer = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription) else {
+            return nil
+        }
+        let format = formatPointer.pointee
+        guard format.mFormatID == kAudioFormatLinearPCM else {
+            return nil
+        }
+
+        var bufferListSize = 0
+        var retainedBlockBuffer: CMBlockBuffer?
+        var status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer,
+            bufferListSizeNeededOut: &bufferListSize,
+            bufferListOut: nil,
+            bufferListSize: 0,
+            blockBufferAllocator: nil,
+            blockBufferMemoryAllocator: nil,
+            flags: UInt32(kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment),
+            blockBufferOut: &retainedBlockBuffer
+        )
+        guard status == noErr, bufferListSize > 0 else {
+            return nil
+        }
+
+        let storage = UnsafeMutableRawPointer.allocate(
+            byteCount: bufferListSize,
+            alignment: MemoryLayout<AudioBufferList>.alignment
+        )
+        defer { storage.deallocate() }
+        let bufferList = storage.bindMemory(to: AudioBufferList.self, capacity: 1)
+        status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer,
+            bufferListSizeNeededOut: nil,
+            bufferListOut: bufferList,
+            bufferListSize: bufferListSize,
+            blockBufferAllocator: nil,
+            blockBufferMemoryAllocator: nil,
+            flags: UInt32(kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment),
+            blockBufferOut: &retainedBlockBuffer
+        )
+        guard status == noErr else {
+            return nil
+        }
+
+        let isFloat = format.mFormatFlags & kAudioFormatFlagIsFloat != 0
+        let isSignedInteger = format.mFormatFlags & kAudioFormatFlagIsSignedInteger != 0
+        var sumOfSquares = 0.0
+        var sampledValues = 0
+
+        for buffer in UnsafeMutableAudioBufferListPointer(bufferList) {
+            guard let data = buffer.mData else { continue }
+            if isFloat && format.mBitsPerChannel == 32 {
+                let samples = data.assumingMemoryBound(to: Float.self)
+                let count = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
+                for index in stride(from: 0, to: count, by: 8) {
+                    let value = Double(samples[index])
+                    sumOfSquares += value * value
+                    sampledValues += 1
+                }
+            } else if isSignedInteger && format.mBitsPerChannel == 16 {
+                let samples = data.assumingMemoryBound(to: Int16.self)
+                let count = Int(buffer.mDataByteSize) / MemoryLayout<Int16>.size
+                for index in stride(from: 0, to: count, by: 8) {
+                    let value = Double(samples[index]) / Double(Int16.max)
+                    sumOfSquares += value * value
+                    sampledValues += 1
+                }
+            } else if isSignedInteger && format.mBitsPerChannel == 32 {
+                let samples = data.assumingMemoryBound(to: Int32.self)
+                let count = Int(buffer.mDataByteSize) / MemoryLayout<Int32>.size
+                for index in stride(from: 0, to: count, by: 8) {
+                    let value = Double(samples[index]) / Double(Int32.max)
+                    sumOfSquares += value * value
+                    sampledValues += 1
+                }
+            }
+        }
+
+        guard sampledValues > 0 else {
+            return nil
+        }
+        let rms = sqrt(sumOfSquares / Double(sampledValues))
+        return max(-60, min(0, 20 * log10(max(rms, 0.001))))
     }
 
     private func listMicrophones() -> Int32 {

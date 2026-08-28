@@ -31,6 +31,7 @@ test("help is generated from package metadata and lists recorder options", () =>
   assert.match(result.stdout, /default: 60/);
   assert.match(result.stdout, /MP3/);
   assert.match(result.stdout, /Ctrl\+D/);
+  assert.match(result.stdout, /Esc/);
   assert.match(result.stdout, /--window/);
   assert.match(result.stdout, /--region/);
   assert.match(result.stdout, /--for/);
@@ -185,6 +186,41 @@ test("common-sense aliases map to the canonical flags", () => {
   assert.match(run("--app", "Safari", "--region").stderr, /either --window or --region/);
 });
 
+test("recording header lists the active sources", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "record-sources-"));
+  const helper = path.join(directory, "fake-native.js");
+  await writeFile(
+    helper,
+    `#!/usr/bin/env node
+const output = process.argv[process.argv.indexOf("--output") + 1];
+process.stdout.write(JSON.stringify({ event: "started", path: output }) + "\\n");
+process.stdout.write(JSON.stringify({ event: "saved", path: output }) + "\\n");
+`,
+  );
+  await chmod(helper, 0o755);
+
+  const microphone = spawnSync(process.execPath, [cliPath, "--only-mic"], {
+    encoding: "utf8",
+    env: { ...process.env, RECORD_NATIVE: helper },
+  });
+  const microphoneAndScreen = spawnSync(
+    process.execPath,
+    [cliPath, "--no-system-audio"],
+    {
+      encoding: "utf8",
+      env: { ...process.env, RECORD_NATIVE: helper },
+    },
+  );
+
+  assert.equal(microphone.status, 0);
+  assert.match(microphone.stdout, /Recording \[microphone\]/);
+  assert.equal(microphoneAndScreen.status, 0);
+  assert.match(
+    microphoneAndScreen.stdout,
+    /Recording \[microphone, screen\]/,
+  );
+});
+
 test("only one output destination is allowed", () => {
   assert.match(
     run("--here", "-o", "out.mp4").stderr,
@@ -214,6 +250,15 @@ test("SIGINT tells a fake helper to stop and save", async () => {
 
   assert.equal(code, 0);
   assert.match(stdout + rest, /Saved:/);
+  assert.match(stdout + rest, /or Ctrl\+D or Esc to discard/);
+  assert.match(stdout + rest, /Recording \[microphone\]/);
+  assert.doesNotMatch(stdout + rest, /[◴◷◶◵]/);
+  assert.doesNotMatch(stdout + rest, /●/);
+  assert.doesNotMatch(stdout + rest, /System:.*\[/);
+  assert.match(stdout + rest, /Mic: \[████████████████▓-------\] -18 dB/);
+  assert.doesNotMatch(stdout + rest, /#/);
+  assert.doesNotMatch(stdout + rest, /Mic:  +\[/);
+  assert.doesNotMatch(stdout + rest, /Duration: 00:00:00/);
   assert.doesNotMatch(stdout + rest, /Discarded/);
 });
 
@@ -227,6 +272,17 @@ import { createInterface } from "node:readline";
 
 const output = process.argv[process.argv.indexOf("--output") + 1];
 process.stdout.write(JSON.stringify({ event: "started", path: output }) + "\\n");
+const progress = {
+  event: "progress",
+  duration: 12,
+};
+if (process.argv.includes("--only-mic")) {
+  progress.microphoneLevel = -18;
+} else {
+  progress.systemLevel = -30;
+  progress.microphoneLevel = -18;
+}
+process.stdout.write(JSON.stringify(progress) + "\\n");
 
 const input = createInterface({ input: process.stdin });
 input.on("line", (line) => {

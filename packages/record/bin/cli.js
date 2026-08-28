@@ -4,7 +4,7 @@ import { access, mkdir, readFile, unlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createInterface } from "node:readline";
+import { createInterface, emitKeypressEvents } from "node:readline";
 import { spawn } from "node:child_process";
 
 const packageInfo = await readPackageInfo();
@@ -64,6 +64,10 @@ async function runRecording(args) {
   let lastSignalAt = 0;
   let resolveExit;
   let rejectExit;
+  const liveStatus = createRecordingStatusRenderer(
+    process.stdout,
+    recordingSources(args),
+  );
   const exitPromise = new Promise((resolve, reject) => {
     resolveExit = resolve;
     rejectExit = reject;
@@ -86,22 +90,7 @@ async function runRecording(args) {
     switch (event.event) {
       case "started":
         started = true;
-        process.stdout.write(`●  Recording ${recordingSummary(args)}\n`);
-        process.stdout.write(`Output: ${event.path}\n`);
-        if (event.microphone) {
-          process.stdout.write(`Microphone: ${event.microphone}\n`);
-        }
-        if (event.camera) {
-          process.stdout.write(`Camera: ${event.camera}\n`);
-        }
-        if (event.window) {
-          process.stdout.write(`Window: ${event.window}\n`);
-        }
-        if (event.region) {
-          process.stdout.write(`Region: ${event.region}\n`);
-        }
-        process.stdout.write("Duration: 00:00:00\n");
-        process.stdout.write("Press Enter or Ctrl+C to stop and save, or Ctrl+D to discard.\n");
+        liveStatus.start(event);
         break;
       case "countdown":
         process.stdout.write(`Starting in ${event.remaining}…\n`);
@@ -111,26 +100,30 @@ async function runRecording(args) {
         break;
       case "progress":
         if (started && !stopping) {
-          process.stdout.write(`\rDuration: ${formatDuration(event.duration)} `);
+          liveStatus.update(event);
         }
         break;
       case "finalizing":
         stopping = true;
+        liveStatus.stop();
         process.stdout.write("\nFinalizing recording…\n");
         break;
       case "discarding":
         stopping = true;
         discarding = true;
+        liveStatus.stop();
         process.stdout.write("\nDiscarding recording…\n");
         break;
       case "saved":
         sawSavedEvent = true;
         finished = true;
+        liveStatus.stop();
         process.stdout.write(`Saved: ${event.path}\n`);
         break;
       case "discarded":
         sawDiscardedEvent = true;
         finished = true;
+        liveStatus.stop();
         process.stdout.write("Discarded.\n");
         break;
       case "permission-required":
@@ -177,6 +170,7 @@ async function runRecording(args) {
       return;
     }
     stopping = true;
+    liveStatus.stop();
     child.stdin.write('{"command":"stop"}\n');
   };
 
@@ -186,6 +180,7 @@ async function runRecording(args) {
     }
     discarding = true;
     stopping = true;
+    liveStatus.stop();
     child.stdin.write('{"command":"discard"}\n');
   };
 
@@ -212,31 +207,43 @@ async function runRecording(args) {
     }
     discard();
   };
-  const handleStdinData = (chunk) => {
+  const handleStdinKeypress = (_input, key = {}) => {
     if (stopping || finished) {
       return;
     }
-    const text = chunk.toString();
-    if (text.includes("\n") || text.includes("\r")) {
+    if (key.name === "return" || key.name === "enter") {
       stop();
+      return;
+    }
+    if (key.ctrl && key.name === "c") {
+      handleSignal();
+      return;
+    }
+    if (key.name === "escape" || (key.ctrl && key.name === "d")) {
+      discard();
     }
   };
   process.on("SIGINT", handleSignal);
   process.on("SIGTERM", handleSignal);
+  const stdinWasRaw = Boolean(process.stdin.isRaw);
   if (process.stdin.isTTY) {
+    emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode?.(true);
     process.stdin.on("end", handleStdinEnd);
-    process.stdin.on("data", handleStdinData);
+    process.stdin.on("keypress", handleStdinKeypress);
     process.stdin.resume();
   }
 
   try {
     await exitPromise;
   } finally {
+    liveStatus.stop();
     process.removeListener("SIGINT", handleSignal);
     process.removeListener("SIGTERM", handleSignal);
     if (process.stdin.isTTY) {
       process.stdin.removeListener("end", handleStdinEnd);
-      process.stdin.removeListener("data", handleStdinData);
+      process.stdin.removeListener("keypress", handleStdinKeypress);
+      process.stdin.setRawMode?.(stdinWasRaw);
       process.stdin.pause();
     }
     child.stdin.end();
@@ -247,6 +254,116 @@ async function runRecording(args) {
       output.close();
     }
   }
+}
+
+function createRecordingStatusRenderer(stream, sources) {
+  const controlsHint = [
+    "Press Enter or Ctrl+C to stop and save",
+    "or Ctrl+D or Esc to discard",
+  ];
+  const interactive = Boolean(stream.isTTY);
+  let renderedLineCount = 0;
+  let started = false;
+  let detailLines = [];
+  let statusLines = [];
+  const levels = {
+    system: -60,
+    microphone: -60,
+  };
+
+  const recordingLine = `Recording [${sources.join(", ")}]`;
+
+  const renderInteractive = () => {
+    if (!started) {
+      return;
+    }
+
+    const lines = [
+      recordingLine,
+      ...detailLines,
+      ...statusLines,
+      ...controlsHint,
+    ];
+    if (renderedLineCount > 0) {
+      stream.write(`\x1b[${renderedLineCount}A`);
+    }
+    for (const line of lines) {
+      stream.write(`\r\x1b[2K${line}\n`);
+    }
+    renderedLineCount = lines.length;
+  };
+
+  return {
+    start(event) {
+      detailLines = [`Output: ${event.path}`];
+      for (const [label, value] of [
+        ["Microphone", event.microphone],
+        ["Camera", event.camera],
+        ["Window", event.window],
+        ["Region", event.region],
+      ]) {
+        if (value) {
+          detailLines.push(`${label}: ${value}`);
+        }
+      }
+      started = true;
+
+      if (!interactive) {
+        stream.write(
+          `${[recordingLine, ...detailLines, ...controlsHint].join("\n")}\n`,
+        );
+        return;
+      }
+
+      renderInteractive();
+    },
+
+    update(event) {
+      statusLines = [`Duration: ${formatDuration(event.duration)}`];
+      const meters = [];
+      if (Number.isFinite(event.systemLevel)) {
+        levels.system = smoothedAudioLevel(levels.system, event.systemLevel);
+        meters.push({ label: "System", level: levels.system });
+      }
+      if (Number.isFinite(event.microphoneLevel)) {
+        levels.microphone = smoothedAudioLevel(
+          levels.microphone,
+          event.microphoneLevel,
+        );
+        meters.push({ label: "Mic", level: levels.microphone });
+      }
+      const labelWidth = Math.max(
+        0,
+        ...meters.map(({ label }) => `${label}:`.length),
+      );
+      for (const meter of meters) {
+        statusLines.push(formatAudioMeter(meter.label, meter.level, labelWidth));
+      }
+
+      if (!interactive) {
+        stream.write(`\r${statusLines.join(" | ")} `);
+        return;
+      }
+
+      renderInteractive();
+    },
+
+    stop() {},
+  };
+}
+
+function smoothedAudioLevel(previous, next) {
+  const target = Math.max(-60, Math.min(0, Number(next)));
+  return target >= previous ? target : Math.max(target, previous - 4);
+}
+
+function formatAudioMeter(label, decibels, labelWidth, width = 24) {
+  const level = Math.max(-60, Math.min(0, Number(decibels)));
+  const steps = Math.round(((level + 60) / 60) * width * 4);
+  const filled = Math.floor(steps / 4);
+  const partial = ["", "░", "▒", "▓"][steps % 4];
+  const meter = `${"█".repeat(filled)}${partial}${"-".repeat(width - filled - (partial ? 1 : 0))}`;
+  return `${`${label}:`.padEnd(labelWidth)} [${meter}] ${String(Math.round(level)).padStart(3)} dB`;
 }
 
 async function runNativeList(nativeArgs, emptyMessage) {
@@ -971,26 +1088,38 @@ async function readPackageInfo() {
   return JSON.parse(rawPackageJson);
 }
 
-function recordingSummary(args) {
+function recordingSources(args) {
   if (args.onlyMic) {
-    return "microphone";
+    return ["microphone"];
   }
   if (args.onlySystemAudio) {
-    return "system audio";
+    return ["system audio"];
   }
   if (args.onlyAudio) {
-    return `system audio and microphone${args.separateAudioTracks ? " (separate tracks)" : ""}`;
+    return ["microphone", "system audio"];
   }
   if (args.onlyCamera) {
-    return "camera";
+    return ["camera"];
   }
 
-  const source = args.windowName
-    ? `window "${args.windowName}"`
-    : args.region
-      ? "region"
-      : "screen";
-  return `${source}${args.systemAudio ? ", system audio" : ""}${args.microphone ? ", microphone" : ""}${args.separateAudioTracks ? " (separate tracks)" : ""}${args.camera ? ", camera" : ""}`;
+  const sources = [];
+  if (args.microphone) {
+    sources.push("microphone");
+  }
+  if (args.systemAudio) {
+    sources.push("system audio");
+  }
+  if (args.windowName) {
+    sources.push("window");
+  } else if (args.region) {
+    sources.push("screen region");
+  } else {
+    sources.push("screen");
+  }
+  if (args.camera) {
+    sources.push("camera");
+  }
+  return sources;
 }
 
 function recordingTabTitle(args) {
@@ -1072,6 +1201,7 @@ Keys:
   Enter                            Stop and save.
   Ctrl+C                           Stop and save.
   Ctrl+D                           Discard the recording.
+  Esc                              Discard the recording.
 `;
 }
 
