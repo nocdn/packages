@@ -21,6 +21,7 @@ struct NativeOptions {
     var onlyMic = false
     var onlySystemAudio = false
     var onlyAudio = false
+    var separateAudioTracks = false
     var onlyCamera = false
     var camera = false
     var cameraName: String?
@@ -87,6 +88,8 @@ struct NativeOptions {
                 onlyAudio = true
                 microphone = true
                 systemAudio = true
+            case "--separate-audio-tracks":
+                separateAudioTracks = true
             case "--only-camera":
                 onlyCamera = true
                 camera = true
@@ -520,6 +523,41 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
         selectedMicrophoneName = device.localizedName
 
         let outputURL = URL(fileURLWithPath: options.outputPath)
+        if options.separateAudioTracks {
+            let fileType: AVFileType
+            switch outputURL.pathExtension.lowercased() {
+            case "m4a":
+                fileType = .m4a
+            case "mp4":
+                fileType = .mp4
+            default:
+                fileType = .mov
+            }
+            let writer = try StreamWriter(
+                url: outputURL,
+                fileType: fileType,
+                width: 2,
+                height: 2,
+                fps: 30,
+                codec: .h264,
+                videoBitrate: nil,
+                audioBitrate: options.audioBitrate,
+                includeVideo: false,
+                includeAudio: true,
+                includeMicrophone: true
+            )
+            streamWriter = writer
+            captureURL = outputURL
+
+            let contentStream = SCStream(filter: filter, configuration: configuration, delegate: self)
+            try contentStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
+            try contentStream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: sampleQueue)
+            stream = contentStream
+            try await contentStream.startCapture()
+            emitStarted()
+            return
+        }
+
         let temporaryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("record-\(ProcessInfo.processInfo.processIdentifier)-\(UUID().uuidString)")
             .appendingPathExtension("mp4")
@@ -595,7 +633,7 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
             try startCameraOverlaySession()
         }
 
-        let usesWriter = options.camera || options.videoBitrate != nil || options.audioBitrate != nil
+        let usesWriter = options.camera || options.videoBitrate != nil || options.audioBitrate != nil || options.separateAudioTracks
         let outputURL = URL(fileURLWithPath: options.outputPath)
         captureURL = outputURL
         let contentStream = SCStream(filter: filter, configuration: configuration, delegate: self)
@@ -611,12 +649,16 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
                 videoBitrate: options.videoBitrate,
                 audioBitrate: options.audioBitrate,
                 includeVideo: true,
-                includeAudio: options.systemAudio || options.microphone
+                includeAudio: options.systemAudio,
+                includeMicrophone: options.separateAudioTracks && options.microphone
             )
             streamWriter = writer
             try contentStream.addStreamOutput(self, type: .screen, sampleHandlerQueue: sampleQueue)
-            if options.systemAudio || options.microphone {
+            if options.systemAudio {
                 try contentStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
+            }
+            if options.separateAudioTracks && options.microphone {
+                try contentStream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: sampleQueue)
             }
         } else {
             let recordingConfiguration = SCRecordingOutputConfiguration()
@@ -789,6 +831,8 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
             )
         case .audio:
             streamWriter?.appendAudio(sampleBuffer: sampleBuffer)
+        case .microphone:
+            streamWriter?.appendMicrophone(sampleBuffer: sampleBuffer)
         default:
             break
         }
@@ -963,6 +1007,9 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
 
         FileHandle.standardInput.readabilityHandler = nil
         progressTimer?.cancel()
+        DispatchQueue.main.async {
+            RecordingStatusItem.shared.hide()
+        }
         continuation?.resume(returning: status)
     }
 
@@ -1045,6 +1092,25 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, SCS
         emit(payload)
         recordingStartedAt = Date()
         startProgressTimer()
+        let message = recordingStartedMessage()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.stopRequested else {
+                return
+            }
+            RecordingStatusItem.shared.show(message: message) { [weak self] in
+                self?.requestStop()
+            }
+        }
+    }
+
+    private func recordingStartedMessage() -> String {
+        if options.onlyMic || options.onlySystemAudio || options.onlyAudio {
+            return "Audio recording started"
+        }
+        if options.onlyCamera || (!options.microphone && !options.systemAudio) {
+            return "Video recording started"
+        }
+        return "Recording started"
     }
 
     private func startProgressTimer() {

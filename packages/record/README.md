@@ -19,6 +19,7 @@ npx @nocdn/record [options]
 npx @nocdn/record --only-mic
 npx @nocdn/record --internal
 npx @nocdn/record --only-audio
+npx @nocdn/record --only-audio --separate-audio-tracks
 npx @nocdn/record --window Safari
 npx @nocdn/record --region
 npx @nocdn/record --for 30s --in 3
@@ -39,6 +40,7 @@ npx @nocdn/record permissions
 | `--only-mic`, `--mic-only`, `--microphone` | record only the microphone as MP3 |
 | `--only-system-audio`, `--system-audio-only`, `--internal`, `--internal-only` | record only system/application audio as MP3 |
 | `--only-audio`, `--audio-only` | record system/application audio and the microphone as MP3, without video |
+| `--separate-audio-tracks` | store system audio and microphone as separate editable tracks instead of mixing them |
 | `--only-camera`, `--camera-only` | record only the camera |
 | `--no-mic` | disable microphone capture |
 | `--mic <name>` | select a microphone by name; default is the built-in Mac microphone, not the current system input |
@@ -78,6 +80,19 @@ file. `--only-system-audio` (also `--internal` or `--internal-only`) does the
 same for internal audio. `--only-audio` combines internal audio and the
 microphone in one MP3 without video. `--only-camera` writes a camera-only movie.
 
+`--separate-audio-tracks` keeps internal audio and microphone audio on two
+independently editable tracks in the same file. With a screen recording, the
+output remains MP4 or MOV. With `--only-audio`, the default output is an
+audio-only MOV because MP3 cannot contain multiple tracks. An exact output path
+may instead use `.mov`, `.mp4`, or `.m4a` for audio-only multi-track recording.
+For example:
+
+```bash
+npx @nocdn/record --separate-audio-tracks
+npx @nocdn/record --only-audio --separate-audio-tracks
+npx @nocdn/record --only-audio --separate-audio-tracks --mic "AirPods"
+```
+
 `--window Safari` captures that app's window. `--region` with no value lets you
 click-drag a rectangle; `--region 120,80,1280,720` uses display points from the
 top-left of the selected display.
@@ -100,6 +115,11 @@ npx @nocdn/record mics
 Stop with `Enter` or `Ctrl+C` to finalize and save. `Ctrl+D` discards the
 recording and deletes the output file. A second `Ctrl+C` is an emergency force
 quit and may leave an unusable file.
+
+While recording, a square menu-bar stop control appears using the native
+`stop.circle.fill` symbol. Click it to stop and save. When it first appears, a
+native popover identifies the recording as audio, video, or combined and closes
+automatically after two seconds.
 
 ## Permissions
 

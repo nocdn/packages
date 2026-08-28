@@ -8,6 +8,7 @@ final class StreamWriter: NSObject {
     private let writer: AVAssetWriter
     private let videoInput: AVAssetWriterInput?
     private let audioInput: AVAssetWriterInput?
+    private let microphoneInput: AVAssetWriterInput?
     private let adaptor: AVAssetWriterInputPixelBufferAdaptor?
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private let lock = NSLock()
@@ -28,7 +29,8 @@ final class StreamWriter: NSObject {
         videoBitrate: Int?,
         audioBitrate: Int?,
         includeVideo: Bool,
-        includeAudio: Bool
+        includeAudio: Bool,
+        includeMicrophone: Bool = false
     ) throws {
         if FileManager.default.fileExists(atPath: url.path) {
             try FileManager.default.removeItem(at: url)
@@ -83,6 +85,10 @@ final class StreamWriter: NSObject {
             }
             let input = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
             input.expectsMediaDataInRealTime = true
+            let title = AVMutableMetadataItem()
+            title.identifier = .commonIdentifierTitle
+            title.value = "System Audio" as NSString
+            input.metadata = [title]
             if writer.canAdd(input) {
                 writer.add(input)
                 audioInput = input
@@ -91,6 +97,30 @@ final class StreamWriter: NSObject {
             }
         } else {
             audioInput = nil
+        }
+
+        if includeMicrophone {
+            var audioSettings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 2,
+            ]
+            if let audioBitrate {
+                audioSettings[AVEncoderBitRateKey] = audioBitrate
+            }
+            let input = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+            input.expectsMediaDataInRealTime = true
+            let title = AVMutableMetadataItem()
+            title.identifier = .commonIdentifierTitle
+            title.value = "Microphone" as NSString
+            input.metadata = [title]
+            guard writer.canAdd(input) else {
+                throw RecorderError.message("Could not create a separate microphone audio track.")
+            }
+            writer.add(input)
+            microphoneInput = input
+        } else {
+            microphoneInput = nil
         }
 
         super.init()
@@ -132,6 +162,20 @@ final class StreamWriter: NSObject {
         audioInput.append(sampleBuffer)
     }
 
+    func appendMicrophone(sampleBuffer: CMSampleBuffer) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !finished, let microphoneInput else {
+            return
+        }
+        let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        startIfNeeded(at: time)
+        guard writer.status == .writing, microphoneInput.isReadyForMoreMediaData else {
+            return
+        }
+        microphoneInput.append(sampleBuffer)
+    }
+
     func finish() async {
         let writerToFinish: AVAssetWriter? = lock.withLock {
             if finished {
@@ -140,6 +184,7 @@ final class StreamWriter: NSObject {
             finished = true
             videoInput?.markAsFinished()
             audioInput?.markAsFinished()
+            microphoneInput?.markAsFinished()
             return writer
         }
 

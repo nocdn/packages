@@ -317,6 +317,7 @@ function parseArgs(argv, info) {
     onlyMic: false,
     onlySystemAudio: false,
     onlyAudio: false,
+    separateAudioTracks: false,
     onlyCamera: false,
     camera: false,
     cameraName: null,
@@ -415,6 +416,11 @@ function parseArgs(argv, info) {
       args.onlyAudio = true;
       args.microphone = true;
       args.systemAudio = true;
+      continue;
+    }
+
+    if (arg === "--separate-audio-tracks") {
+      args.separateAudioTracks = true;
       continue;
     }
 
@@ -596,6 +602,26 @@ function parseArgs(argv, info) {
     );
   }
 
+  if (args.separateAudioTracks && args.onlyCamera) {
+    throw new Error("The --separate-audio-tracks option cannot be combined with --only-camera.");
+  }
+
+  if (args.separateAudioTracks && (!args.microphone || !args.systemAudio)) {
+    throw new Error(
+      "The --separate-audio-tracks option requires both microphone and system audio.",
+    );
+  }
+
+  if (args.separateAudioTracks && args.output) {
+    const extension = path.extname(args.output).toLowerCase();
+    const allowed = args.onlyAudio ? [".mov", ".mp4", ".m4a"] : [".mov", ".mp4"];
+    if (extension && !allowed.includes(extension)) {
+      throw new Error(
+        `The --separate-audio-tracks output must use ${allowed.join(", ")}, or have no extension.`,
+      );
+    }
+  }
+
   if ((args.onlyMic || args.onlySystemAudio || args.onlyAudio) && args.camera) {
     throw new Error("Audio-only recording cannot be combined with --camera.");
   }
@@ -622,7 +648,11 @@ function parseArgs(argv, info) {
 
 function resolveOutputPath(args) {
   const audioOnly = args.onlyMic || args.onlySystemAudio || args.onlyAudio;
-  const extension = audioOnly ? ".mp3" : `.${args.format}`;
+  const extension = args.onlyAudio && args.separateAudioTracks
+    ? ".mov"
+    : audioOnly
+      ? ".mp3"
+      : `.${args.format}`;
   const defaultDirectory = args.here
     ? process.cwd()
     : args.location
@@ -827,6 +857,9 @@ function nativeRecordingArgs(args, outputPath) {
 
   if (args.onlyAudio) {
     nativeArgs.push("--only-audio");
+    if (args.separateAudioTracks) {
+      nativeArgs.push("--separate-audio-tracks");
+    }
     if (args.microphoneName) {
       nativeArgs.push("--mic", args.microphoneName);
     }
@@ -868,6 +901,9 @@ function nativeRecordingArgs(args, outputPath) {
   if (args.camera) {
     nativeArgs.push("--camera");
     appendCameraArgs(nativeArgs, args);
+  }
+  if (args.separateAudioTracks) {
+    nativeArgs.push("--separate-audio-tracks");
   }
   appendQualityArgs(nativeArgs, args);
   return nativeArgs;
@@ -943,7 +979,7 @@ function recordingSummary(args) {
     return "system audio";
   }
   if (args.onlyAudio) {
-    return "system audio and microphone";
+    return `system audio and microphone${args.separateAudioTracks ? " (separate tracks)" : ""}`;
   }
   if (args.onlyCamera) {
     return "camera";
@@ -954,7 +990,7 @@ function recordingSummary(args) {
     : args.region
       ? "region"
       : "screen";
-  return `${source}${args.systemAudio ? ", system audio" : ""}${args.microphone ? ", microphone" : ""}${args.camera ? ", camera" : ""}`;
+  return `${source}${args.systemAudio ? ", system audio" : ""}${args.microphone ? ", microphone" : ""}${args.separateAudioTracks ? " (separate tracks)" : ""}${args.camera ? ", camera" : ""}`;
 }
 
 function recordingTabTitle(args) {
@@ -977,6 +1013,7 @@ Usage:
   ${command} --only-mic
   ${command} --internal
   ${command} --only-audio
+  ${command} --only-audio --separate-audio-tracks
   ${command} --only-camera
   ${command} mics | windows | cameras
   ${command} permissions
@@ -990,6 +1027,7 @@ Examples:
   ${command} --only-mic
   ${command} --internal
   ${command} --only-audio
+  ${command} --separate-audio-tracks
   ${command} --camera --hevc --quality high
   ${command} --codec hevc --video-bitrate 12m --audio-bitrate 192k --scale 0.75
 
@@ -1004,6 +1042,7 @@ Options:
       --only-system-audio, --system-audio-only, --internal, --internal-only
                                    Record only system/application audio as MP3.
       --only-audio, --audio-only   Record system audio and microphone as MP3, without video.
+      --separate-audio-tracks      Store system audio and microphone as separate editable tracks.
       --only-camera, --camera-only Record only the camera.
       --no-mic                     Disable microphone capture.
       --mic <name>                 Select a microphone by name (default: built-in Mac mic).
@@ -1024,7 +1063,7 @@ Options:
       --audio-bitrate <rate>       Audio bitrate, for example 192k.
       --display <number>           Capture display number (default: 1).
       --fps <number>               Capture frame rate (default: 60).
-      --format <mp4|mov>           Video container (default: mp4). Audio-only default is MP3.
+      --format <mp4|mov>           Video container (default: mp4). Mixed audio-only default is MP3.
       --no-cursor                  Hide the mouse cursor.
 
 Recordings save to ~/Downloads with a timestamped name unless --output, --location, or --here is given.

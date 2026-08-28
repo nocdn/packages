@@ -37,6 +37,7 @@ test("help is generated from package metadata and lists recorder options", () =>
   assert.match(result.stdout, /--only-system-audio/);
   assert.match(result.stdout, /--only-audio/);
   assert.match(result.stdout, /--audio-only/);
+  assert.match(result.stdout, /--separate-audio-tracks/);
   assert.match(result.stdout, /--internal/);
   assert.match(result.stdout, /--internal-only/);
   assert.match(result.stdout, /--only-camera/);
@@ -122,6 +123,56 @@ test("audio-only combines system and microphone audio", () => {
     run("--only-audio", "--camera").stderr,
     /cannot be combined with --camera/,
   );
+});
+
+test("separate audio tracks require both sources and a multi-track container", () => {
+  assert.match(
+    run("--separate-audio-tracks", "--no-mic").stderr,
+    /requires both microphone and system audio/,
+  );
+  assert.match(
+    run("--separate-audio-tracks", "--no-system-audio").stderr,
+    /requires both microphone and system audio/,
+  );
+  assert.match(
+    run("--only-audio", "--separate-audio-tracks", "-o", "recording.mp3").stderr,
+    /must use \.mov, \.mp4, \.m4a/,
+  );
+  assert.match(
+    run("--only-camera", "--separate-audio-tracks").stderr,
+    /cannot be combined with --only-camera/,
+  );
+});
+
+test("separate audio-only defaults to MOV and reaches the native helper", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "record-tracks-"));
+  const helper = path.join(directory, "fake-native.js");
+  await writeFile(
+    helper,
+    `#!/usr/bin/env node
+const outputIndex = process.argv.indexOf("--output");
+if (!process.argv.includes("--only-audio") || !process.argv.includes("--separate-audio-tracks")) {
+  process.stderr.write("missing multi-track native flags\\n");
+  process.exit(1);
+}
+const output = process.argv[outputIndex + 1];
+process.stdout.write(JSON.stringify({ event: "started", path: output }) + "\\n");
+process.stdout.write(JSON.stringify({ event: "saved", path: output }) + "\\n");
+`,
+  );
+  await chmod(helper, 0o755);
+
+  const result = spawnSync(
+    process.execPath,
+    [cliPath, "--only-audio", "--separate-audio-tracks", "--location", directory],
+    {
+      encoding: "utf8",
+      env: { ...process.env, RECORD_NATIVE: helper },
+    },
+  );
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Saved: .*\.mov/);
 });
 
 test("common-sense aliases map to the canonical flags", () => {
