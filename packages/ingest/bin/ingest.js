@@ -351,8 +351,11 @@ function parseArgs(argv, packageInfo) {
     args.source = positionals[0];
   }
 
-  if (args.repo && !isValidRepoUrl(args.repo)) {
-    throw new Error(`Invalid repository URL: "${args.repo}"`);
+  if (args.repo) {
+    args.repo = normalizeRepoUrl(args.repo);
+    if (!isValidRepoUrl(args.repo)) {
+      throw new Error(`Invalid repository URL: "${args.repo}"`);
+    }
   }
 
   if (args.all) {
@@ -383,8 +386,12 @@ function enabledAllIncludeFlags(args) {
   return ALL_INCLUDE_OPTIONS.filter((option) => args[option.key]).map((option) => option.includeFlag);
 }
 
+function normalizeRepoUrl(url) {
+  return url.trim().replace(/\/+$/, "");
+}
+
 function isValidRepoUrl(url) {
-  return /^https?:\/\/.+.git$/i.test(url) || /^https?:\/\/github\.com\/[^/]+\/[^/]+$/i.test(url);
+  return /^https?:\/\/.+\.git$/i.test(url) || /^https?:\/\/github\.com\/[^/]+\/[^/]+$/i.test(url);
 }
 
 function collectValues(argv, startIndex, optionName) {
@@ -474,7 +481,8 @@ async function readPackageInfo() {
 
 async function cloneRepo(repoUrl) {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "ingest-"));
-  const url = repoUrl.endsWith(".git") ? repoUrl : `${repoUrl}.git`;
+  const normalized = normalizeRepoUrl(repoUrl);
+  const url = normalized.endsWith(".git") ? normalized : `${normalized}.git`;
 
   try {
     await execGit(["clone", "--depth", "1", url, tempDir]);

@@ -241,4 +241,26 @@ describe("ingestPath", () => {
     assert.ok(!excludedByFlag.stdout.includes("FILE: document.pdf"));
     assert.ok(!excludedByPattern.stdout.includes("FILE: document.pdf"));
   });
+
+  test("CLI rejects invalid --repo URLs", async () => {
+    await assert.rejects(
+      () => execFileAsync(process.execPath, [CLI_PATH, "--repo", "not-a-url", "--stdout"]),
+      (error) => {
+        assert.match(String(error.stderr), /Invalid repository URL: "not-a-url"/);
+        return true;
+      },
+    );
+  });
+
+  test("CLI accepts GitHub --repo URLs with a trailing slash", async () => {
+    const { stdout, stderr } = await execFileAsync(process.execPath, [
+      CLI_PATH,
+      "--repo",
+      "https://github.com/nocdn/ingest/",
+      "--version",
+    ]);
+
+    assert.equal(stderr, "");
+    assert.match(stdout, /^\d+\.\d+\.\d+\n$/);
+  });
 });

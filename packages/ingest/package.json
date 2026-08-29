@@ -1,6 +1,6 @@
 {
   "name": "@nocdn/ingest",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "A bunx-runnable CLI that ingests a local folder or repository into an LLM-friendly digest.",
   "license": "MIT",
   "repository": {
