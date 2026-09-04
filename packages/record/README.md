@@ -38,7 +38,7 @@ npx @nocdn/record permissions
 | `--location <dir>` | save into this directory with a timestamped name (`--location .`, `--location ~/Pictures`) |
 | `--here` | save into the current directory (same as `--location .`) |
 | `--only-mic`, `--mic-only`, `--microphone` | record only the microphone as MP3 |
-| `--only-system-audio`, `--system-audio-only`, `--internal`, `--internal-only` | record only system/application audio as MP3 |
+| `--only-system-audio`, `--system-audio-only`, `--internal`, `--internal-only` | record only system/application audio as MP3 (add `--mic <name>` to also include the mic, same as `--only-audio`) |
 | `--only-audio`, `--audio-only` | record system/application audio and the microphone as MP3, without video |
 | `--separate-audio-tracks` | store system audio and microphone as separate editable tracks instead of mixing them |
 | `--only-camera`, `--camera-only` | record only the camera |
@@ -77,7 +77,9 @@ exact file path. Choose only one of them.
 
 `--only-mic` skips the screen and system audio and writes a timestamped `.mp3`
 file. `--only-system-audio` (also `--internal` or `--internal-only`) does the
-same for internal audio. `--only-audio` combines internal audio and the
+same for internal audio. `--internal --mic <name>` (for example
+`--internal --mic "MacBook"`) records internal audio plus that microphone,
+same as `--only-audio --mic <name>`. `--only-audio` combines internal audio and the
 microphone in one MP3 without video. `--only-camera` writes a camera-only movie.
 
 `--separate-audio-tracks` keeps internal audio and microphone audio on two

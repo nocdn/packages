@@ -453,6 +453,8 @@ function parseArgs(argv, info) {
     here: false,
     location: null,
   };
+  let micOptionIndex = -1;
+  let noMicOptionIndex = -1;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -640,6 +642,7 @@ function parseArgs(argv, info) {
 
     if (arg === "--no-mic") {
       args.microphone = false;
+      noMicOptionIndex = index;
       continue;
     }
 
@@ -659,8 +662,10 @@ function parseArgs(argv, info) {
     }
 
     if (arg === "--mic") {
+      const flagIndex = index;
       args.microphoneName = requiredValue(argv, ++index, arg);
       args.microphone = true;
+      micOptionIndex = flagIndex;
       continue;
     }
 
@@ -696,6 +701,18 @@ function parseArgs(argv, info) {
     throw new Error(
       `The ${args.command} command cannot be combined with a flag.`,
     );
+  }
+
+  if (
+    args.onlySystemAudio &&
+    args.microphoneName &&
+    micOptionIndex > noMicOptionIndex &&
+    args.systemAudio
+  ) {
+    args.onlySystemAudio = false;
+    args.onlyAudio = true;
+    args.microphone = true;
+    args.systemAudio = true;
   }
 
   const onlyModes = [args.onlyMic, args.onlySystemAudio, args.onlyAudio, args.onlyCamera].filter(Boolean);
@@ -1170,6 +1187,7 @@ Options:
                                    Record only the microphone as MP3.
       --only-system-audio, --system-audio-only, --internal, --internal-only
                                    Record only system/application audio as MP3.
+                                   Add --mic <name> to also include the mic, same as --only-audio.
       --only-audio, --audio-only   Record system audio and microphone as MP3, without video.
       --separate-audio-tracks      Store system audio and microphone as separate editable tracks.
       --only-camera, --camera-only Record only the camera.
