@@ -1,56 +1,40 @@
 name: Publish to npm
 
-# Before this can stage a release, publish the package once manually, then
-# configure it on npmjs.com as a Trusted Publisher for this GitHub repository
-# and workflow filename (`publish.yml`). Allow `npm stage publish`, and make
-# sure package.json has a repository.url that exactly matches the repository.
+# Runs lint and tests on every push to main (and on pull requests), then
+# publishes with npm trusted publishing when the version in package.json is
+# not on the registry yet. A normal code push without a version bump skips the
+# publish step cleanly. Keep this filename as `publish.yml` so the npm trusted
+# publisher configuration continues to match.
 #
-# Push a tag matching the package version (for example, v1.2.3). The workflow
-# submits the package for review; a maintainer must approve it with 2FA before
-# it becomes available on the registry.
+# Before a first publish:
+# 1. Make sure `repository.url` in package.json exactly matches the GitHub repo.
+# 2. Publish the first version manually (`npm publish --access public`), since
+#    trusted publishing cannot create a brand-new package.
+# 3. On npmjs.com, configure this repository as a trusted publisher for
+#    workflow filename `publish.yml`.
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
 
+# Trusted publishing requires `id-token: write` so GitHub Actions can mint the
+# short-lived OIDC token that npm exchanges for a publish token.
+# `contents: read` is the minimum needed for actions/checkout.
 permissions:
+  id-token: write
   contents: read
 
-# Avoid two tags racing to stage releases.
+# Avoid two pushes racing to publish the same version.
 concurrency:
-  group: publish
+  group: publish-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  check:
-    name: Check package
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Run checks
-        run: npm run check
-
   publish:
-    name: Stage package
-    needs: check
+    name: Check and publish
     runs-on: ubuntu-latest
-    permissions:
-      # npm exchanges GitHub's OIDC token for a short-lived credential.
-      id-token: write
-      contents: read
 
     steps:
       - name: Checkout repository
@@ -61,31 +45,52 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          # Staged publishing requires Node >= 22.14.0 and npm >= 11.15.0.
+          # Trusted publishing requires Node >= 22.14.0 and npm >= 11.5.1.
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
-      - name: Verify npm supports staged publishing
-        run: |
-          npm_version="$(npm --version)"
-          echo "npm $npm_version"
-          node -e "const [major, minor] = process.argv[1].split('.').map(Number); if (major < 11 || (major === 11 && minor < 15)) { console.error('::error::npm ' + process.argv[1] + ' is older than 11.15.0 and does not support staged publishing.'); process.exit(1) }" "$npm_version"
+      - name: Ensure npm >= 11.5.1
+        run: npm install -g npm@^11.5.1 --no-audit --no-fund
 
-      - name: Verify tag matches package version
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run lint and tests
+        run: npm run check
+
+      - name: Inspect package contents
+        run: npm pack --dry-run
+
+      - name: Check whether the current version is already published
+        id: check
         run: |
-          EXPECTED_TAG="v$(node -p "require('./package.json').version")"
-          if [ "$GITHUB_REF_NAME" != "$EXPECTED_TAG" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package version $EXPECTED_TAG."
-            exit 1
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pull request; checks only, will not publish."
+            exit 0
           fi
 
-      - name: Verify package provenance metadata
-        run: |
-          node -e "const repository = require('./package.json').repository; if (!repository) { console.error('::error::Add a repository field to package.json before publishing with provenance.'); process.exit(1) }"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION is already on npm; skipping publish."
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION is not on npm yet; will publish."
+          fi
 
-      # This job intentionally installs no project dependencies. The source is
-      # already runnable JavaScript, and the separate check job has no access
-      # to the OIDC publishing permission.
-      - name: Stage package with trusted publishing
-        run: npm stage publish --ignore-scripts
+      - name: Publish to npm with trusted publishing
+        if: steps.check.outputs.release == 'true'
+        env:
+          # setup-node writes a dummy NODE_AUTH_TOKEN when registry-url is set.
+          # An empty value forces npm 11.5+ to use OIDC trusted publishing.
+          NODE_AUTH_TOKEN: ""
+        # Provenance is the default for trusted publishing from a public repo;
+        # setting it explicitly surfaces attestation failures early. Checks
+        # already ran above, so skip the prepublishOnly rerun.
+        run: npm publish --provenance --access public --ignore-scripts

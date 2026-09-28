@@ -6,4 +6,12 @@ export default defineConfig([
     ignores: ["coverage/"],
   },
   js.configs.recommended,
+  {
+    languageOptions: {
+      // Web-compatible globals that Node provides without an import.
+      globals: {
+        AbortController: "readonly",
+      },
+    },
+  },
 ])
