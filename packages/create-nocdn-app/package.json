@@ -1,0 +1,34 @@
+{
+  "name": "create-nocdn-app",
+  "version": "0.9.0",
+  "description": "Scaffold Next.js, Vite, TanStack Start, or Hono my preferred way",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-nocdn-app": "index.js"
+  },
+  "files": [
+    "index.js",
+    "templates"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocdn/create-nocdn-app.git"
+  },
+  "keywords": [
+    "create-nocdn-app",
+    "next.js",
+    "vite",
+    "tanstack",
+    "tanstack-start",
+    "hono",
+    "bun",
+    "api",
+    "scaffold",
+    "template",
+    "nocdn"
+  ],
+  "dependencies": {
+    "@clack/prompts": "latest"
+  }
+}

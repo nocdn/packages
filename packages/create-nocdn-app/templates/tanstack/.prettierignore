@@ -1,0 +1,10 @@
+node_modules
+.next
+.nitro
+.output
+.tanstack
+.vinxi
+dist
+build
+*.lock
+src/routeTree.gen.ts
