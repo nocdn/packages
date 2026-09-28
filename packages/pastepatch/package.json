@@ -1,0 +1,33 @@
+{
+  "name": "@nocdn/pastepatch",
+  "version": "1.8.0",
+  "description": "Code with ChatGPT via clipboard tool plans or a remote MCP server (Cloudflare Tunnel)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocdn/pastepatch.git"
+  },
+  "type": "module",
+  "bin": {
+    "pastepatch": "bin/cli.js"
+  },
+  "files": [
+    "assets",
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "start": "node ./bin/cli.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "express": "^5.2.1",
+    "sharp": "^0.34.5",
+    "zod": "^4.4.3"
+  }
+}
