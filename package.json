@@ -1,0 +1,26 @@
+{
+  "name": "@nocdn/packages",
+  "private": true,
+  "description": "Monorepo for nocdn's npx-runnable CLIs",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write . && eslint . --fix",
+    "test": "npm test --workspaces --if-present",
+    "smoke": "node scripts/smoke.js",
+    "check": "npm run lint && npm test && npm run smoke"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "globals": "17.12.0",
+    "prettier": "3.9.9"
+  }
+}

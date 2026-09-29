@@ -1,0 +1,55 @@
+# dependencies
+node_modules
+
+# npm uses the root package-lock.json; other package managers' lockfiles
+# are not used in this repository
+bun.lock
+bun.lockb
+pnpm-lock.yaml
+yarn.lock
+
+# build output
+out
+dist
+*.tgz
+
+# record's native helper is built (and signed in CI) by `npm run build`
+packages/record/vendor/
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# editors and OS files
+.idea
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+.cursor
+
+# personal agent files (the shared AGENTS.md is committed)
+CLAUDE.md
+Claude.md
+claude.md
+
+# skills directories
+.agents/skills/
+.agent/skills/
+.claude/skills/
+.codex/skills/
+.cursor/skills/
+.opencode/skills/

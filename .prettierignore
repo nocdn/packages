@@ -1,0 +1,5 @@
+package-lock.json
+packages/create-nocdn-app/templates/
+packages/record/vendor/
+packages/record/native/
+packages/ingest/man/
