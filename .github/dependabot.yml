@@ -38,6 +38,10 @@ updates:
       - dependency-name: "eslint"
         update-types:
           - version-update:semver-major
+      # typescript-eslint requires TypeScript < 6.1 (it does not support 7 yet).
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
