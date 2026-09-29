@@ -193,11 +193,13 @@ operating systems have not.
 
 ## Develop
 
-Install the exact dependency tree from `package-lock.json`:
+Install the exact dependency tree from the repository's `package-lock.json`:
 
 ```bash
+# from the repository root
 npm install
-npm start -- --help
+npm test --workspace packages/chat-export
+npm start --workspace packages/chat-export -- --help
 ```
 
 The executable adapter lives in [`bin/cli.js`](./bin/cli.js), and the testable
@@ -219,11 +221,12 @@ step. Runtime dependencies are limited to `fzf`, `@inquirer/core`, and
 Available checks:
 
 ```bash
-npm test
+# from the repository root
+npm test --workspace packages/chat-export
 npm run lint
 npm run check
 npm run format
-npm pack --dry-run
+npm pack --dry-run --workspace packages/chat-export
 ```
 
 Tests use Node's built-in test runner and create disposable stores. They never
@@ -248,24 +251,8 @@ python3 scripts/verify-terminal.py --runtime node --picker fzf
 
 ## Publishing
 
-The workflow at
-[`.github/workflows/publish.yml`](./.github/workflows/publish.yml) runs the
-checks on every push to `main` and on pull requests. On a push to `main`, it
-publishes with npm [trusted publishing](https://docs.npmjs.com/trusted-publishers)
-when the `package.json` version is not on the registry yet; otherwise the
-publish step is skipped. It uses no npm token, and public packages receive
-provenance automatically.
-
-Set it up once:
-
-1. Check that `repository.url` in `package.json` exactly matches the GitHub
-   repository URL.
-2. Publish the first version manually with `npm publish --access public`.
-   npm cannot use trusted publishing for a brand-new package.
-3. In the package settings on npmjs.com, add a GitHub Actions trusted publisher
-   for this repository and the workflow filename `publish.yml`.
-4. Optionally require 2FA and disallow token-based publishing in the package
-   settings.
-
-After that, release by bumping `version` in `package.json` and pushing to
-`main`.
+This package lives in the [nocdn/packages](https://github.com/nocdn/packages)
+monorepo. To release it, bump `version` in this `package.json` and push to
+`main`. The repository's publish workflow releases every version that is not
+on npm yet with npm trusted publishing, so there is no npm token and every
+release has provenance. See the [repository README](../../README.md#releasing).

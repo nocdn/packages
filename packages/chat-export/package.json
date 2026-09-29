@@ -3,10 +3,6 @@
   "version": "0.0.2",
   "description": "Search and export a local Codex or OpenCode chat as text, Markdown, or JSON",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nocdn/chat-export.git"
-  },
   "keywords": [
     "codex",
     "opencode",
@@ -16,6 +12,15 @@
     "cli",
     "nocdn"
   ],
+  "homepage": "https://github.com/nocdn/packages/tree/main/packages/chat-export#readme",
+  "bugs": {
+    "url": "https://github.com/nocdn/packages/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocdn/packages.git",
+    "directory": "packages/chat-export"
+  },
   "type": "module",
   "engines": {
     "node": "^22.13.0 || >=23.5.0"
@@ -34,16 +39,7 @@
   },
   "scripts": {
     "start": "node ./bin/cli.js",
-    "test": "node --test \"test/*.test.js\"",
-    "lint": "eslint . && prettier --check .",
-    "format": "prettier --write . && eslint . --fix",
-    "check": "npm run lint && npm test",
-    "prepublishOnly": "npm run check"
-  },
-  "devDependencies": {
-    "@eslint/js": "10.0.1",
-    "eslint": "10.8.0",
-    "prettier": "3.9.6"
+    "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
     "@inquirer/core": "12.0.3",
