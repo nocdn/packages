@@ -53,6 +53,7 @@ pastepatch --mcp --setup-tunnel
 | `--no-tunnel` | localhost only (still requires `cloudflared` installed) |
 | `--auth-token <token>` | require `Authorization: Bearer` on MCP HTTP (ChatGPT usually wants No auth) |
 | `--no-auth` | explicitly disable bearer auth |
+| `--rotate-secret` | generate a new secret MCP URL path (update your ChatGPT connector afterwards) |
 | `--color` | force color on MCP tool logs (even when not a TTY) |
 | `--no-color` | disable color on MCP tool logs (also respects `NO_COLOR`) |
 | `-m`, `--message`, `--task <text>` | provide first-turn instructions for `--init` instead of being asked interactively |
@@ -74,8 +75,8 @@ pastepatch --init . -- --line-numbers --template node
 
 ## MCP mode (ChatGPT Developer Mode + Cloudflare Tunnel)
 
-ChatGPT's web UI only connects to **remote HTTPS** MCP servers (Streamable HTTP
-or SSE), not local stdio processes. pastepatch therefore:
+ChatGPT's web UI only connects to **remote HTTPS** MCP servers (Streamable
+HTTP), not local stdio processes. pastepatch therefore:
 
 1. Runs an MCP HTTP server on `127.0.0.1` (default port `8787`)
 2. Runs `cloudflared` against a **named tunnel** so a stable hostname on your
@@ -112,7 +113,7 @@ This runs the official **locally-managed tunnel** CLI flow and saves config for 
 5. `cloudflared tunnel route dns pastepatch <hostname>`
 6. Saves `~/.pastepatch/mcp-tunnel.json` (tunnel id, hostname, zone, credentials path, port)
 
-Do **not** use quick tunnels (`trycloudflare.com`): unstable URL and no SSE.
+Do **not** use quick tunnels (`trycloudflare.com`): the URL changes on every start.
 
 Docs: [Create a locally-managed tunnel](https://developers.cloudflare.com/tunnel/advanced/local-management/create-local-tunnel/)
 
@@ -126,9 +127,12 @@ bunx @nocdn/pastepatch --mcp
 
 Uses the saved tunnel config automatically. Starts:
 
-- Local MCP: `http://127.0.0.1:8787/mcp`
-- Public URL: `https://mcp.bartoszbak.org/mcp` (your hostname from setup)
-- Legacy SSE: `https://mcp.bartoszbak.org/sse`
+- Local MCP: `http://127.0.0.1:8787/mcp/<secret>`
+- Public URL: `https://mcp.bartoszbak.org/mcp/<secret>` (your hostname from setup)
+
+The full URLs, including the secret, are printed when the server starts. The
+secret is generated once and stored in `~/.pastepatch/mcp-secret`, so the URL
+stays the same across restarts. Requests to any other path get a 404.
 
 If `cloudflared` exits unexpectedly, pastepatch **restarts the tunnel** with backoff and leaves the local MCP server up. ChatGPT may still need to retry a dropped call.
 
@@ -142,8 +146,10 @@ the ChatGPT connection. Stop via Ctrl+C, the `stop_session` MCP tool, or
 
 1. ChatGPT → **Settings → Security and login** → enable **Developer mode**
 2. **Settings → Plugins** → create a developer-mode app
-3. MCP server URL: `https://mcp.bartoszbak.org/mcp` (your hostname)
-4. Authentication: **No authentication** (keep the URL private)
+3. MCP server URL: the `Public MCP URL` printed by `pastepatch --mcp`
+   (`https://<hostname>/mcp/<secret>`)
+4. Authentication: **No authentication**. The secret in the URL is what keeps
+   other people out, so treat the whole URL like a password
 5. In a chat, open **+ → Developer mode** and enable your app
 
 OpenAI docs: [ChatGPT developer mode](https://developers.openai.com/api/docs/guides/developer-mode)
@@ -191,9 +197,13 @@ symlinks). Write tools create undo history under `.git/pastepatch/history` (or
 (and subfolders). Absolute paths and `..` are rejected. Lift with `--allow-outside`
 (discouraged).
 
-Anyone who can reach the public MCP URL can invoke write tools. Mitigations:
+The MCP tools can write files and run commands, so the endpoint is only served
+at an unguessable `/mcp/<secret>` path; knowing the hostname is not enough.
+Anyone with the **full** URL can still invoke every tool. Mitigations:
 
-- Use a non-guessable subdomain and keep the tunnel token secret
+- Keep the full MCP URL private, and run `pastepatch --mcp --rotate-secret` if it
+  leaks (then update the connector URL in ChatGPT)
+- Keep the tunnel token secret
 - Only run `--mcp` while you are actively coding
 - Optionally put [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) in front of the hostname
 - Optional `--auth-token` for non-ChatGPT clients (ChatGPT No-auth mode will not send it)
@@ -337,9 +347,10 @@ inside a git repository, or `.pastepatch/history` outside git repositories.
 ## Develop
 
 ```bash
+# from the repository root
 npm install
-npm start
-npm test
+npm test --workspace packages/pastepatch
+npm start --workspace packages/pastepatch -- --help
 ```
 
 The CLI entry point lives in [`bin/cli.js`](./bin/cli.js). The package is built
@@ -347,16 +358,8 @@ with plain Node.js and npm for maximum runtime compatibility.
 
 ## Publishing
 
-This project includes a GitHub Actions workflow at
-[`.github/workflows/publish.yml`](./.github/workflows/publish.yml) that publishes
-the package to npm with [trusted publishing](https://docs.npmjs.com/trusted-publishers)
-on pushes to `main`, as long as the version in `package.json` is not already on npm.
-`package.json` sets `publishConfig.access` to `public`, so scoped packages are
-published publicly by default.
-
-To enable it once:
-
-1. Push the repository to GitHub.
-2. On npmjs.com, configure the package as a trusted publisher pointing at the
-   `publish.yml` workflow in this repository.
-3. Bump the version in `package.json` and push - the workflow will publish.
+This package lives in the [nocdn/packages](https://github.com/nocdn/packages)
+monorepo. To release it, bump `version` in this `package.json` and push to
+`main`. The repository's publish workflow releases every version that is not
+on npm yet with npm trusted publishing, so there is no npm token and every
+release has provenance. See the [repository README](../../README.md#releasing).

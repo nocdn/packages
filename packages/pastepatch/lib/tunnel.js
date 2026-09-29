@@ -603,7 +603,7 @@ export async function setupTunnelInteractive({
     tunnelName ||
     DEFAULT_TUNNEL_NAME;
 
-  let hostname = "";
+  let hostname;
   if (hostnameArg) {
     hostname = normalizeHostnameInput(hostnameArg, zoneName);
   } else if (existingConfig?.hostname && !process.stdin.isTTY) {
@@ -907,9 +907,9 @@ export function runCloudflared(binary, args, { logger = async () => {}, inheritS
   });
 }
 
-export function formatSetupCompleteMessage({ config, packageName = "pastepatch" }) {
+export function formatSetupCompleteMessage({ config, packageName = "pastepatch", mcpPath = "/mcp" }) {
   const { hostname, port, tunnelName, tunnelId } = config;
-  const mcpUrl = `https://${hostname}/mcp`;
+  const mcpUrl = `https://${hostname}${mcpPath}`;
   return [
     "",
     "Cloudflare Tunnel setup complete.",

@@ -22,7 +22,7 @@ test("help uses the executable bin name", async () => {
   const result = await runCli(["--help"]);
 
   assert.equal(result.code, 0);
-  assert.match(result.stdout, /Usage:\n  pastepatch --init/);
+  assert.match(result.stdout, /Usage:\n {2}pastepatch --init/);
   assert.doesNotMatch(result.stdout, /@nocdn\/pastepatch --edit/);
   assert.match(result.stdout, /--mcp -h/);
 });

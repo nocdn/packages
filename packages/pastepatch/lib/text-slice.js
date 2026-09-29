@@ -48,7 +48,7 @@ export function sliceTextLines(
     try {
       regex = new RegExp(grep, caseInsensitive ? "i" : "");
     } catch (error) {
-      throw new Error(`Invalid grep pattern: ${error.message}`);
+      throw new Error(`Invalid grep pattern: ${error.message}`, { cause: error });
     }
     const context = Math.min(Math.max(Number(grepContext) || 0, 0), 20);
     const keep = new Set();

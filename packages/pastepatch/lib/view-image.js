@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import sharp from "sharp";
 import { assertReadableFileTarget, resolveToolPath } from "./fs-ops.js";
 
 /** Refuse to load files larger than this from disk. */
@@ -43,14 +42,16 @@ export async function viewImageFile({
     );
   }
 
+  // sharp loads a native libvips binary, so only pay for it when an image is
+  // actually viewed rather than on every pastepatch start.
+  const { default: sharp } = await import("sharp");
   let metadata;
   try {
     metadata = await sharp(raw, { animated: false, limitInputPixels: 64_000_000 }).metadata();
   } catch (error) {
     throw new Error(
       `Not a supported image (or file is corrupt): ${error.message || error}. ` +
-        `Supported: jpeg, png, webp, gif, avif, tiff, svg.`,
-    );
+        `Supported: jpeg, png, webp, gif, avif, tiff, svg.`, { cause: error });
   }
 
   const format = normalizeFormat(metadata.format);

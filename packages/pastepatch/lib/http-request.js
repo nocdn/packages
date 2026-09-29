@@ -116,9 +116,9 @@ export async function httpRequest({
         response = await fetch(current, init);
       } catch (error) {
         if (error && error.name === "AbortError") {
-          throw new Error(`http_request timed out after ${timeout}ms (${verb} ${current}).`);
+          throw new Error(`http_request timed out after ${timeout}ms (${verb} ${current}).`, { cause: error });
         }
-        throw new Error(`http_request failed: ${error.message || error}`);
+        throw new Error(`http_request failed: ${error.message || error}`, { cause: error });
       }
 
       if (isRedirect(response.status)) {

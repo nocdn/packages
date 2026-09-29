@@ -583,7 +583,7 @@ export function createCommandRunner({
         job.child.kill(signal);
       }
     } catch (error) {
-      throw new Error(`Failed to signal job ${jobId}: ${error.message}`);
+      throw new Error(`Failed to signal job ${jobId}: ${error.message}`, { cause: error });
     }
 
     return new Promise((resolve) => {
@@ -678,7 +678,7 @@ export function createCommandRunner({
       try {
         process.kill(n, signal);
       } catch (error) {
-        throw new Error(`Failed to signal pid ${n}: ${error.message}`);
+        throw new Error(`Failed to signal pid ${n}: ${error.message}`, { cause: error });
       }
     }
     return {

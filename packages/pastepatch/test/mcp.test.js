@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+  generateMcpSecret,
+  loadOrCreateMcpSecret,
+  mcpPathForSecret,
+  safeTokenEqual,
+} from "../lib/mcp-secret.js";
 import { startMcpHttpServer } from "../lib/mcp-server.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -172,13 +178,124 @@ test("MCP healthz is available", async () => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/healthz`);
     assert.equal(response.status, 200);
-    const body = await response.json();
-    assert.equal(body.ok, true);
-    assert.equal(body.mcp, "/mcp");
+    // healthz is reachable without the secret, so it must not reveal the
+    // project path or the MCP route.
+    assert.deepEqual(await response.json(), { ok: true });
   } finally {
     await server.close();
   }
 });
+
+test("MCP is only served at the secret path", async () => {
+  const root = await tempProject();
+  const port = await freePort();
+  const secret = generateMcpSecret();
+  const server = await startMcpHttpServer({
+    root,
+    port,
+    host: "127.0.0.1",
+    version: "test",
+    mcpPath: mcpPathForSecret(secret),
+  });
+
+  try {
+    for (const guess of ["/mcp", `/mcp/${generateMcpSecret()}`, "/sse"]) {
+      const response = await fetch(`http://127.0.0.1:${port}${guess}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(initializeRequest()),
+      });
+      assert.equal(response.status, 404, guess);
+    }
+
+    const client = new Client({ name: "pastepatch-test", version: "0.0.0" });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${port}${mcpPathForSecret(secret)}`),
+    );
+    await client.connect(transport);
+    const tools = await client.listTools();
+    assert.ok(tools.tools.some((tool) => tool.name === "read_file"));
+    await client.close();
+  } finally {
+    await server.close();
+  }
+});
+
+test("bearer auth accepts only the Authorization header", async () => {
+  const root = await tempProject();
+  const port = await freePort();
+  const authToken = "correct-token";
+  const server = await startMcpHttpServer({
+    root,
+    port,
+    host: "127.0.0.1",
+    version: "test",
+    authToken,
+  });
+  const post = (url, headers = {}) =>
+    fetch(url, {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        ...headers,
+      },
+      body: JSON.stringify(initializeRequest()),
+    });
+
+  try {
+    const base = `http://127.0.0.1:${port}/mcp`;
+    assert.equal((await post(base)).status, 401);
+    assert.equal((await post(base, { authorization: "Bearer wrong-token" })).status, 401);
+    assert.equal((await post(`${base}?token=${authToken}`)).status, 401);
+    const accepted = await post(base, { authorization: `Bearer ${authToken}` });
+    assert.equal(accepted.status, 200);
+    await accepted.body?.cancel();
+  } finally {
+    await server.close();
+  }
+});
+
+test("MCP secret is created once, reused, and rotated on request", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "pastepatch-secret-"));
+  tempDirectories.push(dir);
+  const secretPath = path.join(dir, "nested", "mcp-secret");
+
+  const first = await loadOrCreateMcpSecret({ secretPath });
+  assert.equal(first.created, true);
+  assert.match(first.secret, /^[A-Za-z0-9_-]{32}$/);
+  if (process.platform !== "win32") {
+    assert.equal((await stat(secretPath)).mode & 0o777, 0o600);
+  }
+
+  const second = await loadOrCreateMcpSecret({ secretPath });
+  assert.deepEqual(second, { secret: first.secret, created: false });
+
+  const rotated = await loadOrCreateMcpSecret({ secretPath, rotate: true });
+  assert.equal(rotated.created, true);
+  assert.notEqual(rotated.secret, first.secret);
+  assert.equal((await readFile(secretPath, "utf8")).trim(), rotated.secret);
+});
+
+test("safeTokenEqual compares tokens of any length", () => {
+  assert.equal(safeTokenEqual("abc", "abc"), true);
+  assert.equal(safeTokenEqual("abc", "abd"), false);
+  assert.equal(safeTokenEqual("abc", "abcd"), false);
+  assert.equal(safeTokenEqual("", "abc"), false);
+});
+
+function initializeRequest() {
+  return {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-11-25",
+      capabilities: {},
+      clientInfo: { name: "pastepatch-test", version: "0.0.0" },
+    },
+  };
+}
 
 function toolText(result) {
   return (result.content || [])

@@ -12,6 +12,7 @@ import {
   undoLatestChange,
 } from "../lib/history.js";
 import { acquireMcpLock, releaseMcpLock } from "../lib/mcp-lock.js";
+import { loadOrCreateMcpSecret, mcpPathForSecret, mcpSecretPath } from "../lib/mcp-secret.js";
 import { startMcpHttpServer } from "../lib/mcp-server.js";
 import { formatProjectBanner, resolveProjectRoot } from "../lib/project.js";
 import {
@@ -108,6 +109,7 @@ function parseArgs(argv, packageInfo) {
     setupTunnel: false,
     authToken: process.env.PASTEPATCH_MCP_TOKEN || "",
     noAuth: false,
+    rotateSecret: false,
     verbose: false,
     allowHome: false,
     allowOutside: false,
@@ -186,6 +188,11 @@ function parseArgs(argv, packageInfo) {
 
     if (arg === "--no-auth") {
       args.noAuth = true;
+      continue;
+    }
+
+    if (arg === "--rotate-secret") {
+      args.rotateSecret = true;
       continue;
     }
 
@@ -571,6 +578,7 @@ async function runMcp(args, packageInfo, logger) {
   if (args.setupTunnel) {
     const existing = await loadTunnelConfig();
     const tunnelName = args.tunnelName || existing?.tunnelName || "pastepatch";
+    const { secret } = await loadOrCreateMcpSecret();
     const config = await setupTunnelInteractive({
       binary,
       hostname: args.hostname,
@@ -580,7 +588,9 @@ async function runMcp(args, packageInfo, logger) {
       logger,
       existingConfig: existing,
     });
-    process.stdout.write(formatSetupCompleteMessage({ config, packageName: command }));
+    process.stdout.write(
+      formatSetupCompleteMessage({ config, packageName: command, mcpPath: mcpPathForSecret(secret) }),
+    );
     return;
   }
 
@@ -589,6 +599,9 @@ async function runMcp(args, packageInfo, logger) {
     pathExplicit: args.pathExplicit,
     allowHome: args.allowHome,
   });
+
+  const { secret, created: secretCreated } = await loadOrCreateMcpSecret({ rotate: args.rotateSecret });
+  const mcpPath = mcpPathForSecret(secret);
 
   const saved = await loadTunnelConfig();
   const port = args.port ?? saved?.port ?? 8787;
@@ -660,6 +673,7 @@ async function runMcp(args, packageInfo, logger) {
       root,
       port,
       hostname,
+      mcpPath,
       verbose: args.verbose,
       noTunnel: args.noTunnel,
       allowOutside: args.allowOutside,
@@ -706,6 +720,7 @@ async function runMcp(args, packageInfo, logger) {
       version: packageInfo.version,
       logger,
       authToken,
+      mcpPath,
       allowedHosts: hostname ? [hostname] : [],
       verbose: args.verbose,
       allowOutside: args.allowOutside,
@@ -759,17 +774,22 @@ async function runMcp(args, packageInfo, logger) {
   }
 
   if (hostname) {
-    process.stderr.write(`Public MCP URL (ChatGPT): https://${hostname}/mcp\n`);
-    process.stderr.write(`Legacy SSE URL: https://${hostname}/sse\n`);
+    process.stderr.write(`Public MCP URL (ChatGPT): https://${hostname}${mcpPath}\n`);
+  }
+
+  if (secretCreated) {
+    process.stderr.write(
+      `New MCP URL secret saved to ${mcpSecretPath()}. Update the Server URL of your ChatGPT connector to the URL above.\n`,
+    );
   }
 
   if (authToken) {
     process.stderr.write(
-      "Auth: Bearer token required (Authorization: Bearer …). ChatGPT developer mode usually uses No authentication — prefer Cloudflare Access or --no-auth for ChatGPT.\n",
+      "Auth: secret URL + Bearer token (Authorization: Bearer …). ChatGPT's No authentication mode cannot send the token; use --no-auth for ChatGPT.\n",
     );
   } else {
     process.stderr.write(
-      "Auth: none (suitable for ChatGPT No authentication). Anyone who can reach the public URL can call write tools.\n",
+      "Auth: secret URL (for ChatGPT No authentication). Treat the MCP URL like a password; run with --rotate-secret if it leaks.\n",
     );
   }
 
@@ -1343,6 +1363,7 @@ Options:
   --no-tunnel                      Localhost MCP only (still requires cloudflared installed).
   --auth-token <token>             Require Authorization: Bearer. Env: PASTEPATCH_MCP_TOKEN.
   --no-auth                        Disable bearer auth (default; use ChatGPT "No Auth").
+  --rotate-secret                  Generate a new secret MCP URL path (~/.pastepatch/mcp-secret).
   --verbose                        Cloudflared/HTTP logs + replace/create payload previews.
   --color                          Force color on MCP tool logs (even when not a TTY).
   --no-color                       Disable color on MCP tool logs (also respects NO_COLOR).
@@ -1361,7 +1382,8 @@ Notes:
   Then: ${command} --mcp   (starts local MCP + tunnel from ~/.pastepatch/)
   Only one --mcp process at a time (~/.pastepatch/mcp.lock). Stop the other first
   (Ctrl+C, stop_session tool, or kill <pid>) so the tunnel/ChatGPT connection stays stable.
-  ChatGPT plugin URL: https://<hostname>/mcp   Authentication: No Auth
+  ChatGPT plugin URL: https://<hostname>/mcp/<secret> (printed on start)   Authentication: No Auth
+  The secret path is the protection for "No Auth": anyone with the full URL can use the tools.
   For full CLI help (all modes): ${command} --help
 `;
 }

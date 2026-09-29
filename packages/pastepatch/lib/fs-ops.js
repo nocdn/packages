@@ -341,7 +341,7 @@ export async function assertExistingTarget(relativePath, root = process.cwd(), o
     return stats;
   } catch (error) {
     if (error.code === "ENOENT") {
-      throw new Error(`${relativePath}: path does not exist.`);
+      throw new Error(`${relativePath}: path does not exist.`, { cause: error });
     }
     throw error;
   }

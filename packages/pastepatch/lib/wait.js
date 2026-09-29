@@ -55,7 +55,7 @@ export async function waitUntil(input = {}, { runner, root, allowOutside = false
   const timeoutMs = clampWaitTimeout(input.timeout_ms ?? input.timeoutMs);
   const intervalMs = clampInterval(input.interval_ms ?? input.intervalMs);
   const started = Date.now();
-  let last = { ok: false, detail: "not checked yet" };
+  let last;
 
   while (true) {
     last = await checkCondition(condition, input, { runner, root, allowOutside });
@@ -238,7 +238,7 @@ function checkOutputMatches(input, runner) {
   try {
     regex = new RegExp(pattern, input.caseInsensitive || input.case_insensitive ? "i" : "");
   } catch (error) {
-    throw new Error(`Invalid output_matches pattern: ${error.message}`);
+    throw new Error(`Invalid output_matches pattern: ${error.message}`, { cause: error });
   }
   const stream = input.stream || "both";
   const text = runner.readJobStream(jobId, stream);

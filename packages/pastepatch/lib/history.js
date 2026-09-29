@@ -209,7 +209,7 @@ export async function readLatestUndoableHistoryEntry(root = process.cwd()) {
   return null;
 }
 
-export async function undoLatestChange(root = process.cwd(), options = {}) {
+export async function undoLatestChange(root = process.cwd()) {
   const entry = await readLatestUndoableHistoryEntry(root);
 
   if (!entry) {

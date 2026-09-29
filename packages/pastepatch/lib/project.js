@@ -17,7 +17,7 @@ export async function resolveProjectRoot({
     stats = await lstat(root);
   } catch (error) {
     if (error.code === "ENOENT") {
-      throw new Error(`Project path does not exist: ${root}`);
+      throw new Error(`Project path does not exist: ${root}`, { cause: error });
     }
     throw error;
   }
@@ -50,6 +50,7 @@ export function formatProjectBanner({
   root,
   port,
   hostname = "",
+  mcpPath = "/mcp",
   verbose = false,
   noTunnel = false,
   allowOutside = false,
@@ -59,10 +60,10 @@ export function formatProjectBanner({
     "════════════════════════════════════════════════════════════",
     "pastepatch MCP",
     `Editing:  ${root}`,
-    `Local:    http://127.0.0.1:${port}/mcp`,
+    `Local:    http://127.0.0.1:${port}${mcpPath}`,
   ];
   if (hostname) {
-    lines.push(`Public:   https://${hostname}/mcp`);
+    lines.push(`Public:   https://${hostname}${mcpPath}`);
   } else if (noTunnel) {
     lines.push("Public:   (none — --no-tunnel)");
   }

@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
 import { hostHeaderValidation } from "@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -29,6 +28,7 @@ import { formatSkillsList, listRemoteSkills, readRemoteSkill } from "./skills.js
 import { formatSlicedText, hasTextSliceQuery, sliceTextLines } from "./text-slice.js";
 import { formatBytes, viewImageFile } from "./view-image.js";
 import { WAIT_CONDITIONS, formatWaitResult, waitUntil } from "./wait.js";
+import { safeTokenEqual } from "./mcp-secret.js";
 
 const PASTEPATCH_ICON_DATA_URI = `data:image/svg+xml;base64,${readFileSync(
   new URL("../assets/pastepatch.svg", import.meta.url),
@@ -36,9 +36,8 @@ const PASTEPATCH_ICON_DATA_URI = `data:image/svg+xml;base64,${readFileSync(
 
 /**
  * Build an MCP server exposing pastepatch filesystem tools for a project root.
- * Follows MCP Streamable HTTP (2025-11-25) + legacy SSE for ChatGPT compatibility.
- *
- * ChatGPT developer mode supports SSE and streaming HTTP, No Auth / OAuth / Mixed.
+ * Served over MCP Streamable HTTP (2025-11-25). The legacy HTTP+SSE transport
+ * was removed: the spec deprecated it and ChatGPT connects over Streamable HTTP.
  * readOnlyHint is set so ChatGPT treats read tools as non-write (no confirmation).
  *
  * @see https://developers.openai.com/api/docs/guides/developer-mode
@@ -649,7 +648,7 @@ export function createPastepatchMcpServer({
     },
     async () =>
       runTool("undo_last_change", {}, async () => {
-        const entry = await undoLatestChange(resolvedRoot, pathOptions);
+        const entry = await undoLatestChange(resolvedRoot);
         return textResult(`Undid change set ${entry.id} from ${entry.createdAt}.`);
       }),
   );
@@ -1423,7 +1422,7 @@ export function createPastepatchMcpServer({
 }
 
 /**
- * Start HTTP MCP server on localhost (Streamable HTTP + legacy SSE).
+ * Start the Streamable HTTP MCP server on localhost.
  * Binds to 127.0.0.1 only — expose publicly via Cloudflare Tunnel.
  */
 export async function startMcpHttpServer({
@@ -1433,6 +1432,11 @@ export async function startMcpHttpServer({
   version = "0.0.0",
   logger = async () => {},
   authToken = null,
+  /**
+   * Route for the MCP endpoint. The CLI passes /mcp/<secret> so the public
+   * hostname alone does not grant access (see lib/mcp-secret.js).
+   */
+  mcpPath = "/mcp",
   /** Extra Host header values (e.g. public tunnel hostname). Cloudflare may forward the public Host. */
   allowedHosts = [],
   verbose = false,
@@ -1462,8 +1466,8 @@ export async function startMcpHttpServer({
     allowOutside: allowOutside === true,
   });
 
-  // Per-session transports (stateful Streamable HTTP + legacy SSE)
-  /** @type {Record<string, StreamableHTTPServerTransport | SSEServerTransport>} */
+  // Per-session transports (stateful Streamable HTTP)
+  /** @type {Record<string, StreamableHTTPServerTransport>} */
   const transports = {};
 
   if (authToken) {
@@ -1474,8 +1478,7 @@ export async function startMcpHttpServer({
       }
       const header = req.headers.authorization || "";
       const bearer = header.startsWith("Bearer ") ? header.slice(7) : "";
-      const queryToken = typeof req.query.token === "string" ? req.query.token : "";
-      if (bearer === authToken || queryToken === authToken) {
+      if (bearer && safeTokenEqual(bearer, authToken)) {
         next();
         return;
       }
@@ -1496,7 +1499,8 @@ export async function startMcpHttpServer({
       }
       const started = Date.now();
       const method = req.method;
-      const pathName = req.path;
+      // Never write the secret MCP path to the terminal or log file.
+      const pathName = req.path === mcpPath ? "/mcp/<secret>" : req.path;
       res.on("finish", () => {
         const session = req.headers["mcp-session-id"] || "-";
         const line = `[http] ${method} ${pathName} → ${res.statusCode} (${Date.now() - started}ms) session=${session}`;
@@ -1508,29 +1512,17 @@ export async function startMcpHttpServer({
   }
 
   app.get("/healthz", (_req, res) => {
-    res.json({ ok: true, root, mcp: "/mcp", sse: "/sse" });
+    res.json({ ok: true });
   });
 
   // ---- Streamable HTTP (MCP 2025-11-25) ----
-  app.all("/mcp", async (req, res) => {
+  app.all(mcpPath, async (req, res) => {
     try {
       const sessionId = req.headers["mcp-session-id"];
       let transport;
 
       if (sessionId && transports[sessionId]) {
-        const existing = transports[sessionId];
-        if (!(existing instanceof StreamableHTTPServerTransport)) {
-          res.status(400).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32000,
-              message: "Bad Request: Session exists but uses a different transport protocol",
-            },
-            id: null,
-          });
-          return;
-        }
-        transport = existing;
+        transport = transports[sessionId];
       } else if (!sessionId && req.method === "POST" && isInitializeRequest(req.body)) {
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
@@ -1577,63 +1569,7 @@ export async function startMcpHttpServer({
 
       await transport.handleRequest(req, res, req.body);
     } catch (error) {
-      await logger(`MCP /mcp error: ${error.stack || error.message}`);
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: "2.0",
-          error: { code: -32603, message: "Internal server error" },
-          id: null,
-        });
-      }
-    }
-  });
-
-  // ---- Legacy HTTP+SSE (2024-11-05) for older ChatGPT clients ----
-  app.get("/sse", async (req, res) => {
-    try {
-      const transport = new SSEServerTransport("/messages", res);
-      transports[transport.sessionId] = transport;
-      res.on("close", () => {
-        delete transports[transport.sessionId];
-      });
-      const server = createPastepatchMcpServer({
-        root,
-        version,
-        logger,
-        verbose,
-        allowOutside,
-        commandRunner,
-        onStopSession,
-        color,
-      });
-      await server.connect(transport);
-      await logger(`MCP SSE session ${transport.sessionId}`);
-    } catch (error) {
-      await logger(`MCP /sse error: ${error.stack || error.message}`);
-      if (!res.headersSent) {
-        res.status(500).end("Internal server error");
-      }
-    }
-  });
-
-  app.post("/messages", async (req, res) => {
-    try {
-      const sessionId = req.query.sessionId;
-      const existing = transports[sessionId];
-      if (!(existing instanceof SSEServerTransport)) {
-        res.status(400).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32000,
-            message: "Bad Request: No valid SSE session",
-          },
-          id: null,
-        });
-        return;
-      }
-      await existing.handlePostMessage(req, res, req.body);
-    } catch (error) {
-      await logger(`MCP /messages error: ${error.stack || error.message}`);
+      await logger(`MCP request error: ${error.stack || error.message}`);
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",

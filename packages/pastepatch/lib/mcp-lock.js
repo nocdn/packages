@@ -80,10 +80,10 @@ export function formatMcpAlreadyRunningError(lock, { packageName = "pastepatch" 
     lines.push(`  Editing:  ${lock.root}`);
   }
   if (lock.port) {
-    lines.push(`  Local:    http://127.0.0.1:${lock.port}/mcp`);
+    lines.push(`  Local:    http://127.0.0.1:${lock.port}`);
   }
   if (lock.hostname) {
-    lines.push(`  Public:   https://${lock.hostname}/mcp`);
+    lines.push(`  Public:   https://${lock.hostname}`);
   }
   if (lock.startedAt) {
     lines.push(`  Started:  ${lock.startedAt}`);
