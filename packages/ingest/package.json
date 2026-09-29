@@ -3,19 +3,27 @@
   "version": "0.4.10",
   "description": "A bunx-runnable CLI that ingests a local folder or repository into an LLM-friendly digest.",
   "license": "MIT",
+  "homepage": "https://github.com/nocdn/packages/tree/main/packages/ingest#readme",
+  "bugs": {
+    "url": "https://github.com/nocdn/packages/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nocdn/ingest.git"
+    "url": "git+https://github.com/nocdn/packages.git",
+    "directory": "packages/ingest"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "module": "index.js",
   "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "bin": {
-    "ingest": "./bin/ingest.js"
+    "ingest": "bin/ingest.js"
   },
   "man": "./man/ingest.1",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
   "files": [
     "bin",
     "src",
@@ -23,12 +31,15 @@
     "index.js",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "start": "node ./bin/ingest.js",
     "test": "node --test \"tests/*.test.js\""
   },
   "dependencies": {
-    "@llamaindex/liteparse": "^2.10.1",
-    "tinyclip": "^0.1.15"
+    "@llamaindex/liteparse": "^2.14.7",
+    "tinyclip": "^1.0.3"
   }
 }

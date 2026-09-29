@@ -158,3 +158,18 @@ The digest contains:
 - file sections separated by headers in the form `FILE: relative/path`
 
 This makes the output suitable for direct paste into an LLM or for piping into other tools.
+
+## develop
+
+```bash
+# from the repository root
+npm install
+npm test --workspace packages/ingest
+npm start --workspace packages/ingest -- --help
+```
+
+## publishing
+
+This package lives in the [nocdn/packages](https://github.com/nocdn/packages)
+monorepo. To release it, bump `version` in this `package.json` and push to
+`main`. See the [repository README](../../README.md#releasing).

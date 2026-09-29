@@ -489,7 +489,7 @@ async function cloneRepo(repoUrl) {
     return tempDir;
   } catch (error) {
     await rm(tempDir, { recursive: true, force: true });
-    throw new Error(`Failed to clone repository: ${error.message}`);
+    throw new Error(`Failed to clone repository: ${error.message}`, { cause: error });
   }
 }
 

@@ -282,7 +282,7 @@ async function processFile(filePath, name, relativePath, state, includePdf) {
 }
 
 async function processSymlink(filePath, name, relativePath) {
-  let target = "";
+  let target;
   try {
     target = await realpath(filePath);
   } catch {
@@ -475,7 +475,7 @@ async function loadIgnorePatterns(rootPath, ignoreFileNames) {
 }
 
 async function walkIgnoreFiles(rootPath, currentPath, ignoreFileNames, patterns) {
-  let entries = [];
+  let entries;
   try {
     entries = await readdir(currentPath, { withFileTypes: true });
   } catch {
