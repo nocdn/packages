@@ -372,6 +372,31 @@ running them yourself. After that, on npmjs.com under the package's
 **Settings**, set publishing access to require 2FA and disallow tokens. From
 then on a version bump pushed to `main` releases it.
 
+`npm publish` needs a one-time password and `npm trust` needs a browser
+approval for every command, so neither can run unattended. `npm trust` only
+prompts when run in a real terminal; agents cannot approve it.
+
+## Releasing a change
+
+1. Bump the version of the package you changed. Use semver: a patch for fixes,
+   a minor for features, a major for breaking changes (for a `0.x` package, a
+   minor bump signals a breaking change):
+   `npm version <patch|minor|major> --no-git-tag-version --workspace packages/<name>`
+2. Run `npm install` so the root `package-lock.json` records the new version,
+   then `npm run check`.
+3. Commit the bump and push to `main`. `publish.yml` runs the checks, then
+   `scripts/release-plan.js` lists every package whose version is not on npm
+   yet and publishes each one. Check what it will publish beforehand with
+   `node scripts/release-plan.js`; it should list only what you intend to
+   release. `@nocdn/record` is excluded there and released by `record.yml`.
+4. npm needs one to three minutes after a successful publish job before the
+   version is visible. Verify with `npm view <package> dist-tags.latest` and
+   `npm view <package>@<version> dist.attestations.provenance`, then run
+   `npx --yes <package>@<version> --version` from an empty directory.
+
+Code changes that do not bump a version are not released; users keep the
+previous version until you bump it.
+
 ## Repository tooling
 
 - **Lint and format:** one ESLint flat config (`eslint.config.js`) and one
