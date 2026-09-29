@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
 
+// Recording itself is macOS only (the CLI refuses to start elsewhere), so the
+// tests that drive a fake native helper through a recording only run on macOS.
+const macOSOnly = { skip: process.platform !== "darwin" && "requires macOS" };
+
 const cliPath = fileURLToPath(new URL("../bin/cli.js", import.meta.url));
 const packageInfo = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -145,7 +149,7 @@ test("separate audio tracks require both sources and a multi-track container", (
   );
 });
 
-test("separate audio-only defaults to MOV and reaches the native helper", async () => {
+test("separate audio-only defaults to MOV and reaches the native helper", macOSOnly, async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "record-tracks-"));
   const helper = path.join(directory, "fake-native.js");
   await writeFile(
@@ -186,7 +190,7 @@ test("common-sense aliases map to the canonical flags", () => {
   assert.match(run("--app", "Safari", "--region").stderr, /either --window or --region/);
 });
 
-test("recording header lists the active sources", async () => {
+test("recording header lists the active sources", macOSOnly, async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "record-sources-"));
   const helper = path.join(directory, "fake-native.js");
   await writeFile(
@@ -236,7 +240,7 @@ test("only one output destination is allowed", () => {
   );
 });
 
-test("SIGINT tells a fake helper to stop and save", async () => {
+test("SIGINT tells a fake helper to stop and save", macOSOnly, async () => {
   const helper = await writeFakeHelper();
   const output = path.join(os.tmpdir(), `record-save-${process.pid}.mp3`);
   const child = spawn(process.execPath, [cliPath, "--only-mic", "-o", output], {

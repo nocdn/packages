@@ -3,11 +3,19 @@
   "version": "0.0.7",
   "description": "Record the Mac screen, system audio, and microphone from the command line",
   "license": "MIT AND LGPL-2.0-only",
+  "homepage": "https://github.com/nocdn/packages/tree/main/packages/record#readme",
+  "bugs": {
+    "url": "https://github.com/nocdn/packages/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nocdn/record.git"
+    "url": "git+https://github.com/nocdn/packages.git",
+    "directory": "packages/record"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "bin": {
     "record": "bin/cli.js"
   },
@@ -25,6 +33,6 @@
     "notarize": "node ./scripts/notarize-native.js",
     "prepack": "npm run build",
     "start": "node ./bin/cli.js",
-    "test": "node --test"
+    "test": "node --test \"test/*.test.js\""
   }
 }

@@ -149,10 +149,11 @@ background-only app with no window, Dock icon, or menu-bar item.
 ## Develop
 
 ```bash
+# from the repository root
 npm install
-npm run build
-npm start
-npm test
+npm run build --workspace packages/record
+npm test --workspace packages/record
+npm start --workspace packages/record -- --help
 ```
 
 The CLI entry point lives in [`bin/cli.js`](./bin/cli.js), and the native source
@@ -172,13 +173,13 @@ Audio-only MP3 encoding uses the Shine encoder (LGPL-2.0) in
 
 ## Publishing
 
-[`.github/workflows/publish.yml`](./.github/workflows/publish.yml) runs on a
-GitHub-hosted `macos-26` runner so it can compile the Swift helper. On `main`,
-when `package.json` has a version that is not already on npm, the workflow
-signs `Record.app` with Developer ID, notarizes it, staples the ticket, and
-publishes with [trusted publishing](https://docs.npmjs.com/trusted-publishers).
-Pull requests only compile and test; they do not notarize or publish.
-`package.json` sets `publishConfig.access` to `public`.
+[`record.yml`](../../.github/workflows/record.yml) builds the Swift helper on a
+GitHub-hosted `macos-26` runner. On `main`, when `package.json` has a version
+that is not already on npm, it signs `Record.app` with Developer ID, notarizes
+it, staples the ticket, and a separate job publishes it with
+[trusted publishing](https://docs.npmjs.com/trusted-publishers) (no npm token;
+the Apple secrets never share a job with the npm credentials). Pull requests
+only compile and test; they do not notarize or publish.
 
 Signing and notarization are what stop Gatekeeper from showing “Apple could
 not verify” / “malware” when someone runs the helper from npm. They do **not**
@@ -193,7 +194,10 @@ To enable a release once:
 3. On npmjs.com, configure the package as a GitHub Actions trusted publisher:
    use this repository owner/name, workflow filename `publish.yml`, and allow
    `npm publish`.
-4. Add these repository secrets (Settings → Secrets and variables → Actions):
+
+On npmjs.com, `@nocdn/record` trusts the `nocdn/packages` repository with
+workflow filename `record.yml`. Releases need these repository secrets
+(Settings → Secrets and variables → Actions):
 
    | secret | value |
    | --- | --- |
@@ -220,9 +224,8 @@ To enable a release once:
    with at least the Developer role. The `.p8` file can be downloaded only
    once.
 
-5. Bump the version in `package.json` and push to `main`. The workflow
-   publishes without an npm token.
+To release, bump the version in `package.json` and push to `main`.
 
-`npm publish` runs `prepack`, which would rebuild and drop the stapled ticket.
-The workflow sets `RECORD_SKIP_NATIVE_BUILD=1` so the already notarized
-`vendor/Record.app` is what gets packed.
+`npm publish` would normally run `prepack`, which rebuilds the helper and drops
+the stapled ticket, so the workflow publishes with `--ignore-scripts` and ships
+the notarized `vendor/Record.app` from the macOS job as-is.
