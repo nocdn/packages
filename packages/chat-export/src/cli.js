@@ -16,6 +16,7 @@ const options = {
   picker: { type: "string", default: "auto" },
   "codex-home": { type: "string" },
   db: { type: "string" },
+  "t3-db": { type: "string" },
   session: { type: "string" },
   last: { type: "boolean" },
   here: { type: "boolean" },
@@ -107,7 +108,7 @@ function validate(values) {
     throw new UsageError("--picker must be auto, fzf, or inquirer")
   }
   if (values.provider !== undefined && !PROVIDERS.includes(values.provider)) {
-    throw new UsageError("--provider must be codex or opencode")
+    throw new UsageError("--provider must be codex, opencode, or t3code")
   }
   if (!FORMATS.includes(values.format)) {
     throw new UsageError("--format must be text, markdown, or json")
@@ -169,8 +170,13 @@ async function directoryAliases(path) {
 }
 
 async function run(values, { stdout, stderr, stdin, cwd }) {
-  const { copyClipboard, defaultCodexHome, defaultOpenCodeDb, expandPath } =
-    await import("./system.js")
+  const {
+    copyClipboard,
+    defaultCodexHome,
+    defaultOpenCodeDb,
+    defaultT3CodeDb,
+    expandPath,
+  } = await import("./system.js")
   const directories = values.here
     ? await directoryAliases(await projectRoot(resolve(cwd)))
     : values.cwd !== undefined
@@ -182,6 +188,9 @@ async function run(values, { stdout, stderr, stdin, cwd }) {
       ? expandPath(values["codex-home"], cwd)
       : defaultCodexHome(),
     openCodeDb: values.db ? expandPath(values.db, cwd) : defaultOpenCodeDb(),
+    t3CodeDb: values["t3-db"]
+      ? expandPath(values["t3-db"], cwd)
+      : defaultT3CodeDb(),
     reasoning: !values["no-reasoning"],
     userOnly: !!values["user-only"],
     tools: !!values.tools,
@@ -231,9 +240,9 @@ async function run(values, { stdout, stderr, stdin, cwd }) {
     return 0
   }
 
-  let skipped = 0
-  const onSkipped = (count) => {
-    skipped += count
+  const skipped = new Map()
+  const onSkipped = (count, source = provider) => {
+    skipped.set(source, (skipped.get(source) ?? 0) + count)
   }
   let id = values.session
   let selected
@@ -285,9 +294,9 @@ async function run(values, { stdout, stderr, stdin, cwd }) {
     }
     id = selected.id
   }
-  if (skipped) {
+  for (const [source, count] of skipped) {
     stderr.write(
-      `Note: skipped ${skipped} OpenCode ${skipped === 1 ? "chat" : "chats"} stored in a format chat-export does not recognize yet.\n`,
+      `Note: skipped ${count} ${providerName(source)} ${count === 1 ? "chat" : "chats"} stored in a format chat-export does not recognize yet.\n`,
     )
   }
 
@@ -324,7 +333,7 @@ function noChatsMessage(directories) {
     : "No main chats with visible text were found"
 }
 
-// Without --provider, --last compares both stores and skips a store that does
+// Without --provider, --last compares all stores and skips a store that does
 // not exist on this machine.
 async function latestChat(runJob, provider, readerOptions, onSkipped) {
   const candidates = []
@@ -334,7 +343,7 @@ async function latestChat(runJob, provider, readerOptions, onSkipped) {
       const latest = await runJob(
         { mode: "latest", provider: name, options: readerOptions },
         undefined,
-        onSkipped,
+        (count) => onSkipped(count, name),
       )
       if (latest) candidates.push(latest)
     } catch (error) {
@@ -343,7 +352,7 @@ async function latestChat(runJob, provider, readerOptions, onSkipped) {
     }
   }
   if (missing === PROVIDERS.length) {
-    throw new ExportError("No Codex or OpenCode chat store was found")
+    throw new ExportError("No Codex, OpenCode, or T3 Code chat store was found")
   }
   if (!candidates.length) {
     throw new ExportError(noChatsMessage(readerOptions.directories))
@@ -390,16 +399,18 @@ ${description ? `\n${description}\n` : ""}
 Usage:
   ${command} [options]
 
-Choose Codex or OpenCode, then a chat. fzf 0.74+ is preferred when installed;
-otherwise Inquirer provides a searchable terminal picker. Chat stores are
+Choose Codex, OpenCode, or T3 Code, then a chat. fzf 0.74+ is preferred
+when installed; otherwise Inquirer provides a searchable terminal picker.
+Chat stores are
 always read-only. No app startup or persistent text cache is used.
 
 Choosing a chat:
-  --provider codex|opencode   Skip the source picker.
+  --provider codex|opencode|t3code
+                              Skip the source picker.
   --picker auto|fzf|inquirer  Choose the picker (default: auto).
   --session ID                Export one main chat without its picker.
   --last                      Export the most recent chat without a picker;
-                              without --provider, the newest of both sources.
+                              without --provider, the newest of all sources.
   --here                      Only chats from the current project (the nearest
                               directory with .git, else the current directory).
   --cwd PATH                  Only chats started in PATH or below it.
@@ -422,6 +433,8 @@ Content:
 Stores:
   --codex-home PATH           Codex data directory (default: CODEX_HOME or ~/.codex).
   --db PATH                   OpenCode SQLite database (default: XDG data path).
+  --t3-db PATH                T3 Code SQLite database (default: T3CODE_HOME or
+                              ~/.t3, then userdata/state.sqlite).
 
   -h, --help                  Show this help text.
   -v, --version               Show the package version.
@@ -429,6 +442,7 @@ Stores:
 Codex preserves its dedupe, formatting, merge, and quoted-phrase search
 behavior. OpenCode excludes children, synthetic/summary parts, and (unless
 --tools) tool parts; attachments appear as labels. The selected chat is
-reread before copying.
+reread before copying. T3 Code reads projected messages and saved plans,
+with reasoning and tool activity controlled by the same content flags.
 `
 }

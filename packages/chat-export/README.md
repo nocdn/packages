@@ -1,9 +1,9 @@
 # chat-export
 
 <!-- prettier-ignore -->
-Search your local Codex and OpenCode chats and export one as plain text, Markdown, or JSON.
+Search your local Codex, OpenCode, and T3 Code chats and export one as plain text, Markdown, or JSON.
 
-Choose **Codex** or **OpenCode**, search, then select a chat. The full
+Choose **Codex**, **OpenCode**, or **T3 Code**, search, then select a chat. The full
 transcript is copied to the clipboard, printed with `--stdout`, or written to a
 file with `-o`. `--last` skips the picker and grabs your most recent chat.
 
@@ -35,8 +35,11 @@ npm install --global @nocdn/chat-export
 chat-export
 ```
 
-Other package runners such as `bunx`, `pnpm dlx`, and `yarn dlx` can run the
-same package.
+Run with Bun:
+
+```bash
+bunx @nocdn/chat-export
+```
 
 Use arrow keys and Enter to select. Escape cancels. In native fzf, the preview
 sits beside the list (or below it in narrow terminals) and Ctrl-/ toggles it.
@@ -51,19 +54,19 @@ chat-export [options]
 
 Choosing a chat:
 
-| Option                         | Description                                                                                             |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `--provider codex\|opencode`   | Skip the source menu.                                                                                   |
-| `--picker auto\|fzf\|inquirer` | Prefer fzf automatically (default), or force a picker.                                                  |
-| `--session ID`                 | Export one main chat without its picker.                                                                |
-| `--last`                       | Export the most recent chat without a picker. Without `--provider`, it compares both sources.           |
-| `--here`                       | Only chats from the current project: the nearest directory containing `.git`, or the current directory. |
-| `--cwd PATH`                   | Only chats started in `PATH` or a directory below it.                                                   |
-| `--list`                       | List main session IDs; never touches the clipboard.                                                     |
-| `--json`                       | JSON metadata with `--list`.                                                                            |
-| `--exact`                      | Literal substring search (smart case).                                                                  |
-| `--query TEXT`                 | Start with a chat search.                                                                               |
-| `--no-preview`                 | Hide the chat preview in the picker.                                                                    |
+| Option                               | Description                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `--provider codex\|opencode\|t3code` | Skip the source menu.                                                                                   |
+| `--picker auto\|fzf\|inquirer`       | Prefer fzf automatically (default), or force a picker.                                                  |
+| `--session ID`                       | Export one main chat without its picker.                                                                |
+| `--last`                             | Export the most recent chat without a picker. Without `--provider`, it compares all three sources.      |
+| `--here`                             | Only chats from the current project: the nearest directory containing `.git`, or the current directory. |
+| `--cwd PATH`                         | Only chats started in `PATH` or a directory below it.                                                   |
+| `--list`                             | List main session IDs; never touches the clipboard.                                                     |
+| `--json`                             | JSON metadata with `--list`.                                                                            |
+| `--exact`                            | Literal substring search (smart case).                                                                  |
+| `--query TEXT`                       | Start with a chat search.                                                                               |
+| `--no-preview`                       | Hide the chat preview in the picker.                                                                    |
 
 Output:
 
@@ -87,6 +90,7 @@ Stores and general:
 | ------------------- | -------------------------------------- |
 | `--codex-home PATH` | Override `CODEX_HOME` / `~/.codex`.    |
 | `--db PATH`         | Override the OpenCode SQLite database. |
+| `--t3-db PATH`      | Override the T3 Code SQLite database.  |
 | `-h`, `--help`      | Show help.                             |
 | `-v`, `--version`   | Show the package version.              |
 
@@ -99,6 +103,9 @@ chat-export --provider codex --here --tools       # pick a chat, including comma
 chat-export --provider opencode --user-only       # just your prompts from a chat
 chat-export --provider codex --list --cwd ~/code/app
 chat-export --provider opencode --session ses_... --format json --stdout
+chat-export --provider t3code --last --format markdown --stdout
+chat-export --provider t3code --session THREAD_ID --tools --format json -o t3-chat.json
+chat-export --provider t3code --t3-db ~/.t3/dev/state.sqlite --list
 ```
 
 ### Formats
@@ -124,12 +131,16 @@ failed }`
   with their outputs
 - **OpenCode:** every tool part (`bash`, `edit`, `read`, `grep`, and so on),
   with its input, output, or error
+- **T3 Code:** stored main-thread tool activity from Codex, Claude, and other
+  providers. Lifecycle updates for the same turn and call become one record,
+  with the current input and stored output. Separate calls stay separate.
+  Child-agent tools are excluded; a main-thread delegation call stays visible
 
 Tool output can be large, so exports and the search index grow accordingly.
 `--user-only` keeps only your messages and cannot be combined with `--tools`.
 
 Without `--exact`, Codex supports double-quoted phrase searches in chat text.
-OpenCode uses ordinary fzf search and its explicit `--exact` mode. Fuzzy
+OpenCode and T3 Code use ordinary fzf search and its explicit `--exact` mode. Fuzzy
 ranking can differ slightly between native fzf and the JavaScript matcher.
 There is no result-count or transcript-length cap; long lists are paginated.
 Previews show the beginning of a chat, shortened; the export itself is not.
@@ -154,6 +165,12 @@ without copying anything. The picker needs a terminal; in scripts, use
   text stays intact. Child sessions, synthetic/ignored text, and compaction
   summaries are excluded; tool parts are excluded unless `--tools` is set.
   Attachments appear as labels, not binary data
+- T3 Code reads its projected messages and saved proposed plans in creation
+  order. Repeated text stays intact; reasoning follows `--no-reasoning` and
+  plans appear as assistant text. Archived threads are included, deleted
+  threads and projects are excluded, and system notices are omitted. Directory
+  filters use the thread's worktree path when present, otherwise its project's
+  workspace root. Attachments appear as labels, not binary data
 - Readers include the complete stored main-chat text under those rules.
   Display previews are shortened, but the search text and copied transcript
   are not
@@ -169,6 +186,35 @@ without copying anything. The picker needs a terminal; in scripts, use
   in previews is stripped of terminal control sequences
 - Incomplete refreshes and invalid Unicode fail before copying rather than
   producing a silently shortened or lossy export
+
+### T3 Code
+
+The default database is `~/.t3/userdata/state.sqlite`, or
+`$T3CODE_HOME/userdata/state.sqlite` when that environment variable is set.
+Use `--t3-db PATH` for a development database (`~/.t3/dev/state.sqlite`), a
+custom installation, or a database copied from another machine. T3 Code does
+not need to be running. Remote-server chats must be exported on the server or
+from a consistent SQLite backup that includes its committed WAL data.
+
+The reader follows [T3 Code's public storage implementation](https://github.com/pingdotgg/t3code/tree/main/apps/server/src/persistence).
+It reads `projection_projects`, `projection_threads`,
+`projection_thread_messages`, optional `projection_thread_proposed_plans`, and
+(with `--tools`) `projection_thread_activities`. It supports the initial
+projection layout and later attachment and activity-sequence columns. Raw
+orchestration events are not replayed: the projections already combine
+streaming chunks and remove reverted messages, plans, and tool activity.
+Exports include what T3 stored at the moment of the read, including current
+streaming text; an unfinished tool call may have only its current summary or
+partial stored output. Older T3 versions that did not persist reasoning cannot
+export it. Every selected export uses one read transaction for a consistent
+snapshot of messages, plans, and tools.
+
+Unexpected message roles, malformed data, and incompatible table shapes fail
+explicitly. As with OpenCode, indexing and `--last` skip chats with unsupported
+formats and report the count; an explicit `--session` fails. T3's internal
+thread ID is the `--session` value; discover it with `--provider t3code --list`.
+
+### OpenCode
 
 The OpenCode reader targets the SQLite `session` / `message` / `part` layout.
 Some OpenCode versions (around 1.18.16 to 1.18.25) also wrote chats to a newer
@@ -206,7 +252,7 @@ The executable adapter lives in [`bin/cli.js`](./bin/cli.js), and the testable
 option handling lives in [`src/cli.js`](./src/cli.js). The rest of `src/` is
 split by concern:
 
-- `src/providers/` — Codex rollout reader, OpenCode reader, read-only SQLite
+- `src/providers/` — Codex, OpenCode, and T3 Code readers, read-only SQLite
 - `src/pickers/` — native fzf picker, Inquirer fallback, and its matcher
 - `src/worker.js` / `src/worker-client.js` — indexing and export in a worker
 - `src/render.js` — Markdown, JSON, and preview rendering
@@ -234,16 +280,16 @@ read real chats or overwrite the system clipboard. Coverage includes ordering,
 batch boundaries, Unicode and whitespace, fragment refresh, subagent filtering,
 live WAL reads, concurrent writers, malformed data, worker cancellation, full
 text searching, both OpenCode storage layouts and their merge, noninteractive CLI exports, every output format, tool
-extraction for both sources, directory filters, `--last`, previews, and a
+extraction for all three sources, directory filters, `--last`, previews, and a
 check that no CLI mode changes the bytes of a chat store.
 
 Optional real-terminal checks drive the CLI in a pseudo-terminal with native
-fzf and with the automatic Inquirer fallback, for both providers and runtimes,
+fzf and with the automatic Inquirer fallback, for all providers and both runtimes,
 including that the preview renders (Python is only the test driver):
 
 ```bash
-python3 scripts/verify-terminal.py
-python3 scripts/verify-terminal.py --runtime node --picker fzf
+python3 packages/chat-export/scripts/verify-terminal.py
+python3 packages/chat-export/scripts/verify-terminal.py --runtime node --picker fzf
 ```
 
 `scripts/compare-oracle.js` compares exports against a hash/count oracle file

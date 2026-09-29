@@ -45,6 +45,7 @@ def run_case(runtime, picker, provider, *, cancel=None, refresh=False, rapid=Fal
             "TERM": "xterm-256color",
             "CODEX_HOME": options['codexHome'],
             "XDG_DATA_HOME": str(root / 'data'),
+            "T3CODE_HOME": str(root / 't3'),
             "PATH": str(fake_bin) if picker == 'auto-fallback' else str(fake_bin) + os.pathsep + env['PATH'],
             "FZF_DEFAULT_OPTS": "--bind=start:execute(touch " + str(hook) + ")",
             "FZF_DEFAULT_OPTS_FILE": str(root / 'MUST-NOT-BE-READ'),
@@ -52,6 +53,7 @@ def run_case(runtime, picker, provider, *, cancel=None, refresh=False, rapid=Fal
         if cancel == 'source':
             env['CODEX_HOME'] = str(root / 'ABSENT-CODEX')
             env['XDG_DATA_HOME'] = str(root / 'ABSENT-DATA')
+            env['T3CODE_HOME'] = str(root / 'ABSENT-T3')
         argv = [runtime, str(cli or PACKAGE / 'bin/cli.js'), '--picker', 'auto' if picker == 'auto-fallback' else picker]
         pid, fd = pty.fork()
         if pid == 0:
@@ -62,8 +64,8 @@ def run_case(runtime, picker, provider, *, cancel=None, refresh=False, rapid=Fal
         ready = 0
         stage = 0
         native = picker == 'fzf'
-        expected = ('Codex question 🦉\n\n\n\nBefore ' + options['phrase'] + ' after') if provider == 'codex' else 'OpenCode question 🦉\n\n\n\nOpenCode answer'
-        db_path = Path(options['openCodeDb'])
+        expected = ('Codex question 🦉\n\n\n\nBefore ' + options['phrase'] + ' after') if provider == 'codex' else ('OpenCode question 🦉\n\n\n\nOpenCode answer' if provider == 'opencode' else 'T3 question 🦉\n\n\n\nT3 answer')
+        db_path = Path(options['t3CodeDb'] if provider == 't3code' else options['openCodeDb'])
         db_before = hashlib.sha256(db_path.read_bytes()).hexdigest()
         try:
             while time.monotonic() - started < 25:
@@ -85,15 +87,15 @@ def run_case(runtime, picker, provider, *, cancel=None, refresh=False, rapid=Fal
                         stage = 4
                     else:
                         if native:
-                            os.write(fd, ('Codex' if provider == 'codex' else 'OpenCode').encode())
-                        elif provider == 'opencode':
-                            os.write(fd, b'\x1b[B')
+                            os.write(fd, {'codex': 'Codex', 'opencode': 'OpenCode', 't3code': 'T3 Code'}[provider].encode())
+                        else:
+                            os.write(fd, b'\x1b[B' * ['codex', 'opencode', 't3code'].index(provider))
                         ready = time.monotonic() + 0.2
                         stage = 1
                 if stage == 1 and time.monotonic() >= ready:
                     os.write(fd, b'\r')
                     stage = 2
-                marker = ('Codex conversation' if provider == 'codex' else 'OpenCode conversation').encode()
+                marker = ({'codex': 'Codex', 'opencode': 'OpenCode', 't3code': 'T3 Code'}[provider] + ' conversation').encode()
                 if stage == 2 and marker in cleaned and immediate:
                     ready = time.monotonic() + 0.4
                     stage = 5
@@ -102,7 +104,7 @@ def run_case(runtime, picker, provider, *, cancel=None, refresh=False, rapid=Fal
                         os.write(fd, b'\x1b')
                         stage = 4
                     else:
-                        query = ('"' + options['phrase'] + '"') if provider == 'codex' else 'opencodequestion'
+                        query = ('"' + options['phrase'] + '"') if provider == 'codex' else ('opencodequestion' if provider == 'opencode' else 't3question')
                         # A paste is one edit; a separate case types all keys
                         # rapidly to exercise delayed-search acceptance.
                         if native and not rapid:
@@ -128,9 +130,13 @@ def run_case(runtime, picker, provider, *, cancel=None, refresh=False, rapid=Fal
                         ]
                         (store / 'sessions/new.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows))
                         expected += '\n\n\n\nAdded during picker'
-                    elif refresh:
+                    elif refresh and provider == 'opencode':
                         with sqlite3.connect(db_path) as db:
                             db.execute('UPDATE part SET data=? WHERE id=?', (json.dumps({"type":"text","text":"OpenCode answer updated during picker"}), 'a1'))
+                        expected += ' updated during picker'
+                    elif refresh:
+                        with sqlite3.connect(db_path) as db:
+                            db.execute("UPDATE projection_thread_messages SET text=? WHERE message_id=?", ('T3 answer updated during picker', 'a1'))
                         expected += ' updated during picker'
                     os.write(fd, b'\r')
                     stage = 4
@@ -166,13 +172,14 @@ if __name__ == '__main__':
     parser.add_argument('--runtime', choices=['node','bun'], action='append')
     parser.add_argument('--picker', choices=['fzf','auto-fallback'], action='append')
     parser.add_argument('--cli', type=Path)
+    parser.add_argument('--provider', choices=['codex', 'opencode', 't3code'], action='append')
     args = parser.parse_args()
     for runtime_name in args.runtime or ['node','bun']:
         runtime = shutil.which(runtime_name)
         if not runtime:
             raise SystemExit(f'{runtime_name} is not installed')
         for picker in args.picker or ['fzf','auto-fallback']:
-            for provider in ['codex','opencode']:
+            for provider in args.provider or ['codex','opencode','t3code']:
                 run_case(runtime,picker,provider,refresh=True,cli=args.cli)
             run_case(runtime,picker,'codex',cancel='source',cli=args.cli)
             run_case(runtime,picker,'opencode',cancel='chat',cli=args.cli)

@@ -31,6 +31,14 @@ export function defaultOpenCodeDb() {
   )
 }
 
+export function defaultT3CodeDb() {
+  return join(
+    expandPath(process.env.T3CODE_HOME || "~/.t3"),
+    "userdata",
+    "state.sqlite",
+  )
+}
+
 export async function findExecutable(name) {
   for (const directory of (process.env.PATH ?? "")
     .split(delimiter)

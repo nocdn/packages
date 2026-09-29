@@ -11,7 +11,7 @@ import { previewData, renderExport } from "./render.js"
 import { indexEntry } from "./text.js"
 
 // job.options carries the reader settings and the view: codexHome,
-// openCodeDb, reasoning, tools, userOnly, directories, format, preview.
+// openCodeDb, t3CodeDb, reasoning, tools, userOnly, directories, format, preview.
 async function runWorker(job) {
   const port = parentPort
   if (!port) throw new Error("This module runs in a worker")

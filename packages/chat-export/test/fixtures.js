@@ -161,7 +161,13 @@ export async function bothFixtures(root) {
   db.part("a1", "a", "OpenCode answer")
   db.part("c1", "c", "CHILD OUTPUT", "text", "child")
   db.close()
-  return { codexHome, openCodeDb, reasoning: true, phrase }
+  return {
+    codexHome,
+    openCodeDb,
+    t3CodeDb: join(root, "ABSENT-T3.sqlite"),
+    reasoning: true,
+    phrase,
+  }
 }
 // Adds OpenCode's newer `session_v2` / `session_message` layout to a fixture
 // database, replacing the minimal `session_message` table.

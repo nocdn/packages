@@ -12,7 +12,11 @@ import { toolTitle } from "./tools.js"
 
 export const FORMATS = ["text", "markdown", "json"]
 
-const PROVIDER_NAMES = { codex: "Codex", opencode: "OpenCode" }
+const PROVIDER_NAMES = {
+  codex: "Codex",
+  opencode: "OpenCode",
+  t3code: "T3 Code",
+}
 const PREVIEW_LIMIT = 4000
 const PREVIEW_RECORD_LIMIT = 800
 
@@ -88,7 +92,9 @@ export function markdownTranscript(chat, view = {}) {
     const { record, text } = items[i]
     const group = record.kind === "user" ? "user" : "assistant"
     const sameMessage =
-      chat.provider === "opencode" && previous?.messageId === record.messageId
+      chat.provider !== "codex" &&
+      record.messageId !== undefined &&
+      previous?.messageId === record.messageId
     if (group !== section || (group === "user" && !sameMessage)) {
       blocks.push(group === "user" ? "## User" : "## Assistant")
       section = group

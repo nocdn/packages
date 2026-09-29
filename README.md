@@ -3,15 +3,15 @@
 My npx-runnable CLIs, in one repository. Each directory in `packages/` is its
 own npm package with its own version, and every one runs with `npx` or `bunx`.
 
-| Package                                        | Run with                   | What it does                                                                |
-| ---------------------------------------------- | -------------------------- | --------------------------------------------------------------------------- |
-| [create-nocdn-app](packages/create-nocdn-app)  | `npx create-nocdn-app`     | Scaffold Next.js, Vite, TanStack Start, or Hono my preferred way            |
-| [@nocdn/chat-export](packages/chat-export)     | `npx @nocdn/chat-export`   | Search and export a local Codex or OpenCode chat as text, Markdown, or JSON |
-| [@nocdn/github-backup](packages/github-backup) | `npx @nocdn/github-backup` | Back up a whole GitHub personal profile                                     |
-| [@nocdn/ingest](packages/ingest)               | `npx @nocdn/ingest`        | Ingest a local folder or repository into an LLM-friendly digest             |
-| [@nocdn/pastepatch](packages/pastepatch)       | `npx @nocdn/pastepatch`    | Code with ChatGPT via clipboard tool plans or a remote MCP server           |
-| [@nocdn/quick-repo](packages/quick-repo)       | `npx @nocdn/quick-repo`    | Quickly create a new GitHub repository                                      |
-| [@nocdn/record](packages/record)               | `npx @nocdn/record`        | Record the Mac screen, system audio, and microphone from the command line   |
+| Package                                        | Run with                   | What it does                                                                          |
+| ---------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------- |
+| [create-nocdn-app](packages/create-nocdn-app)  | `npx create-nocdn-app`     | Scaffold Next.js, Vite, TanStack Start, or Hono my preferred way                      |
+| [@nocdn/chat-export](packages/chat-export)     | `npx @nocdn/chat-export`   | Search and export a local Codex, OpenCode, or T3 Code chat as text, Markdown, or JSON |
+| [@nocdn/github-backup](packages/github-backup) | `npx @nocdn/github-backup` | Back up a whole GitHub personal profile                                               |
+| [@nocdn/ingest](packages/ingest)               | `npx @nocdn/ingest`        | Ingest a local folder or repository into an LLM-friendly digest                       |
+| [@nocdn/pastepatch](packages/pastepatch)       | `npx @nocdn/pastepatch`    | Code with ChatGPT via clipboard tool plans or a remote MCP server                     |
+| [@nocdn/quick-repo](packages/quick-repo)       | `npx @nocdn/quick-repo`    | Quickly create a new GitHub repository                                                |
+| [@nocdn/record](packages/record)               | `npx @nocdn/record`        | Record the Mac screen, system audio, and microphone from the command line             |
 
 ## Layout
 

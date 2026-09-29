@@ -59,6 +59,7 @@ test("prints help using the package name and executable name", async () => {
     "--picker",
     "--codex-home",
     "--db",
+    "--t3-db",
     "--session",
     "--list",
     "--json",
@@ -95,7 +96,7 @@ test("rejects unknown options", async () => {
 
 test("rejects invalid option values and combinations", async () => {
   for (const [args, message] of [
-    [["--provider", "claude"], /--provider must be codex or opencode/],
+    [["--provider", "claude"], /--provider must be codex, opencode, or t3code/],
     [["--picker", "gum"], /--picker must be auto, fzf, or inquirer/],
     [["--json"], /--json requires --list/],
     [["--list", "--stdout"], /--list cannot be combined/],

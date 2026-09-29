@@ -7,9 +7,30 @@ import {
   openOpenCode,
   readOpenCode,
 } from "./providers/opencode.js"
+import { listT3Code, openT3Code, readT3Code } from "./providers/t3code.js"
 import { recordText, trim, visibleRecords } from "./text.js"
 
-export const PROVIDERS = ["codex", "opencode"]
+export const PROVIDERS = ["codex", "opencode", "t3code"]
+
+const DATABASE_PROVIDERS = {
+  opencode: {
+    open: openOpenCode,
+    list: listOpenCode,
+    read: readOpenCode,
+    path: "openCodeDb",
+  },
+  t3code: {
+    open: openT3Code,
+    list: listT3Code,
+    read: readT3Code,
+    path: "t3CodeDb",
+  },
+}
+
+function databaseProvider(provider) {
+  requireProvider(provider)
+  return DATABASE_PROVIDERS[provider]
+}
 
 // `options.directories` (from --here/--cwd) keeps chats whose working
 // directory is one of those paths or inside one of them.
@@ -32,13 +53,14 @@ export async function* conversations(provider, options, onSkip = () => {}) {
     }
     return
   }
-  const db = await openOpenCode(options.openCodeDb)
+  const store = databaseProvider(provider)
+  const db = await store.open(options[store.path])
   try {
-    for (const session of listOpenCode(db)) {
+    for (const session of store.list(db)) {
       if (!inDirectories(session.directory, options.directories)) continue
       let chat
       try {
-        chat = readOpenCode(db, session.id, options.reasoning, options.tools)
+        chat = store.read(db, session.id, options.reasoning, options.tools)
       } catch (error) {
         if (!(error instanceof UnsupportedFormat)) throw error
         onSkip(session)
@@ -71,9 +93,10 @@ export async function exportConversation(provider, id, options, selected) {
   if (provider === "codex") {
     return refreshCodex(options.codexHome, id, selected?.guard ?? [], options)
   }
-  const db = await openOpenCode(options.openCodeDb)
+  const store = databaseProvider(provider)
+  const db = await store.open(options[store.path])
   try {
-    return readOpenCode(db, id, options.reasoning, options.tools)
+    return store.read(db, id, options.reasoning, options.tools)
   } finally {
     db.close()
   }
@@ -89,11 +112,14 @@ export async function listConversations(provider, options) {
         return metadata
       })
   }
-  const db = await openOpenCode(options.openCodeDb)
+  const store = databaseProvider(provider)
+  const db = await store.open(options[store.path])
   try {
-    return listOpenCode(db).filter((session) =>
-      inDirectories(session.directory, options.directories),
-    )
+    return store
+      .list(db)
+      .filter((session) =>
+        inDirectories(session.directory, options.directories),
+      )
   } finally {
     db.close()
   }
@@ -101,7 +127,7 @@ export async function listConversations(provider, options) {
 
 export function requireProvider(value) {
   if (!PROVIDERS.includes(value)) {
-    throw new ExportError("Provider must be codex or opencode")
+    throw new ExportError("Provider must be codex, opencode, or t3code")
   }
   return value
 }

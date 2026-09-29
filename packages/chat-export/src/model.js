@@ -2,7 +2,7 @@ export class ExportError extends Error {
   name = "ExportError"
 }
 
-// A chat store (Codex directory or OpenCode database) does not exist.
+// A chat store (Codex directory or a SQLite database) does not exist.
 export class MissingStore extends ExportError {
   name = "MissingStore"
 }

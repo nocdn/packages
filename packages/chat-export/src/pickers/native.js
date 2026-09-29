@@ -7,6 +7,9 @@ import process from "node:process"
 import { setTimeout, clearTimeout } from "node:timers"
 import { fileURLToPath, URL } from "node:url"
 
+import { PROVIDERS } from "../provider.js"
+import { providerName } from "../render.js"
+
 import { Cancelled, ExportError } from "../model.js"
 import {
   command,
@@ -61,7 +64,7 @@ export async function selectNativeSource(executable) {
       "--prompt=Chat source > ",
       "--header=Choose where to search. Enter opens; Esc cancels.",
     ],
-    "Codex\nOpenCode\n",
+    PROVIDERS.map(providerName).join("\n") + "\n",
     fzfEnvironment(),
   )
   if (result.code === 1 || result.code === 130) throw new Cancelled()
@@ -71,10 +74,11 @@ export async function selectNativeSource(executable) {
     )
   }
   const source = result.stdout.trim()
-  if (source !== "Codex" && source !== "OpenCode") {
+  const provider = PROVIDERS.find((name) => providerName(name) === source)
+  if (!provider) {
     throw new ExportError("fzf returned an invalid source")
   }
-  return source === "Codex" ? "codex" : "opencode"
+  return provider
 }
 
 // Fields: visible display, padded searchable text, padded exact-encoded text,
@@ -92,7 +96,7 @@ export function nativeArgs(
   query,
   preview = false,
 ) {
-  const name = provider === "codex" ? "Codex" : "OpenCode"
+  const name = providerName(provider)
   const help =
     provider === "codex" && !exact
       ? "Wrap a phrase in double quotes for exact transcript search."

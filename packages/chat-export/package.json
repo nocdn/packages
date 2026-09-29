@@ -1,11 +1,12 @@
 {
   "name": "@nocdn/chat-export",
-  "version": "0.0.3",
-  "description": "Search and export a local Codex or OpenCode chat as text, Markdown, or JSON",
+  "version": "0.1.0",
+  "description": "Search and export a local Codex, OpenCode, or T3 Code chat as text, Markdown, or JSON",
   "license": "MIT",
   "keywords": [
     "codex",
     "opencode",
+    "t3code",
     "chat",
     "export",
     "transcript",

@@ -60,7 +60,14 @@ async function invoke(args, { cwd } = {}) {
 }
 
 function stores(options) {
-  return ["--codex-home", options.codexHome, "--db", options.openCodeDb]
+  return [
+    "--codex-home",
+    options.codexHome,
+    "--db",
+    options.openCodeDb,
+    "--t3-db",
+    options.t3CodeDb,
+  ]
 }
 
 // Every file under a directory, with a content hash, so tests can prove the
@@ -475,6 +482,8 @@ test("--last picks the newest chat across both sources and tolerates a missing s
       join(root, "ABSENT"),
       "--db",
       options.openCodeDb,
+      "--t3-db",
+      options.t3CodeDb,
     ])
     assert.equal(result.exitCode, 0, result.stderr)
     assert.ok(result.stdout.startsWith("OpenCode question"))
@@ -495,9 +504,14 @@ test("--last picks the newest chat across both sources and tolerates a missing s
       join(root, "ABSENT"),
       "--db",
       join(root, "ABSENT.db"),
+      "--t3-db",
+      options.t3CodeDb,
     ])
     assert.equal(result.exitCode, 1)
-    assert.match(result.stderr, /No Codex or OpenCode chat store was found/)
+    assert.match(
+      result.stderr,
+      /No Codex, OpenCode, or T3 Code chat store was found/,
+    )
 
     result = await invoke([
       "--last",

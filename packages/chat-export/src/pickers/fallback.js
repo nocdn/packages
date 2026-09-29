@@ -3,7 +3,7 @@ import process from "node:process"
 import select from "@inquirer/select"
 
 import { Cancelled } from "../model.js"
-import { renderPreview } from "../render.js"
+import { providerName, renderPreview } from "../render.js"
 import { ChatMatcher } from "./matcher.js"
 import { searchPrompt } from "./search-prompt.js"
 
@@ -51,6 +51,7 @@ export async function selectFallbackSource() {
         choices: [
           { name: "Codex", value: "codex" },
           { name: "OpenCode", value: "opencode" },
+          { name: "T3 Code", value: "t3code" },
         ],
       },
       {
@@ -81,7 +82,7 @@ export async function selectFallbackChat(
   try {
     const selected = await searchPrompt(
       {
-        message: `${provider === "codex" ? "Codex" : "OpenCode"} conversation`,
+        message: `${providerName(provider)} conversation`,
         initialValue: initialQuery,
         preview: previewLines,
         source: async (query, signal) => {

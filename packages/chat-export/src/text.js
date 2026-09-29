@@ -85,7 +85,8 @@ export function transcript(chat, view = {}) {
       } else if (previous.kind !== "user" && record.kind !== "user") {
         chunks.push("\n\n")
       } else if (
-        chat.provider === "opencode" &&
+        chat.provider !== "codex" &&
+        record.messageId !== undefined &&
         previous.messageId === record.messageId
       ) {
         chunks.push("\n\n")

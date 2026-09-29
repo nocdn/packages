@@ -16,9 +16,9 @@ function readQuery(sql) {
 
 // Opens a SQLite database strictly read-only, using bun:sqlite under Bun and
 // node:sqlite under Node. Committed WAL data is visible; nothing is written.
-export async function openReadDatabase(path) {
+export async function openReadDatabase(path, source = "OpenCode") {
   if (!(await stat(path).catch(() => undefined))?.isFile()) {
-    throw new MissingStore(`OpenCode database not found: ${path}`)
+    throw new MissingStore(`${source} database not found: ${path}`)
   }
   const file = await realpath(path)
   if (process.versions.bun) {
