@@ -109,7 +109,9 @@ export async function readRemoteSkill(nameOrPath, options = {}) {
   const skills = await listRemoteSkills(options);
 
   // Exact name match (case-insensitive)
-  const byName = skills.find((s) => s.name.toLowerCase() === query.toLowerCase());
+  const byName = skills.find(
+    (s) => s.name.toLowerCase() === query.toLowerCase(),
+  );
   if (byName) {
     const content = await readFile(byName.path, "utf8");
     return { ...byName, content };
@@ -141,7 +143,9 @@ export async function readRemoteSkill(nameOrPath, options = {}) {
     available.length > 0
       ? ` Known skills: ${available.join(", ")}${skills.length > 30 ? ", …" : ""}.`
       : " No skills found in default locations.";
-  throw new Error(`Skill not found: ${query}.${hint} Call list_remote_skills first.`);
+  throw new Error(
+    `Skill not found: ${query}.${hint} Call list_remote_skills first.`,
+  );
 }
 
 /**

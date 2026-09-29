@@ -10,9 +10,22 @@ import { TEMPLATE_PATTERNS } from "../src/patterns.js";
 const DEFAULT_OUTPUT = "digest.txt";
 const PDF_EXCLUDE_PATTERNS = ["*.pdf"];
 const ALL_INCLUDE_OPTIONS = [
-  { key: "includeDangerous", includeFlag: "--include-dangerous", excludeFlag: "--exclude-dangerous" },
-  { key: "includeGitignored", includeFlag: "--include-gitignored", excludeFlag: "--exclude-gitignored" },
-  { key: "includeEnv", includeFlag: "--include-env", excludeFlag: "--exclude-env", excludePatterns: [".env"] },
+  {
+    key: "includeDangerous",
+    includeFlag: "--include-dangerous",
+    excludeFlag: "--exclude-dangerous",
+  },
+  {
+    key: "includeGitignored",
+    includeFlag: "--include-gitignored",
+    excludeFlag: "--exclude-gitignored",
+  },
+  {
+    key: "includeEnv",
+    includeFlag: "--include-env",
+    excludeFlag: "--exclude-env",
+    excludePatterns: [".env"],
+  },
   { key: "ipynb", includeFlag: "--ipynb", excludeFlag: "--exclude-ipynb" },
 ];
 
@@ -42,7 +55,9 @@ async function main() {
     validateOutputMode(args);
 
     if (args.all) {
-      process.stderr.write(`Running with: ${enabledAllIncludeFlags(args).join(", ")}\n`);
+      process.stderr.write(
+        `Running with: ${enabledAllIncludeFlags(args).join(", ")}\n`,
+      );
     }
 
     if (args.repo) {
@@ -92,18 +107,28 @@ async function main() {
 
     if (args.output !== null) {
       const outputName = args.output || DEFAULT_OUTPUT;
-      const outputPath = await writeDigest(outputName, result.digest, process.cwd());
-      process.stdout.write(`Analysis complete. Output written to: ${outputPath}\n\n${result.summary}\n`);
+      const outputPath = await writeDigest(
+        outputName,
+        result.digest,
+        process.cwd(),
+      );
+      process.stdout.write(
+        `Analysis complete. Output written to: ${outputPath}\n\n${result.summary}\n`,
+      );
       return;
     }
 
     if (args.noClipboard) {
-      process.stdout.write(`Analysis complete. No output target was used.\n\n${result.summary}\n`);
+      process.stdout.write(
+        `Analysis complete. No output target was used.\n\n${result.summary}\n`,
+      );
       return;
     }
 
     await copyToClipboard(result.digest);
-    process.stdout.write(`Analysis complete. Digest copied to clipboard.\n\n${result.summary}\n`);
+    process.stdout.write(
+      `Analysis complete. Digest copied to clipboard.\n\n${result.summary}\n`,
+    );
   } catch (error) {
     process.stderr.write(`Error: ${error.message}\n`);
     process.exitCode = 1;
@@ -181,7 +206,9 @@ function parseArgs(argv, packageInfo) {
       continue;
     }
 
-    const allExcludeOption = ALL_INCLUDE_OPTIONS.find((option) => arg === option.excludeFlag);
+    const allExcludeOption = ALL_INCLUDE_OPTIONS.find(
+      (option) => arg === option.excludeFlag,
+    );
     if (allExcludeOption) {
       args[allExcludeOption.key] = false;
       args.excludedAllIncludes.add(allExcludeOption.key);
@@ -279,14 +306,18 @@ function parseArgs(argv, packageInfo) {
     }
 
     if (arg.startsWith("--exclude=")) {
-      args.exclude.push(normalizeExcludePattern(arg.slice("--exclude=".length)));
+      args.exclude.push(
+        normalizeExcludePattern(arg.slice("--exclude=".length)),
+      );
       continue;
     }
 
     if (arg === "-T" || arg === "--template" || arg === "--exclude-template") {
       const next = argv[index + 1];
       if (!next || next.startsWith("-")) {
-        throw new Error(`${arg} requires a template name. Available templates: ${availableTemplates()}`);
+        throw new Error(
+          `${arg} requires a template name. Available templates: ${availableTemplates()}`,
+        );
       }
       args.templates.push(next);
       index += 1;
@@ -334,14 +365,18 @@ function parseArgs(argv, packageInfo) {
     }
 
     if (arg.startsWith("-")) {
-      throw new Error(`Unknown option "${arg}". Run ${packageInfo.name} --help for usage.`);
+      throw new Error(
+        `Unknown option "${arg}". Run ${packageInfo.name} --help for usage.`,
+      );
     }
 
     positionals.push(arg);
   }
 
   if (positionals.length > 1) {
-    throw new Error(`Expected at most one path, received: ${positionals.join(", ")}`);
+    throw new Error(
+      `Expected at most one path, received: ${positionals.join(", ")}`,
+    );
   }
 
   if (positionals[0]) {
@@ -383,7 +418,9 @@ function normalizeExcludePattern(pattern) {
 }
 
 function enabledAllIncludeFlags(args) {
-  return ALL_INCLUDE_OPTIONS.filter((option) => args[option.key]).map((option) => option.includeFlag);
+  return ALL_INCLUDE_OPTIONS.filter((option) => args[option.key]).map(
+    (option) => option.includeFlag,
+  );
 }
 
 function normalizeRepoUrl(url) {
@@ -391,7 +428,10 @@ function normalizeRepoUrl(url) {
 }
 
 function isValidRepoUrl(url) {
-  return /^https?:\/\/.+\.git$/i.test(url) || /^https?:\/\/github\.com\/[^/]+\/[^/]+$/i.test(url);
+  return (
+    /^https?:\/\/.+\.git$/i.test(url) ||
+    /^https?:\/\/github\.com\/[^/]+\/[^/]+$/i.test(url)
+  );
 }
 
 function collectValues(argv, startIndex, optionName) {
@@ -411,9 +451,15 @@ function collectValues(argv, startIndex, optionName) {
 }
 
 function validateOutputMode(args) {
-  const outputModes = [args.output !== null, args.stdout, args.noClipboard].filter(Boolean).length;
+  const outputModes = [
+    args.output !== null,
+    args.stdout,
+    args.noClipboard,
+  ].filter(Boolean).length;
   if (outputModes > 1) {
-    throw new Error("Choose only one output mode: --output, --stdout, or --no-clipboard.");
+    throw new Error(
+      "Choose only one output mode: --output, --stdout, or --no-clipboard.",
+    );
   }
 }
 
@@ -434,7 +480,9 @@ async function copyToClipboard(text) {
     try {
       await copyToClipboardWithPlatformTool(text);
     } catch {
-      throw new Error(`Unable to copy to clipboard with tinyclip: ${error.message}`);
+      throw new Error(
+        `Unable to copy to clipboard with tinyclip: ${error.message}`,
+      );
     }
   }
 }
@@ -442,11 +490,15 @@ async function copyToClipboard(text) {
 function copyToClipboardWithPlatformTool(text) {
   const command = platformClipboardCommand();
   if (!command) {
-    return Promise.reject(new Error("No platform clipboard command is available."));
+    return Promise.reject(
+      new Error("No platform clipboard command is available."),
+    );
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(command.bin, command.args, { stdio: ["pipe", "ignore", "ignore"] });
+    const child = spawn(command.bin, command.args, {
+      stdio: ["pipe", "ignore", "ignore"],
+    });
 
     child.on("error", reject);
     child.on("close", (code) => {
@@ -489,7 +541,9 @@ async function cloneRepo(repoUrl) {
     return tempDir;
   } catch (error) {
     await rm(tempDir, { recursive: true, force: true });
-    throw new Error(`Failed to clone repository: ${error.message}`, { cause: error });
+    throw new Error(`Failed to clone repository: ${error.message}`, {
+      cause: error,
+    });
   }
 }
 

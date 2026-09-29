@@ -12,7 +12,9 @@ import { viewImageFile } from "../lib/view-image.js";
 const tempDirectories = [];
 
 test.after(async () => {
-  await Promise.all(tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })),
+  );
 });
 
 async function tempProject() {
@@ -22,7 +24,12 @@ async function tempProject() {
 }
 
 /** Tiny solid red PNG via sharp. */
-async function writePng(filePath, width, height, color = { r: 220, g: 40, b: 40, alpha: 1 }) {
+async function writePng(
+  filePath,
+  width,
+  height,
+  color = { r: 220, g: 40, b: 40, alpha: 1 },
+) {
   const buffer = await sharp({
     create: {
       width,
@@ -83,8 +90,14 @@ test("viewImageFile rejects non-images and sandbox escapes", async () => {
   const root = await tempProject();
   await writeFile(path.join(root, "notes.txt"), "not an image\n", "utf8");
 
-  await assert.rejects(() => viewImageFile({ path: "notes.txt", root }), /supported image|corrupt/i);
-  await assert.rejects(() => viewImageFile({ path: "../secret.png", root }), /\.\./);
+  await assert.rejects(
+    () => viewImageFile({ path: "notes.txt", root }),
+    /supported image|corrupt/i,
+  );
+  await assert.rejects(
+    () => viewImageFile({ path: "../secret.png", root }),
+    /\.\./,
+  );
 });
 
 test("MCP view_image tool returns type:image content", async () => {
@@ -105,7 +118,9 @@ test("MCP view_image tool returns type:image content", async () => {
 
   try {
     const client = new Client({ name: "pastepatch-test", version: "0.0.0" });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${port}/mcp`),
+    );
     await client.connect(transport);
 
     const tools = await client.listTools();
@@ -128,7 +143,9 @@ test("MCP view_image tool returns type:image content", async () => {
     assert.ok(image.data && image.mimeType);
     assert.ok(image.data.length > 20);
 
-    const viewLog = logs.find((line) => line.includes("view_image") && line.includes("✓ ok"));
+    const viewLog = logs.find(
+      (line) => line.includes("view_image") && line.includes("✓ ok"),
+    );
     assert.ok(viewLog, `expected view_image log, got: ${logs.join(" | ")}`);
     assert.match(viewLog, /64×48/);
     assert.match(viewLog, /png/i);

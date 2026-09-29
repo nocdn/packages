@@ -23,7 +23,9 @@ import {
 const tempDirectories = [];
 
 test.after(async () => {
-  await Promise.all(tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })),
+  );
 });
 
 async function tempDir(prefix) {
@@ -48,7 +50,9 @@ test("listRemoteSkills finds SKILL.md and dedupes by name/path", async () => {
   const home = await tempDir("pastepatch-skills-home-");
   const project = await tempDir("pastepatch-skills-proj-");
 
-  await mkdir(path.join(home, ".agents", "skills", "alpha"), { recursive: true });
+  await mkdir(path.join(home, ".agents", "skills", "alpha"), {
+    recursive: true,
+  });
   await writeFile(
     path.join(home, ".agents", "skills", "alpha", "SKILL.md"),
     `---
@@ -61,7 +65,9 @@ description: Home alpha skill
   );
 
   // Same name in project should win (project roots preferred)
-  await mkdir(path.join(project, ".agents", "skills", "alpha"), { recursive: true });
+  await mkdir(path.join(project, ".agents", "skills", "alpha"), {
+    recursive: true,
+  });
   await writeFile(
     path.join(project, ".agents", "skills", "alpha", "SKILL.md"),
     `---
@@ -73,7 +79,9 @@ description: Project alpha skill
     "utf8",
   );
 
-  await mkdir(path.join(home, ".claude", "skills", "beta"), { recursive: true });
+  await mkdir(path.join(home, ".claude", "skills", "beta"), {
+    recursive: true,
+  });
   await writeFile(
     path.join(home, ".claude", "skills", "beta", "SKILL.md"),
     `---
@@ -101,7 +109,9 @@ description: Claude beta
 
 test("readRemoteSkill loads by name", async () => {
   const home = await tempDir("pastepatch-skills-read-");
-  await mkdir(path.join(home, ".agents", "skills", "gamma"), { recursive: true });
+  await mkdir(path.join(home, ".agents", "skills", "gamma"), {
+    recursive: true,
+  });
   await writeFile(
     path.join(home, ".agents", "skills", "gamma", "SKILL.md"),
     `---
@@ -156,7 +166,12 @@ test("mcp lock detects live process and allows stale pid reuse", async () => {
   // Stale lock (dead pid) can be overwritten
   await writeFile(
     lockPath,
-    JSON.stringify({ pid: 999_999_999, port: 1, root: "/x", startedAt: new Date().toISOString() }),
+    JSON.stringify({
+      pid: 999_999_999,
+      port: 1,
+      root: "/x",
+      startedAt: new Date().toISOString(),
+    }),
     "utf8",
   );
   await acquireMcpLock({ pid: process.pid, port: 9, root: "/y", lockPath });
@@ -168,7 +183,9 @@ test("MCP list_remote_skills, read_remote_skill, and stop_session tools work", a
   await writeFile(path.join(project, "README.md"), "hi\n", "utf8");
 
   // Project-local skills are always scanned (home skills come from the real homedir).
-  await mkdir(path.join(project, ".agents", "skills", "proj-skill"), { recursive: true });
+  await mkdir(path.join(project, ".agents", "skills", "proj-skill"), {
+    recursive: true,
+  });
   await writeFile(
     path.join(project, ".agents", "skills", "proj-skill", "SKILL.md"),
     `---
@@ -195,10 +212,15 @@ project-skill-marker
 
   try {
     const client = new Client({ name: "pastepatch-test", version: "0.0.0" });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${port}/mcp`),
+    );
     await client.connect(transport);
 
-    const listed = await client.callTool({ name: "list_remote_skills", arguments: {} });
+    const listed = await client.callTool({
+      name: "list_remote_skills",
+      arguments: {},
+    });
     assert.equal(listed.isError, undefined);
     assert.match(toolText(listed), /proj-skill/);
 
@@ -212,7 +234,10 @@ project-skill-marker
 
     const stop = await client.callTool({ name: "stop_session", arguments: {} });
     assert.equal(stop.isError, undefined);
-    assert.match(toolText(stop), /Stopping pastepatch MCP on the remote machine/i);
+    assert.match(
+      toolText(stop),
+      /Stopping pastepatch MCP on the remote machine/i,
+    );
 
     await waitFor(() => stopCalls >= 1, 2000);
     assert.equal(stopCalls, 1);

@@ -37,34 +37,34 @@ pastepatch --mcp [path] [options]
 pastepatch --mcp --setup-tunnel
 ```
 
-| flag | description |
-| --- | --- |
-| `--init` | ask what you want ChatGPT to implement, run `bunx @nocdn/ingest <path> --stdout` with an `npx -y` fallback, wrap the task and digest with ChatGPT instructions, and copy the full prompt to the clipboard |
-| `--edit` | read the ChatGPT JSON tool plan from the clipboard and apply the file edits |
-| `--undo` | undo the most recent applied pastepatch change set |
-| `--log`, `--last-log` | print the pastepatch log for the current directory |
-| `--mcp` | start local MCP + Cloudflare Tunnel (requires `cloudflared`; uses `~/.pastepatch/` after setup) |
-| `--setup-tunnel` | one-time automated tunnel setup (login, create tunnel, DNS, save config) |
-| `--path <path>` | project path for `--init` / `--mcp`; a positional path also works; defaults to the current directory |
-| `--port <n>` | MCP listen port (default `8787`, or saved / `PASTEPATCH_MCP_PORT`) |
-| `--hostname <host>` | public hostname for setup / display (e.g. `mcp.bartoszbak.org`) |
-| `--tunnel-name <name>` | tunnel name for setup (default `pastepatch`) |
-| `--tunnel-token <token>` | optional dashboard token override. Env: `PASTEPATCH_TUNNEL_TOKEN` |
-| `--no-tunnel` | localhost only (still requires `cloudflared` installed) |
-| `--auth-token <token>` | require `Authorization: Bearer` on MCP HTTP (ChatGPT usually wants No auth) |
-| `--no-auth` | explicitly disable bearer auth |
-| `--rotate-secret` | generate a new secret MCP URL path (update your ChatGPT connector afterwards) |
-| `--color` | force color on MCP tool logs (even when not a TTY) |
-| `--no-color` | disable color on MCP tool logs (also respects `NO_COLOR`) |
-| `-m`, `--message`, `--task <text>` | provide first-turn instructions for `--init` instead of being asked interactively |
-| `-i`, `--include <pattern>` | forward an include pattern to `@nocdn/ingest`; repeatable |
-| `-e`, `--exclude <pattern>` | forward an exclude pattern to `@nocdn/ingest`; repeatable |
-| `--stdout` | print the `--init` prompt to stdout; still copies to clipboard unless `--no-clipboard` is set |
-| `--no-clipboard` | do not copy the `--init` prompt; print it to stdout instead |
-| `--dry-run` | validate and preview `--edit` tool calls without changing files |
-| `-y`, `--yes` | apply `--edit` tool calls without prompting (except when the plan matches the last apply in the same directory) |
-| `-h`, `--help` | show help |
-| `-v`, `--version` | show version |
+| flag                               | description                                                                                                                                                                                               |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--init`                           | ask what you want ChatGPT to implement, run `bunx @nocdn/ingest <path> --stdout` with an `npx -y` fallback, wrap the task and digest with ChatGPT instructions, and copy the full prompt to the clipboard |
+| `--edit`                           | read the ChatGPT JSON tool plan from the clipboard and apply the file edits                                                                                                                               |
+| `--undo`                           | undo the most recent applied pastepatch change set                                                                                                                                                        |
+| `--log`, `--last-log`              | print the pastepatch log for the current directory                                                                                                                                                        |
+| `--mcp`                            | start local MCP + Cloudflare Tunnel (requires `cloudflared`; uses `~/.pastepatch/` after setup)                                                                                                           |
+| `--setup-tunnel`                   | one-time automated tunnel setup (login, create tunnel, DNS, save config)                                                                                                                                  |
+| `--path <path>`                    | project path for `--init` / `--mcp`; a positional path also works; defaults to the current directory                                                                                                      |
+| `--port <n>`                       | MCP listen port (default `8787`, or saved / `PASTEPATCH_MCP_PORT`)                                                                                                                                        |
+| `--hostname <host>`                | public hostname for setup / display (e.g. `mcp.bartoszbak.org`)                                                                                                                                           |
+| `--tunnel-name <name>`             | tunnel name for setup (default `pastepatch`)                                                                                                                                                              |
+| `--tunnel-token <token>`           | optional dashboard token override. Env: `PASTEPATCH_TUNNEL_TOKEN`                                                                                                                                         |
+| `--no-tunnel`                      | localhost only (still requires `cloudflared` installed)                                                                                                                                                   |
+| `--auth-token <token>`             | require `Authorization: Bearer` on MCP HTTP (ChatGPT usually wants No auth)                                                                                                                               |
+| `--no-auth`                        | explicitly disable bearer auth                                                                                                                                                                            |
+| `--rotate-secret`                  | generate a new secret MCP URL path (update your ChatGPT connector afterwards)                                                                                                                             |
+| `--color`                          | force color on MCP tool logs (even when not a TTY)                                                                                                                                                        |
+| `--no-color`                       | disable color on MCP tool logs (also respects `NO_COLOR`)                                                                                                                                                 |
+| `-m`, `--message`, `--task <text>` | provide first-turn instructions for `--init` instead of being asked interactively                                                                                                                         |
+| `-i`, `--include <pattern>`        | forward an include pattern to `@nocdn/ingest`; repeatable                                                                                                                                                 |
+| `-e`, `--exclude <pattern>`        | forward an exclude pattern to `@nocdn/ingest`; repeatable                                                                                                                                                 |
+| `--stdout`                         | print the `--init` prompt to stdout; still copies to clipboard unless `--no-clipboard` is set                                                                                                             |
+| `--no-clipboard`                   | do not copy the `--init` prompt; print it to stdout instead                                                                                                                                               |
+| `--dry-run`                        | validate and preview `--edit` tool calls without changing files                                                                                                                                           |
+| `-y`, `--yes`                      | apply `--edit` tool calls without prompting (except when the plan matches the last apply in the same directory)                                                                                           |
+| `-h`, `--help`                     | show help                                                                                                                                                                                                 |
+| `-v`, `--version`                  | show version                                                                                                                                                                                              |
 
 Anything after `--` in `--init` mode is forwarded directly to
 `@nocdn/ingest`, for example:
@@ -156,36 +156,36 @@ OpenAI docs: [ChatGPT developer mode](https://developers.openai.com/api/docs/gui
 
 ### MCP tools
 
-| tool | read-only | description |
-| --- | --- | --- |
-| `start_here` | yes | agent role, project root, tool guide, plus project `AGENTS.md` when present — call at session start |
-| `project_info` | yes | absolute project root bound to this server |
-| `list_directory` | yes | list a directory (relative path) |
-| `find_files` | yes | find files by name (`fd`, else `find`) |
-| `search` | yes | search contents (`rg`, else `grep`) |
-| `read_file` | yes | read a UTF-8 file (relative path); optional `line_offset` / `line_limit` / `grep` |
-| `get_process_tree` | yes | ancestors + children for a `pid` or exact process/app name |
-| `quit_app` | no | quit a running macOS app by exact name (GUI supervisors such as Ollama) |
-| `view_image` | yes | load a full-resolution image as MCP image content (+ size/format metadata) |
-| `create_file` | no | create or overwrite a file |
-| `replace_in_file` | no | exact string replace (optional `replaceAll`) |
-| `append_to_file` | no | append text |
-| `delete_file` | no | delete file or directory |
-| `move_file` | no | rename/move within the project |
-| `undo_last_change` | no | undo the most recent pastepatch change set |
-| `handoff` | yes | detailed session report in one markdown code block for the next chat |
-| `run_command` | no | run a shell command (cwd = session cwd or project); may background after wait; output default ~8k tail (buffer retains ~100k). Jobs are process-group + env-tagged to this MCP session |
-| `get_command_output` | yes | re-fetch a job's output by `job_id` (`only_new`, `stream`, `grep`, `line_offset` / `line_limit`; raise `max_output_chars` or `0` for full retained buffer) |
-| `stop_command` | no | stop a background job (SIGTERM or force); kills the process group and session-tagged descendants |
-| `terminate_process` | no | safer kill: `job_id` or a pid **owned by this session** only (identity-checked) |
-| `stop_all_session_processes` | no | stop every job + leftover session-tagged pids from this MCP process |
-| `list_commands` | yes | list shell jobs in this MCP process (includes pid) |
-| `get_session` / `set_session` | mixed | persistent cwd / env overlay / venv for later `run_command` (not a PTY) |
-| `wait_until` | yes | block until port / HTTP / job exit / pid exit / file size stable / output regex |
-| `http_request` | no | HTTP to loopback by default (`allow_public` to unlock other hosts) |
-| `list_remote_skills` | yes | list Agent Skills (`SKILL.md`) from default remote-machine locations |
-| `read_remote_skill` | yes | read a skill by name (or path) from the remote machine |
-| `stop_session` | no | shut down the remote MCP server + tunnel |
+| tool                          | read-only | description                                                                                                                                                                            |
+| ----------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start_here`                  | yes       | agent role, project root, tool guide, plus project `AGENTS.md` when present — call at session start                                                                                    |
+| `project_info`                | yes       | absolute project root bound to this server                                                                                                                                             |
+| `list_directory`              | yes       | list a directory (relative path)                                                                                                                                                       |
+| `find_files`                  | yes       | find files by name (`fd`, else `find`)                                                                                                                                                 |
+| `search`                      | yes       | search contents (`rg`, else `grep`)                                                                                                                                                    |
+| `read_file`                   | yes       | read a UTF-8 file (relative path); optional `line_offset` / `line_limit` / `grep`                                                                                                      |
+| `get_process_tree`            | yes       | ancestors + children for a `pid` or exact process/app name                                                                                                                             |
+| `quit_app`                    | no        | quit a running macOS app by exact name (GUI supervisors such as Ollama)                                                                                                                |
+| `view_image`                  | yes       | load a full-resolution image as MCP image content (+ size/format metadata)                                                                                                             |
+| `create_file`                 | no        | create or overwrite a file                                                                                                                                                             |
+| `replace_in_file`             | no        | exact string replace (optional `replaceAll`)                                                                                                                                           |
+| `append_to_file`              | no        | append text                                                                                                                                                                            |
+| `delete_file`                 | no        | delete file or directory                                                                                                                                                               |
+| `move_file`                   | no        | rename/move within the project                                                                                                                                                         |
+| `undo_last_change`            | no        | undo the most recent pastepatch change set                                                                                                                                             |
+| `handoff`                     | yes       | detailed session report in one markdown code block for the next chat                                                                                                                   |
+| `run_command`                 | no        | run a shell command (cwd = session cwd or project); may background after wait; output default ~8k tail (buffer retains ~100k). Jobs are process-group + env-tagged to this MCP session |
+| `get_command_output`          | yes       | re-fetch a job's output by `job_id` (`only_new`, `stream`, `grep`, `line_offset` / `line_limit`; raise `max_output_chars` or `0` for full retained buffer)                             |
+| `stop_command`                | no        | stop a background job (SIGTERM or force); kills the process group and session-tagged descendants                                                                                       |
+| `terminate_process`           | no        | safer kill: `job_id` or a pid **owned by this session** only (identity-checked)                                                                                                        |
+| `stop_all_session_processes`  | no        | stop every job + leftover session-tagged pids from this MCP process                                                                                                                    |
+| `list_commands`               | yes       | list shell jobs in this MCP process (includes pid)                                                                                                                                     |
+| `get_session` / `set_session` | mixed     | persistent cwd / env overlay / venv for later `run_command` (not a PTY)                                                                                                                |
+| `wait_until`                  | yes       | block until port / HTTP / job exit / pid exit / file size stable / output regex                                                                                                        |
+| `http_request`                | no        | HTTP to loopback by default (`allow_public` to unlock other hosts)                                                                                                                     |
+| `list_remote_skills`          | yes       | list Agent Skills (`SKILL.md`) from default remote-machine locations                                                                                                                   |
+| `read_remote_skill`           | yes       | read a skill by name (or path) from the remote machine                                                                                                                                 |
+| `stop_session`                | no        | shut down the remote MCP server + tunnel                                                                                                                                               |
 
 Paths are sandboxed the same way as `--edit` (relative only, no `..`, no
 symlinks). Write tools create undo history under `.git/pastepatch/history` (or
@@ -325,13 +325,13 @@ also accepts the JSON inside a Markdown fenced code block.
 
 Supported tools:
 
-| tool | required fields | description |
-| --- | --- | --- |
-| `create_file` | `path`, `content` | create or overwrite a UTF-8 text file |
+| tool              | required fields      | description                                  |
+| ----------------- | -------------------- | -------------------------------------------- |
+| `create_file`     | `path`, `content`    | create or overwrite a UTF-8 text file        |
 | `replace_in_file` | `path`, `old`, `new` | replace an exact string in a UTF-8 text file |
-| `append_to_file` | `path`, `content` | append UTF-8 text to a file |
-| `delete_file` | `path` | delete an existing file or directory |
-| `move_file` | `from`, `to` | rename or move a file or directory |
+| `append_to_file`  | `path`, `content`    | append UTF-8 text to a file                  |
+| `delete_file`     | `path`               | delete an existing file or directory         |
+| `move_file`       | `from`, `to`         | rename or move a file or directory           |
 
 `replace_in_file` replaces one occurrence by default. If `old` appears more
 than once, the CLI stops with an error unless the call sets

@@ -44,7 +44,10 @@ function clampInterval(ms) {
  * @param {string} deps.root
  * @param {boolean} [deps.allowOutside]
  */
-export async function waitUntil(input = {}, { runner, root, allowOutside = false } = {}) {
+export async function waitUntil(
+  input = {},
+  { runner, root, allowOutside = false } = {},
+) {
   const condition = input.condition;
   if (!WAIT_CONDITIONS.includes(condition)) {
     throw new Error(
@@ -58,7 +61,11 @@ export async function waitUntil(input = {}, { runner, root, allowOutside = false
   let last;
 
   while (true) {
-    last = await checkCondition(condition, input, { runner, root, allowOutside });
+    last = await checkCondition(condition, input, {
+      runner,
+      root,
+      allowOutside,
+    });
     if (last.ok) {
       return {
         ...last,
@@ -119,7 +126,9 @@ async function checkPortOpen(input) {
   const { ok, error } = await tryConnect(host, port);
   return {
     ok,
-    detail: ok ? `${host}:${port} is open` : `${host}:${port} not open (${error || "refused"})`,
+    detail: ok
+      ? `${host}:${port} is open`
+      : `${host}:${port} not open (${error || "refused"})`,
     host,
     port,
   };
@@ -236,9 +245,14 @@ function checkOutputMatches(input, runner) {
   }
   let regex;
   try {
-    regex = new RegExp(pattern, input.caseInsensitive || input.case_insensitive ? "i" : "");
+    regex = new RegExp(
+      pattern,
+      input.caseInsensitive || input.case_insensitive ? "i" : "",
+    );
   } catch (error) {
-    throw new Error(`Invalid output_matches pattern: ${error.message}`, { cause: error });
+    throw new Error(`Invalid output_matches pattern: ${error.message}`, {
+      cause: error,
+    });
   }
   const stream = input.stream || "both";
   const text = runner.readJobStream(jobId, stream);

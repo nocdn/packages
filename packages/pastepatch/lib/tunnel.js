@@ -71,7 +71,9 @@ export async function parseArgoTunnelToken(certPath = certPemPath()) {
   }
 
   try {
-    const json = Buffer.from(match[1].replace(/\s+/g, ""), "base64").toString("utf8");
+    const json = Buffer.from(match[1].replace(/\s+/g, ""), "base64").toString(
+      "utf8",
+    );
     const data = JSON.parse(json);
     if (!data.zoneID || !data.apiToken) {
       return null;
@@ -89,19 +91,24 @@ export async function parseArgoTunnelToken(certPath = certPemPath()) {
 /**
  * Resolve the Cloudflare zone name (e.g. bartoszbak.org) authorized by cert.pem.
  */
-export async function resolveAuthenticatedZone({ logger = async () => {} } = {}) {
+export async function resolveAuthenticatedZone({
+  logger = async () => {},
+} = {}) {
   const token = await parseArgoTunnelToken();
   if (!token) {
     return null;
   }
 
   try {
-    const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${token.zoneId}`, {
-      headers: {
-        Authorization: `Bearer ${token.apiToken}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/zones/${token.zoneId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token.apiToken}`,
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
     const body = await response.json();
     if (!response.ok || !body?.success || !body?.result?.name) {
       await logger(
@@ -203,7 +210,10 @@ export async function resolveCloudflaredBinary() {
 
   const candidates = ["cloudflared"];
   if (process.platform === "darwin") {
-    candidates.push("/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared");
+    candidates.push(
+      "/opt/homebrew/bin/cloudflared",
+      "/usr/local/bin/cloudflared",
+    );
   }
   if (process.platform === "win32") {
     candidates.push(path.join(os.homedir(), "cloudflared.exe"));
@@ -248,7 +258,9 @@ export function cloudflaredMissingError({ packageName = "pastepatch" } = {}) {
   );
 }
 
-export async function requireCloudflaredBinary({ packageName = "pastepatch" } = {}) {
+export async function requireCloudflaredBinary({
+  packageName = "pastepatch",
+} = {}) {
   const binary = await resolveCloudflaredBinary();
   if (!binary) {
     throw cloudflaredMissingError({ packageName });
@@ -290,7 +302,12 @@ export async function saveTunnelConfig(config) {
  * Write a cloudflared config for a published HTTP app on localhost.
  * @see https://developers.cloudflare.com/tunnel/advanced/local-management/configuration-file/
  */
-export function buildCloudflaredConfigYaml({ tunnelId, credentialsFile, hostname, port }) {
+export function buildCloudflaredConfigYaml({
+  tunnelId,
+  credentialsFile,
+  hostname,
+  port,
+}) {
   // Minimal YAML (no dependency). Paths may contain special chars — quote them.
   const cred = yamlSingleQuoted(credentialsFile);
   const host = yamlSingleQuoted(hostname);
@@ -312,10 +329,20 @@ function yamlSingleQuoted(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-export async function writeCloudflaredConfigFile({ tunnelId, credentialsFile, hostname, port }) {
+export async function writeCloudflaredConfigFile({
+  tunnelId,
+  credentialsFile,
+  hostname,
+  port,
+}) {
   await mkdir(pastepatchConfigDir(), { recursive: true });
   const configPath = pastepatchCloudflaredConfigPath();
-  const yaml = buildCloudflaredConfigYaml({ tunnelId, credentialsFile, hostname, port });
+  const yaml = buildCloudflaredConfigYaml({
+    tunnelId,
+    credentialsFile,
+    hostname,
+    port,
+  });
   await writeFile(configPath, yaml, "utf8");
   try {
     const { chmod } = await import("node:fs/promises");
@@ -344,7 +371,10 @@ export async function isCloudflaredAuthenticated() {
  * Interactive: opens a browser to authorize DNS-edit access for a zone.
  * @see https://developers.cloudflare.com/tunnel/advanced/local-management/create-local-tunnel/
  */
-export async function ensureCloudflaredLogin({ binary, logger = async () => {} }) {
+export async function ensureCloudflaredLogin({
+  binary,
+  logger = async () => {},
+}) {
   if (await isCloudflaredAuthenticated()) {
     await logger("cloudflared already authenticated (cert.pem present)");
     return;
@@ -390,10 +420,16 @@ export async function ensureCloudflaredLogin({ binary, logger = async () => {} }
  * Create a named tunnel or reuse an existing one with the same name.
  * Returns { tunnelId, tunnelName, credentialsFile }.
  */
-export async function ensureNamedTunnel({ binary, tunnelName = DEFAULT_TUNNEL_NAME, logger = async () => {} }) {
+export async function ensureNamedTunnel({
+  binary,
+  tunnelName = DEFAULT_TUNNEL_NAME,
+  logger = async () => {},
+}) {
   const existing = await findTunnelByName(binary, tunnelName, logger);
   if (existing) {
-    process.stderr.write(`Reusing existing tunnel "${tunnelName}" (${existing.tunnelId}).\n`);
+    process.stderr.write(
+      `Reusing existing tunnel "${tunnelName}" (${existing.tunnelId}).\n`,
+    );
     const credentialsFile = await resolveCredentialsFile(existing.tunnelId);
     if (!(await pathExists(credentialsFile))) {
       throw new Error(
@@ -406,7 +442,11 @@ export async function ensureNamedTunnel({ binary, tunnelName = DEFAULT_TUNNEL_NA
   }
 
   process.stderr.write(`Creating Cloudflare tunnel "${tunnelName}"...\n`);
-  const result = await runCloudflared(binary, ["tunnel", "create", tunnelName], { logger });
+  const result = await runCloudflared(
+    binary,
+    ["tunnel", "create", tunnelName],
+    { logger },
+  );
 
   if (result.code !== 0) {
     // Race: created elsewhere
@@ -426,7 +466,9 @@ export async function ensureNamedTunnel({ binary, tunnelName = DEFAULT_TUNNEL_NA
   // and "Tunnel credentials written to /path/....json"
   const idMatch =
     combined.match(/Created tunnel .+ with id ([0-9a-f-]{36})/i) ||
-    combined.match(/\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i);
+    combined.match(
+      /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i,
+    );
   const credMatch = combined.match(/credentials written to\s+(.+\.json)/i);
 
   let tunnelId = idMatch?.[1];
@@ -438,7 +480,9 @@ export async function ensureNamedTunnel({ binary, tunnelName = DEFAULT_TUNNEL_NA
   }
 
   if (!tunnelId) {
-    throw new Error(`Could not parse tunnel id from cloudflared create output:\n${combined}`);
+    throw new Error(
+      `Could not parse tunnel id from cloudflared create output:\n${combined}`,
+    );
   }
 
   if (!credentialsFile) {
@@ -446,7 +490,9 @@ export async function ensureNamedTunnel({ binary, tunnelName = DEFAULT_TUNNEL_NA
   }
 
   if (!(await pathExists(credentialsFile))) {
-    throw new Error(`Tunnel created but credentials file not found at ${credentialsFile}`);
+    throw new Error(
+      `Tunnel created but credentials file not found at ${credentialsFile}`,
+    );
   }
 
   process.stderr.write(`Created tunnel ${tunnelName} (${tunnelId}).\n`);
@@ -461,14 +507,21 @@ export async function resolveCredentialsFile(tunnelId) {
  * Parse `cloudflared tunnel list` for a tunnel by name.
  * Output columns typically: ID NAME CREATED CONNECTIONS
  */
-export async function findTunnelByName(binary, tunnelName, logger = async () => {}) {
+export async function findTunnelByName(
+  binary,
+  tunnelName,
+  logger = async () => {},
+) {
   const result = await runCloudflared(binary, ["tunnel", "list"], { logger });
   if (result.code !== 0) {
     // Not authenticated etc.
     return null;
   }
 
-  const lines = result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+  const lines = result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
   for (const line of lines) {
     if (/^ID\b/i.test(line) || line.startsWith("-")) {
       continue;
@@ -488,8 +541,15 @@ export async function findTunnelByName(binary, tunnelName, logger = async () => 
  * Create/update DNS CNAME hostname → <uuid>.cfargotunnel.com
  * @see https://developers.cloudflare.com/tunnel/advanced/local-management/create-local-tunnel/
  */
-export async function routeDnsToTunnel({ binary, tunnelNameOrId, hostname, logger = async () => {} }) {
-  process.stderr.write(`Routing DNS ${hostname} → tunnel ${tunnelNameOrId}...\n`);
+export async function routeDnsToTunnel({
+  binary,
+  tunnelNameOrId,
+  hostname,
+  logger = async () => {},
+}) {
+  process.stderr.write(
+    `Routing DNS ${hostname} → tunnel ${tunnelNameOrId}...\n`,
+  );
   // --overwrite-dns / -f replaces an existing record for this hostname when present
   const result = await runCloudflared(
     binary,
@@ -538,7 +598,9 @@ export async function promptForPublicHostname({
   try {
     if (zoneName) {
       const existingSub =
-        subdomainFromHostname(defaultHostname, zoneName) || defaultSubdomain || "pastepatch";
+        subdomainFromHostname(defaultHostname, zoneName) ||
+        defaultSubdomain ||
+        "pastepatch";
       process.stderr.write(`Authenticated Cloudflare zone: ${zoneName}\n`);
       const answer = await rl.question(
         `Subdomain for the MCP public URL [${existingSub}]: `,
@@ -552,7 +614,9 @@ export async function promptForPublicHostname({
     }
 
     const hint = defaultHostname || "pastepatch.yourdomain.com";
-    const answer = await rl.question(`Public hostname for the MCP server [${hint}]: `);
+    const answer = await rl.question(
+      `Public hostname for the MCP server [${hint}]: `,
+    );
     const value = (answer.trim() || defaultHostname || "")
       .replace(/^https?:\/\//, "")
       .replace(/\/$/, "");
@@ -617,7 +681,11 @@ export async function setupTunnelInteractive({
     });
   }
 
-  const { tunnelId, tunnelName: name, credentialsFile } = await ensureNamedTunnel({
+  const {
+    tunnelId,
+    tunnelName: name,
+    credentialsFile,
+  } = await ensureNamedTunnel({
     binary,
     tunnelName,
     logger,
@@ -674,7 +742,13 @@ export function startCloudflaredWithConfig({
   if (tunnelIdOrName) {
     args.push(tunnelIdOrName);
   }
-  return spawnCloudflaredProcess({ binary, args, logger, label: "config", verbose });
+  return spawnCloudflaredProcess({
+    binary,
+    args,
+    logger,
+    label: "config",
+    verbose,
+  });
 }
 
 /**
@@ -692,7 +766,13 @@ export function startCloudflaredWithToken({
     throw new Error("Cloudflare tunnel token is required.");
   }
   const args = ["tunnel", "--no-autoupdate", "run", "--token", token];
-  return spawnCloudflaredProcess({ binary, args, logger, label: "token", verbose });
+  return spawnCloudflaredProcess({
+    binary,
+    args,
+    logger,
+    label: "token",
+    verbose,
+  });
 }
 
 /**
@@ -707,7 +787,9 @@ export function startCloudflaredWithReconnect({
   maxDelayMs = 30_000,
 } = {}) {
   if (typeof start !== "function") {
-    throw new Error("startCloudflaredWithReconnect requires a start() factory.");
+    throw new Error(
+      "startCloudflaredWithReconnect requires a start() factory.",
+    );
   }
 
   let current = null;
@@ -796,19 +878,37 @@ export function isNoisyCloudflaredLine(line) {
   if (/Request failed error="stream \d+ canceled by remote/i.test(text)) {
     return true;
   }
-  if (/CONNECTIVITY PRE-CHECKS|SUMMARY: Environment is healthy|precheck /i.test(text)) {
+  if (
+    /CONNECTIVITY PRE-CHECKS|SUMMARY: Environment is healthy|precheck /i.test(
+      text,
+    )
+  ) {
     return true;
   }
-  if (/Generated Connector ID|Initial protocol|ICMP proxy|metrics server|Tunnel connection curve/i.test(text)) {
+  if (
+    /Generated Connector ID|Initial protocol|ICMP proxy|metrics server|Tunnel connection curve/i.test(
+      text,
+    )
+  ) {
     return true;
   }
-  if (/Registered tunnel connection|Starting tunnel|Version |GOOS:|Settings: map|cloudflared will not automatically/i.test(text)) {
+  if (
+    /Registered tunnel connection|Starting tunnel|Version |GOOS:|Settings: map|cloudflared will not automatically/i.test(
+      text,
+    )
+  ) {
     return true;
   }
   return false;
 }
 
-function spawnCloudflaredProcess({ binary, args, logger, label, verbose = false }) {
+function spawnCloudflaredProcess({
+  binary,
+  args,
+  logger,
+  label,
+  verbose = false,
+}) {
   const child = spawn(binary, args, {
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
@@ -878,7 +978,11 @@ function spawnCloudflaredProcess({ binary, args, logger, label, verbose = false 
 /**
  * Run a cloudflared subcommand and capture output (or inherit stdio for login).
  */
-export function runCloudflared(binary, args, { logger = async () => {}, inheritStdio = false } = {}) {
+export function runCloudflared(
+  binary,
+  args,
+  { logger = async () => {}, inheritStdio = false } = {},
+) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, {
       stdio: inheritStdio ? "inherit" : ["ignore", "pipe", "pipe"],
@@ -907,7 +1011,11 @@ export function runCloudflared(binary, args, { logger = async () => {}, inheritS
   });
 }
 
-export function formatSetupCompleteMessage({ config, packageName = "pastepatch", mcpPath = "/mcp" }) {
+export function formatSetupCompleteMessage({
+  config,
+  packageName = "pastepatch",
+  mcpPath = "/mcp",
+}) {
   const { hostname, port, tunnelName, tunnelId } = config;
   const mcpUrl = `https://${hostname}${mcpPath}`;
   return [
@@ -949,10 +1057,14 @@ export function padTable(rows) {
   if (!rows.length) {
     return "";
   }
-  const widths = rows[0].map((_, col) => Math.max(...rows.map((row) => String(row[col] ?? "").length)));
+  const widths = rows[0].map((_, col) =>
+    Math.max(...rows.map((row) => String(row[col] ?? "").length)),
+  );
   return rows
     .map((row, index) => {
-      const cells = row.map((cell, col) => String(cell ?? "").padEnd(widths[col]));
+      const cells = row.map((cell, col) =>
+        String(cell ?? "").padEnd(widths[col]),
+      );
       const line = cells.join("  ");
       if (index === 0) {
         const rule = widths.map((w) => "-".repeat(w)).join("  ");
@@ -963,7 +1075,11 @@ export function padTable(rows) {
     .join("\n");
 }
 
-export function cloudflareSetupGuide({ hostname, port, packageName = "pastepatch" }) {
+export function cloudflareSetupGuide({
+  hostname,
+  port,
+  packageName = "pastepatch",
+}) {
   // Kept for docs / tests; preferred path is automated --setup-tunnel
   const publicHost = hostname || "mcp.yourdomain.com";
   return `Automated setup (preferred)

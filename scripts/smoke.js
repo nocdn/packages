@@ -145,14 +145,26 @@ async function main() {
       }
     }
 
-    const scaffold = path.join(project, "node_modules", ".bin", "create-nocdn-app");
+    const scaffold = path.join(
+      project,
+      "node_modules",
+      ".bin",
+      "create-nocdn-app",
+    );
     if (existsSync(scaffold)) {
       for (const template of ["next", "vite", "tanstack", "hono"]) {
         const cwd = await mkdtemp(path.join(work, `scaffold-${template}-`));
         try {
           run(
             scaffold,
-            ["app", "-t", template, "--skip-install", "--skip-git", "--no-agents"],
+            [
+              "app",
+              "-t",
+              template,
+              "--skip-install",
+              "--skip-git",
+              "--no-agents",
+            ],
             { cwd },
           );
           if (!existsSync(path.join(cwd, "app", ".gitignore"))) {

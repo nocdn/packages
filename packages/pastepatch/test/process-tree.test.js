@@ -21,8 +21,14 @@ test("isPidAlive sees this process", () => {
 test("identityMatches detects start-time reuse", () => {
   const expected = { pid: 42, lstart: "Sat Aug 16 01:02:03 2026" };
   assert.equal(identityMatches(expected, null).ok, false);
-  assert.equal(identityMatches(expected, { pid: 42, lstart: expected.lstart }).ok, true);
-  const reused = identityMatches(expected, { pid: 42, lstart: "Sun Aug 17 01:02:03 2026" });
+  assert.equal(
+    identityMatches(expected, { pid: 42, lstart: expected.lstart }).ok,
+    true,
+  );
+  const reused = identityMatches(expected, {
+    pid: 42,
+    lstart: "Sun Aug 17 01:02:03 2026",
+  });
   assert.equal(reused.ok, false);
   assert.match(reused.reason, /reused/i);
 });

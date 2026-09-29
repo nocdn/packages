@@ -47,11 +47,16 @@ export async function viewImageFile({
   const { default: sharp } = await import("sharp");
   let metadata;
   try {
-    metadata = await sharp(raw, { animated: false, limitInputPixels: 64_000_000 }).metadata();
+    metadata = await sharp(raw, {
+      animated: false,
+      limitInputPixels: 64_000_000,
+    }).metadata();
   } catch (error) {
     throw new Error(
       `Not a supported image (or file is corrupt): ${error.message || error}. ` +
-        `Supported: jpeg, png, webp, gif, avif, tiff, svg.`, { cause: error });
+        `Supported: jpeg, png, webp, gif, avif, tiff, svg.`,
+      { cause: error },
+    );
   }
 
   const format = normalizeFormat(metadata.format);

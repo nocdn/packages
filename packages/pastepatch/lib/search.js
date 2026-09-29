@@ -57,7 +57,9 @@ export async function searchContent({
     const result = await runCapture(rg, args, { cwd: resolvedRoot, timeoutMs });
     // rg exits 1 when no matches
     if (result.code !== 0 && result.code !== 1) {
-      throw new Error(`rg failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
+      throw new Error(
+        `rg failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`,
+      );
     }
     return {
       engine: "rg",
@@ -71,7 +73,14 @@ export async function searchContent({
     throw new Error("Neither ripgrep (rg) nor grep is available on PATH.");
   }
 
-  const args = ["-R", "-n", "-I", "--exclude-dir=.git", "--exclude-dir=node_modules", "--exclude-dir=.pastepatch"];
+  const args = [
+    "-R",
+    "-n",
+    "-I",
+    "--exclude-dir=.git",
+    "--exclude-dir=node_modules",
+    "--exclude-dir=.pastepatch",
+  ];
   if (caseInsensitive) {
     args.push("-i");
   }
@@ -84,7 +93,9 @@ export async function searchContent({
   const result = await runCapture(grep, args, { cwd: resolvedRoot, timeoutMs });
   // grep exits 1 when no matches
   if (result.code !== 0 && result.code !== 1 && result.code !== 2) {
-    throw new Error(`grep failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
+    throw new Error(
+      `grep failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`,
+    );
   }
   // grep -R may still print binary/noise on stderr with code 2; keep stdout
   return {
@@ -106,11 +117,15 @@ export async function findFiles({
   allowOutside = false,
 } = {}) {
   if (typeof pattern !== "string" || pattern.length === 0) {
-    throw new Error("find_files requires a non-empty pattern (glob or substring).");
+    throw new Error(
+      "find_files requires a non-empty pattern (glob or substring).",
+    );
   }
 
   const resolvedRoot = path.resolve(root);
-  const searchRoot = resolveSearchRoot(relativePath, resolvedRoot, { allowOutside });
+  const searchRoot = resolveSearchRoot(relativePath, resolvedRoot, {
+    allowOutside,
+  });
   const limit = clampLimit(maxResults);
   const fd = (await which("fd")) || (await which("fdfind"));
 
@@ -133,7 +148,9 @@ export async function findFiles({
     ];
     const result = await runCapture(fd, args, { cwd: resolvedRoot, timeoutMs });
     if (result.code !== 0 && result.code !== 1) {
-      throw new Error(`fd failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
+      throw new Error(
+        `fd failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`,
+      );
     }
     return {
       engine: "fd",
@@ -170,9 +187,14 @@ export async function findFiles({
     "-print",
   ];
 
-  const result = await runCapture(findBin, args, { cwd: resolvedRoot, timeoutMs });
+  const result = await runCapture(findBin, args, {
+    cwd: resolvedRoot,
+    timeoutMs,
+  });
   if (result.code !== 0) {
-    throw new Error(`find failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
+    throw new Error(
+      `find failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`,
+    );
   }
   return {
     engine: "find",
@@ -241,7 +263,9 @@ function relativizeHitLine(line, root) {
 }
 
 function relativizePath(filePath, root) {
-  const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(root, filePath);
+  const absolute = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(root, filePath);
   const relative = path.relative(root, absolute);
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
     return filePath;
@@ -293,7 +317,11 @@ function shellQuote(value) {
   return /[^A-Za-z0-9_./:-]/.test(value) ? JSON.stringify(value) : value;
 }
 
-function runCapture(command, args, { cwd, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+function runCapture(
+  command,
+  args,
+  { cwd, timeoutMs = DEFAULT_TIMEOUT_MS } = {},
+) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,

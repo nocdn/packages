@@ -39,7 +39,9 @@ export function parseHttpUrl(url, { allowPublic = false } = {}) {
     throw new Error(`Invalid URL: ${url}`);
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error(`Only http and https URLs are allowed (got ${parsed.protocol}).`);
+    throw new Error(
+      `Only http and https URLs are allowed (got ${parsed.protocol}).`,
+    );
   }
   if (!allowPublic && !isLoopbackHostname(parsed.hostname)) {
     throw new Error(
@@ -116,9 +118,14 @@ export async function httpRequest({
         response = await fetch(current, init);
       } catch (error) {
         if (error && error.name === "AbortError") {
-          throw new Error(`http_request timed out after ${timeout}ms (${verb} ${current}).`, { cause: error });
+          throw new Error(
+            `http_request timed out after ${timeout}ms (${verb} ${current}).`,
+            { cause: error },
+          );
         }
-        throw new Error(`http_request failed: ${error.message || error}`, { cause: error });
+        throw new Error(`http_request failed: ${error.message || error}`, {
+          cause: error,
+        });
       }
 
       if (isRedirect(response.status)) {
@@ -201,7 +208,13 @@ function hasHeader(headers, name) {
 }
 
 function isRedirect(status) {
-  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
+  return (
+    status === 301 ||
+    status === 302 ||
+    status === 303 ||
+    status === 307 ||
+    status === 308
+  );
 }
 
 function looksLikeJson(text) {

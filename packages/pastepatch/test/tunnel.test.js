@@ -21,7 +21,9 @@ const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const cliPath = path.join(repoRoot, "bin", "cli.js");
 
 test("cloudflared missing error tells user to install", () => {
-  const message = cloudflaredMissingError({ packageName: "pastepatch" }).message;
+  const message = cloudflaredMissingError({
+    packageName: "pastepatch",
+  }).message;
   assert.match(message, /cloudflared is not installed/i);
   assert.match(message, /setup-tunnel/);
 });
@@ -29,13 +31,17 @@ test("cloudflared missing error tells user to install", () => {
 test("buildCloudflaredConfigYaml includes hostname, credentials, catch-all", () => {
   const yaml = buildCloudflaredConfigYaml({
     tunnelId: "6ff42ae2-765d-4adf-8112-31c55c1551ef",
-    credentialsFile: "/Users/me/.cloudflared/6ff42ae2-765d-4adf-8112-31c55c1551ef.json",
+    credentialsFile:
+      "/Users/me/.cloudflared/6ff42ae2-765d-4adf-8112-31c55c1551ef.json",
     hostname: "mcp.example.com",
     port: 8787,
   });
 
   assert.match(yaml, /tunnel: 6ff42ae2-765d-4adf-8112-31c55c1551ef/);
-  assert.match(yaml, /credentials-file: '\/Users\/me\/\.cloudflared\/6ff42ae2-765d-4adf-8112-31c55c1551ef\.json'/);
+  assert.match(
+    yaml,
+    /credentials-file: '\/Users\/me\/\.cloudflared\/6ff42ae2-765d-4adf-8112-31c55c1551ef\.json'/,
+  );
   assert.match(yaml, /hostname: 'mcp\.example\.com'/);
   assert.match(yaml, /service: 'http:\/\/127\.0\.0\.1:8787'/);
   assert.match(yaml, /http_status:404/);
@@ -52,7 +58,9 @@ test("--mcp without cloudflared exits with install instructions", async () => {
 
 test("config paths live under ~/.pastepatch", () => {
   assert.ok(pastepatchTunnelConfigPath().includes(".pastepatch"));
-  assert.ok(pastepatchCloudflaredConfigPath().endsWith("cloudflared-config.yml"));
+  assert.ok(
+    pastepatchCloudflaredConfigPath().endsWith("cloudflared-config.yml"),
+  );
 });
 
 test("noisy cloudflared lines are filtered by default", () => {
@@ -69,20 +77,34 @@ test("noisy cloudflared lines are filtered by default", () => {
     true,
   );
   assert.equal(
-    isNoisyCloudflaredLine("2026-07-19T22:07:41Z ERR Unable to reach the origin service"),
+    isNoisyCloudflaredLine(
+      "2026-07-19T22:07:41Z ERR Unable to reach the origin service",
+    ),
     false,
   );
 });
 
 test("hostname helpers build subdomain under authenticated zone", () => {
-  assert.equal(buildHostname("pastepatch", "bartoszbak.org"), "pastepatch.bartoszbak.org");
-  assert.equal(subdomainFromHostname("pastepatch.bartoszbak.org", "bartoszbak.org"), "pastepatch");
-  assert.equal(normalizeHostnameInput("pastepatch", "bartoszbak.org"), "pastepatch.bartoszbak.org");
+  assert.equal(
+    buildHostname("pastepatch", "bartoszbak.org"),
+    "pastepatch.bartoszbak.org",
+  );
+  assert.equal(
+    subdomainFromHostname("pastepatch.bartoszbak.org", "bartoszbak.org"),
+    "pastepatch",
+  );
+  assert.equal(
+    normalizeHostnameInput("pastepatch", "bartoszbak.org"),
+    "pastepatch.bartoszbak.org",
+  );
   assert.equal(
     normalizeHostnameInput("pastepatch.bartoszbak.org", "bartoszbak.org"),
     "pastepatch.bartoszbak.org",
   );
-  assert.throws(() => buildHostname("bad.sub", "bartoszbak.org"), /Invalid subdomain/);
+  assert.throws(
+    () => buildHostname("bad.sub", "bartoszbak.org"),
+    /Invalid subdomain/,
+  );
 });
 
 test("startCloudflaredWithReconnect restarts after unexpected exit and stop kills the loop", async () => {
@@ -133,7 +155,12 @@ test("setup complete message includes ChatGPT field table with No Auth", () => {
   assert.match(text, /https:\/\/pastepatch\.bartoszbak\.org\/mcp/);
   assert.match(text, /Connection\s+Server URL/);
   assert.match(text, /Name\s+Pastepatch/);
-  assert.ok(padTable([["A", "B"], ["1", "2"]]).includes("A"));
+  assert.ok(
+    padTable([
+      ["A", "B"],
+      ["1", "2"],
+    ]).includes("A"),
+  );
 });
 
 function runCli(args, options = {}) {

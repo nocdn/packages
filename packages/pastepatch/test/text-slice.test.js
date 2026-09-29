@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatSlicedText, hasTextSliceQuery, sliceTextLines } from "../lib/text-slice.js";
+import {
+  formatSlicedText,
+  hasTextSliceQuery,
+  sliceTextLines,
+} from "../lib/text-slice.js";
 
-const sample = ["alpha", "keep-one", "skip", "keep-two", "omega"].join("\n") + "\n";
+const sample =
+  ["alpha", "keep-one", "skip", "keep-two", "omega"].join("\n") + "\n";
 
 test("sliceTextLines offset and limit are 1-based", () => {
   const sliced = sliceTextLines(sample, { lineOffset: 2, lineLimit: 2 });
@@ -33,7 +38,11 @@ test("hasTextSliceQuery detects any slice field", () => {
 
 test("formatSlicedText includes path and counts", () => {
   const sliced = sliceTextLines(sample, { lineOffset: 1, lineLimit: 1 });
-  const text = formatSlicedText({ path: "src/app.js", sliced, query: { lineOffset: 1, lineLimit: 1 } });
+  const text = formatSlicedText({
+    path: "src/app.js",
+    sliced,
+    query: { lineOffset: 1, lineLimit: 1 },
+  });
   assert.match(text, /path=src\/app\.js/);
   assert.match(text, /total_lines=5/);
   assert.match(text, /returned_lines=1/);

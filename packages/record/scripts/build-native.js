@@ -13,10 +13,18 @@ const swiftSources = (await readdir(nativeDir))
   .map((name) => path.join(nativeDir, name))
   .sort();
 const encodeSourcePath = path.join(projectRoot, "native", "mp3_encode.c");
-const bridgingHeaderPath = path.join(projectRoot, "native", "record-bridging.h");
+const bridgingHeaderPath = path.join(
+  projectRoot,
+  "native",
+  "record-bridging.h",
+);
 const shinePath = path.join(projectRoot, "native", "third_party", "shine");
 const plistPath = path.join(projectRoot, "native", "Info.plist");
-const entitlementsPath = path.join(projectRoot, "native", "Record.entitlements");
+const entitlementsPath = path.join(
+  projectRoot,
+  "native",
+  "Record.entitlements",
+);
 const vendorPath = path.join(projectRoot, "vendor");
 const appPath = path.join(vendorPath, "Record.app");
 const contentsPath = path.join(appPath, "Contents");
@@ -43,7 +51,9 @@ await rm(vendorPath, { recursive: true, force: true });
 await mkdir(macOSPath, { recursive: true });
 
 const architectures = process.env.RECORD_NATIVE_ARCH
-  ? process.env.RECORD_NATIVE_ARCH.split(",").map((value) => value.trim()).filter(Boolean)
+  ? process.env.RECORD_NATIVE_ARCH.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
   : ["arm64", "x86_64"];
 const temporaryOutputs = architectures.map((architecture) =>
   path.join(os.tmpdir(), `record-native-${architecture}-${process.pid}`),
@@ -126,9 +136,13 @@ try {
   if (temporaryOutputs.length === 1) {
     await copyFile(temporaryOutputs[0], executablePath);
   } else {
-    execFileSync("lipo", ["-create", ...temporaryOutputs, "-output", executablePath], {
-      stdio: "inherit",
-    });
+    execFileSync(
+      "lipo",
+      ["-create", ...temporaryOutputs, "-output", executablePath],
+      {
+        stdio: "inherit",
+      },
+    );
   }
 
   await copyFile(plistPath, path.join(contentsPath, "Info.plist"));
@@ -148,11 +162,10 @@ try {
     signingArguments.push("--options", "runtime", "--timestamp");
   }
 
-  execFileSync(
-    "codesign",
-    [...signingArguments, appPath],
-    { cwd: projectRoot, stdio: "inherit" },
-  );
+  execFileSync("codesign", [...signingArguments, appPath], {
+    cwd: projectRoot,
+    stdio: "inherit",
+  });
 
   execFileSync("codesign", ["--verify", "--deep", "--strict", appPath], {
     cwd: projectRoot,

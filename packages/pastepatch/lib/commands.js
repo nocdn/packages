@@ -30,12 +30,18 @@ const RESERVED_ENV = new Set([SESSION_ENV_KEY, JOB_ENV_KEY]);
 /** Patterns that must never run (matched against the full command string). */
 export const BLOCKED_COMMAND_PATTERNS = [
   // recursive rm of filesystem roots / home
-  { name: "rm -rf /", re: /\brm\s+(?:-[^\s]*r[^\s]*f|-[^\s]*f[^\s]*r|-rf|-fr)\s+(?:\/(?:\s|$|\*)|~(?:\/|\s|$)|\$HOME(?:\/|\s|$))/i },
+  {
+    name: "rm -rf /",
+    re: /\brm\s+(?:-[^\s]*r[^\s]*f|-[^\s]*f[^\s]*r|-rf|-fr)\s+(?:\/(?:\s|$|\*)|~(?:\/|\s|$)|\$HOME(?:\/|\s|$))/i,
+  },
   { name: "mkfs", re: /\bmkfs(?:\.\w+)?\b/i },
   { name: "dd to disk", re: /\bdd\b[\s\S]*\bof=\/dev\//i },
   { name: "write disk device", re: />\s*\/dev\/(?:sd|nvme|disk|rdisk)/i },
   { name: "curl|sh", re: /\b(?:curl|wget)\b[\s\S]*\|\s*(?:ba)?sh\b/i },
-  { name: "shutdown/reboot", re: /\b(?:shutdown|reboot|halt|poweroff|init\s+0)\b/i },
+  {
+    name: "shutdown/reboot",
+    re: /\b(?:shutdown|reboot|halt|poweroff|init\s+0)\b/i,
+  },
   { name: "fork bomb", re: /:\(\)\s*\{\s*:\|:&\s*\}\s*;/ },
   { name: "chmod 777 /", re: /\bchmod\s+(?:-R\s+)?777\s+\/(?:\s|$)/i },
   { name: "chown /", re: /\bchown\s+(?:-R\s+)?\S+\s+\/(?:\s|$)/i },
@@ -43,7 +49,10 @@ export const BLOCKED_COMMAND_PATTERNS = [
   { name: "format c:", re: /\bformat\s+[a-z]:/i },
   { name: "iptables flush", re: /\biptables\s+-F\b/i },
   { name: "kill init", re: /\bkill\s+(?:-9\s+)?1\b/ },
-  { name: "launchctl reboot", re: /\blaunchctl\s+(?:reboot|bootout\s+system)/i },
+  {
+    name: "launchctl reboot",
+    re: /\blaunchctl\s+(?:reboot|bootout\s+system)/i,
+  },
 ];
 
 /**
@@ -187,7 +196,13 @@ export function createCommandRunner({
       parts.push(job.stdout);
     }
     if (job.stderr) {
-      parts.push(job.stderr ? (job.stdout ? `\n--- stderr ---\n${job.stderr}` : job.stderr) : "");
+      parts.push(
+        job.stderr
+          ? job.stdout
+            ? `\n--- stderr ---\n${job.stderr}`
+            : job.stderr
+          : "",
+      );
     }
     return parts.join("");
   }
@@ -213,7 +228,10 @@ export function createCommandRunner({
   /**
    * Format result for the model with truncation notice and how to fetch more.
    */
-  function formatResult(job, { fromCursor = 0, maxOutputChars, stream = "both", query } = {}) {
+  function formatResult(
+    job,
+    { fromCursor = 0, maxOutputChars, stream = "both", query } = {},
+  ) {
     const max = maxOutputChars ?? job.returnMaxChars ?? defaultMaxOutputChars;
     let text = selectStreamText(job, stream);
     const retainedChars = text.length;
@@ -255,9 +273,10 @@ export function createCommandRunner({
       notices.push(queryNote);
     }
     if (truncatedHead || job.stdoutTruncated || job.stderrTruncated) {
-      const bufferNote = job.stdoutTruncated || job.stderrTruncated
-        ? ` stream buffer was also capped at ~${job.bufferMaxChars} chars/stream (older output discarded)`
-        : "";
+      const bufferNote =
+        job.stdoutTruncated || job.stderrTruncated
+          ? ` stream buffer was also capped at ~${job.bufferMaxChars} chars/stream (older output discarded)`
+          : "";
       notices.push(
         `[output truncated: showing last ${text.length} of ${availableInSlice} chars in this response` +
           ` (${retainedChars} chars retained for job_id=${job.id})${bufferNote}.` +
@@ -278,7 +297,11 @@ export function createCommandRunner({
     }
 
     const emptyLabel =
-      stream === "stdout" ? "(no stdout yet)" : stream === "stderr" ? "(no stderr yet)" : "(no output yet)";
+      stream === "stdout"
+        ? "(no stdout yet)"
+        : stream === "stderr"
+          ? "(no stderr yet)"
+          : "(no output yet)";
     const body = text.length ? text : emptyLabel;
     return {
       jobId: job.id,
@@ -331,7 +354,10 @@ export function createCommandRunner({
     if (session.venv?.bin) {
       pathParts.push(session.venv.bin);
     }
-    const overlayPath = Object.prototype.hasOwnProperty.call(session.env, "PATH")
+    const overlayPath = Object.prototype.hasOwnProperty.call(
+      session.env,
+      "PATH",
+    )
       ? session.env.PATH
       : process.env.PATH || "";
     if (overlayPath) {
@@ -502,10 +528,15 @@ export function createCommandRunner({
     caseInsensitive,
   } = {}) {
     const job = getJob(jobId);
-    const streamName = stream === "stdout" || stream === "stderr" ? stream : "both";
+    const streamName =
+      stream === "stdout" || stream === "stderr" ? stream : "both";
     const maxOut = clampMaxOutput(maxOutputChars);
     const cursorKey =
-      streamName === "stdout" ? "stdoutCursor" : streamName === "stderr" ? "stderrCursor" : "readCursor";
+      streamName === "stdout"
+        ? "stdoutCursor"
+        : streamName === "stderr"
+          ? "stderrCursor"
+          : "readCursor";
     const full = selectStreamText(job, streamName);
     const fromCursor = onlyNew ? job[cursorKey] : 0;
     const result = formatResult(job, {
@@ -583,7 +614,9 @@ export function createCommandRunner({
         job.child.kill(signal);
       }
     } catch (error) {
-      throw new Error(`Failed to signal job ${jobId}: ${error.message}`, { cause: error });
+      throw new Error(`Failed to signal job ${jobId}: ${error.message}`, {
+        cause: error,
+      });
     }
 
     return new Promise((resolve) => {
@@ -603,20 +636,23 @@ export function createCommandRunner({
         finish();
         return;
       }
-      const timer = setTimeout(() => {
-        if (!job.done) {
-          try {
-            if (recursive) {
-              signalJobTree(job, "SIGKILL");
-            } else {
-              job.child.kill("SIGKILL");
+      const timer = setTimeout(
+        () => {
+          if (!job.done) {
+            try {
+              if (recursive) {
+                signalJobTree(job, "SIGKILL");
+              } else {
+                job.child.kill("SIGKILL");
+              }
+            } catch {
+              // ignore
             }
-          } catch {
-            // ignore
           }
-        }
-        setTimeout(finish, 100);
-      }, force ? 100 : 400);
+          setTimeout(finish, 100);
+        },
+        force ? 100 : 400,
+      );
       job.child.once("close", () => {
         clearTimeout(timer);
         finish();
@@ -644,7 +680,12 @@ export function createCommandRunner({
     return { kind: "tagged", job: owner || null, pid: n };
   }
 
-  function terminateProcess({ jobId, pid, force = false, recursive = true } = {}) {
+  function terminateProcess({
+    jobId,
+    pid,
+    force = false,
+    recursive = true,
+  } = {}) {
     if (jobId) {
       return stopCommand({ jobId, force, recursive });
     }
@@ -667,7 +708,11 @@ export function createCommandRunner({
       const live = readProcessSnapshot(n);
       const ident = identityMatches({ pid: n, lstart: owned.job.lstart }, live);
       // descendants have a different lstart — only refuse if THIS pid was the job leader and mismatched
-      if (owned.kind === "job" && !ident.ok && /reused/i.test(ident.reason || "")) {
+      if (
+        owned.kind === "job" &&
+        !ident.ok &&
+        /reused/i.test(ident.reason || "")
+      ) {
         throw new Error(`Refusing to kill pid ${n}: ${ident.reason}`);
       }
     }
@@ -678,7 +723,9 @@ export function createCommandRunner({
       try {
         process.kill(n, signal);
       } catch (error) {
-        throw new Error(`Failed to signal pid ${n}: ${error.message}`, { cause: error });
+        throw new Error(`Failed to signal pid ${n}: ${error.message}`, {
+          cause: error,
+        });
       }
     }
     return {
@@ -694,7 +741,9 @@ export function createCommandRunner({
     const stopped = [];
     for (const job of jobs.values()) {
       if (!job.done) {
-        stopped.push(await stopCommand({ jobId: job.id, force, recursive: true }));
+        stopped.push(
+          await stopCommand({ jobId: job.id, force, recursive: true }),
+        );
       }
     }
     const leftovers = findPidsByEnvTag({ sessionId: session.id }).filter(
@@ -757,7 +806,10 @@ export function createCommandRunner({
       process.platform === "win32"
         ? ["python.exe", "pythonw.exe", "activate.bat", "Activate.ps1"]
         : ["python", "python3", "activate"];
-    if (!existsSync(bin) || !markers.some((name) => existsSync(path.join(bin, name)))) {
+    if (
+      !existsSync(bin) ||
+      !markers.some((name) => existsSync(path.join(bin, name)))
+    ) {
       throw new Error(
         `Not a virtualenv: ${resolved} (expected ${binName}/python or ${binName}/activate).`,
       );
@@ -776,12 +828,14 @@ export function createCommandRunner({
   }
 
   function getSession() {
-    const leftoverPids = findPidsByEnvTag({ sessionId: session.id }).filter((pid) => {
-      if (pid === process.pid) {
-        return false;
-      }
-      return ![...jobs.values()].some((job) => job.pid === pid);
-    });
+    const leftoverPids = findPidsByEnvTag({ sessionId: session.id }).filter(
+      (pid) => {
+        if (pid === process.pid) {
+          return false;
+        }
+        return ![...jobs.values()].some((job) => job.pid === pid);
+      },
+    );
     return {
       sessionId: session.id,
       cwd: session.cwd || path.resolve(root),
@@ -847,7 +901,11 @@ export function createCommandRunner({
       }
     }
 
-    const unsetList = Array.isArray(unsetEnv) ? unsetEnv : unsetEnv ? [unsetEnv] : [];
+    const unsetList = Array.isArray(unsetEnv)
+      ? unsetEnv
+      : unsetEnv
+        ? [unsetEnv]
+        : [];
     for (const name of unsetList) {
       assertEnvName(name);
       delete session.env[name];

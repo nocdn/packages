@@ -10,7 +10,9 @@ import { waitUntil } from "../lib/wait.js";
 const tempDirectories = [];
 
 test.after(async () => {
-  await Promise.all(tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })),
+  );
 });
 
 test("wait_until port_open and http_status", async () => {
@@ -32,13 +34,23 @@ test("wait_until port_open and http_status", async () => {
     assert.equal(open.status, "satisfied");
 
     const httpOk = await waitUntil(
-      { condition: "http_status", url: `http://127.0.0.1:${port}/`, timeout_ms: 5_000 },
+      {
+        condition: "http_status",
+        url: `http://127.0.0.1:${port}/`,
+        timeout_ms: 5_000,
+      },
       { root: os.tmpdir() },
     );
     assert.equal(httpOk.status, "satisfied");
 
     const closed = await waitUntil(
-      { condition: "port_open", port: 1, host: "127.0.0.1", timeout_ms: 400, interval_ms: 80 },
+      {
+        condition: "port_open",
+        port: 1,
+        host: "127.0.0.1",
+        timeout_ms: 400,
+        interval_ms: 80,
+      },
       { root: os.tmpdir() },
     );
     assert.equal(closed.status, "timeout");
@@ -88,7 +100,12 @@ test("wait_until file_size_stable", async () => {
   await writeFile(filePath, "abc", "utf8");
 
   const result = await waitUntil(
-    { condition: "file_size_stable", path: "out.bin", settle_ms: 150, timeout_ms: 5_000 },
+    {
+      condition: "file_size_stable",
+      path: "out.bin",
+      settle_ms: 150,
+      timeout_ms: 5_000,
+    },
     { root },
   );
   assert.equal(result.status, "satisfied");

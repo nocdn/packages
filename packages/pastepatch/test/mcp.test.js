@@ -20,7 +20,9 @@ const cliPath = path.join(repoRoot, "bin", "cli.js");
 const tempDirectories = [];
 
 test.after(async () => {
-  await Promise.all(tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })),
+  );
 });
 
 async function tempProject() {
@@ -31,9 +33,12 @@ async function tempProject() {
 }
 
 test("--setup-tunnel without cloudflared fails with install instructions", async () => {
-  const result = await runCli(["--mcp", "--setup-tunnel", "--hostname", "mcp.example.com"], {
-    env: { PASTEPATCH_CLOUDFLARED: "0" },
-  });
+  const result = await runCli(
+    ["--mcp", "--setup-tunnel", "--hostname", "mcp.example.com"],
+    {
+      env: { PASTEPATCH_CLOUDFLARED: "0" },
+    },
+  );
   assert.equal(result.code, 1);
   assert.match(result.stderr, /cloudflared is not installed/i);
 });
@@ -50,7 +55,9 @@ test("MCP tools can read and write files under the project root", async () => {
 
   try {
     const client = new Client({ name: "pastepatch-test", version: "0.0.0" });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${port}/mcp`),
+    );
     await client.connect(transport);
 
     const tools = await client.listTools();
@@ -63,11 +70,18 @@ test("MCP tools can read and write files under the project root", async () => {
     assert.ok(names.includes("get_session"));
     assert.ok(names.includes("terminate_process"));
 
-    const read = await client.callTool({ name: "read_file", arguments: { path: "README.md" } });
+    const read = await client.callTool({
+      name: "read_file",
+      arguments: { path: "README.md" },
+    });
     assert.equal(read.isError, undefined);
     assert.match(toolText(read), /hello world/);
 
-    await writeFile(path.join(root, "lines.txt"), "one\ntwo\nthree\nfour\n", "utf8");
+    await writeFile(
+      path.join(root, "lines.txt"),
+      "one\ntwo\nthree\nfour\n",
+      "utf8",
+    );
     const sliced = await client.callTool({
       name: "read_file",
       arguments: { path: "lines.txt", line_offset: 2, line_limit: 2 },
@@ -90,14 +104,20 @@ test("MCP tools can read and write files under the project root", async () => {
       arguments: { path: "src/note.txt", content: "from mcp\n" },
     });
     assert.equal(create.isError, undefined);
-    assert.equal(await readFile(path.join(root, "src", "note.txt"), "utf8"), "from mcp\n");
+    assert.equal(
+      await readFile(path.join(root, "src", "note.txt"), "utf8"),
+      "from mcp\n",
+    );
 
     const replace = await client.callTool({
       name: "replace_in_file",
       arguments: { path: "README.md", old: "hello world", new: "hello mcp" },
     });
     assert.equal(replace.isError, undefined);
-    assert.equal(await readFile(path.join(root, "README.md"), "utf8"), "hello mcp\n");
+    assert.equal(
+      await readFile(path.join(root, "README.md"), "utf8"),
+      "hello mcp\n",
+    );
 
     const bad = await client.callTool({
       name: "read_file",
@@ -124,7 +144,9 @@ test("MCP session, http_request, and wait_until tools work", async () => {
 
   try {
     const client = new Client({ name: "pastepatch-test", version: "0.0.0" });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${port}/mcp`),
+    );
     await client.connect(transport);
 
     const session = await client.callTool({
@@ -137,7 +159,10 @@ test("MCP session, http_request, and wait_until tools work", async () => {
     const ran = await client.callTool({
       name: "run_command",
       arguments: {
-        command: process.platform === "win32" ? "echo %PASTEPATCH_TEST_MARK%" : "printf '%s\\n' \"$PASTEPATCH_TEST_MARK\"",
+        command:
+          process.platform === "win32"
+            ? "echo %PASTEPATCH_TEST_MARK%"
+            : "printf '%s\\n' \"$PASTEPATCH_TEST_MARK\"",
       },
     });
     assert.equal(ran.isError, undefined);
@@ -173,7 +198,12 @@ test("MCP session, http_request, and wait_until tools work", async () => {
 test("MCP healthz is available", async () => {
   const root = await tempProject();
   const port = await freePort();
-  const server = await startMcpHttpServer({ root, port, host: "127.0.0.1", version: "test" });
+  const server = await startMcpHttpServer({
+    root,
+    port,
+    host: "127.0.0.1",
+    version: "test",
+  });
 
   try {
     const response = await fetch(`http://127.0.0.1:${port}/healthz`);
@@ -246,7 +276,10 @@ test("bearer auth accepts only the Authorization header", async () => {
   try {
     const base = `http://127.0.0.1:${port}/mcp`;
     assert.equal((await post(base)).status, 401);
-    assert.equal((await post(base, { authorization: "Bearer wrong-token" })).status, 401);
+    assert.equal(
+      (await post(base, { authorization: "Bearer wrong-token" })).status,
+      401,
+    );
     assert.equal((await post(`${base}?token=${authToken}`)).status, 401);
     const accepted = await post(base, { authorization: `Bearer ${authToken}` });
     assert.equal(accepted.status, 200);

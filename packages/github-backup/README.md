@@ -48,19 +48,19 @@ permissions and reused on later runs.
 npx @nocdn/github-backup [options]
 ```
 
-| flag | description |
-| --- | --- |
-| `-b`, `--backup-dir <path>` | backup directory, defaulting to `~/backups/github` |
-| `-e`, `--exclude <repo...>` | repositories to exclude; can be repeated |
-| `-h`, `--help` | show help |
-| `-u`, `--user <username>` | GitHub username to back up |
-| `-v`, `--version` | show version |
-| `--no-forks` | exclude forked repositories from the backup |
-| `--upload [target]` | upload target; currently supports `b2`; prompts when omitted |
-| `--bucket <name>` | Backblaze B2 bucket name; prompts with `--upload b2` when omitted |
-| `--bucket-path <path>` | Backblaze B2 folder prefix, defaulting to `/github` |
-| `--b2-credentials-file <path>` | Backblaze B2 credentials file, defaulting to `~/.config/github-backup/b2` |
-| `--rm` | remove the local zip archive after a successful upload; interactive upload mode prompts when omitted |
+| flag                           | description                                                                                          |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `-b`, `--backup-dir <path>`    | backup directory, defaulting to `~/backups/github`                                                   |
+| `-e`, `--exclude <repo...>`    | repositories to exclude; can be repeated                                                             |
+| `-h`, `--help`                 | show help                                                                                            |
+| `-u`, `--user <username>`      | GitHub username to back up                                                                           |
+| `-v`, `--version`              | show version                                                                                         |
+| `--no-forks`                   | exclude forked repositories from the backup                                                          |
+| `--upload [target]`            | upload target; currently supports `b2`; prompts when omitted                                         |
+| `--bucket <name>`              | Backblaze B2 bucket name; prompts with `--upload b2` when omitted                                    |
+| `--bucket-path <path>`         | Backblaze B2 folder prefix, defaulting to `/github`                                                  |
+| `--b2-credentials-file <path>` | Backblaze B2 credentials file, defaulting to `~/.config/github-backup/b2`                            |
+| `--rm`                         | remove the local zip archive after a successful upload; interactive upload mode prompts when omitted |
 
 Examples:
 

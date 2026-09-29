@@ -13,11 +13,13 @@ export function logDirectory() {
   }
 
   if (process.platform === "win32") {
-    const base = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+    const base =
+      process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
     return path.join(base, "quick-repo", "logs");
   }
 
-  const base = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
+  const base =
+    process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
   return path.join(base, "quick-repo", "logs");
 }
 

@@ -34,10 +34,12 @@ const DEFAULT_B2_BUCKET_PATH = "/github";
 // must not change underneath you. Bump both together after reviewing a release.
 const DOCKER_IMAGE =
   "ghcr.io/josegonzalez/python-github-backup:0.65.1@sha256:774877e2088bec2e5fe5abc29ed457c660c6eda580e3ccab39c526d13abe4874";
-const TOKEN_CREATE_URL = "https://github.com/settings/personal-access-tokens/new";
+const TOKEN_CREATE_URL =
+  "https://github.com/settings/personal-access-tokens/new";
 const TOKEN_DOCS_URL =
   "https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token";
-const B2_AUTHORIZE_URL = "https://api.backblazeb2.com/b2api/v4/b2_authorize_account";
+const B2_AUTHORIZE_URL =
+  "https://api.backblazeb2.com/b2api/v4/b2_authorize_account";
 const B2_MAX_SINGLE_UPLOAD_SIZE = 5 * 1024 * 1024 * 1024;
 const BACKUP_FLAGS = [
   "-P",
@@ -183,18 +185,31 @@ function parseArgs(argv, packageInfo) {
     }
 
     if (arg.startsWith("--bucket-path=")) {
-      args.bucketPath = readInlineOptionValue(arg, "--bucket-path", packageInfo);
+      args.bucketPath = readInlineOptionValue(
+        arg,
+        "--bucket-path",
+        packageInfo,
+      );
       continue;
     }
 
     if (arg === "--b2-credentials-file") {
-      args.b2CredentialsFile = readRequiredOptionValue(argv, index, arg, packageInfo);
+      args.b2CredentialsFile = readRequiredOptionValue(
+        argv,
+        index,
+        arg,
+        packageInfo,
+      );
       index += 1;
       continue;
     }
 
     if (arg.startsWith("--b2-credentials-file=")) {
-      args.b2CredentialsFile = readInlineOptionValue(arg, "--b2-credentials-file", packageInfo);
+      args.b2CredentialsFile = readInlineOptionValue(
+        arg,
+        "--b2-credentials-file",
+        packageInfo,
+      );
       continue;
     }
 
@@ -220,7 +235,9 @@ function parseArgs(argv, packageInfo) {
     }
 
     if (arg.startsWith("--exclude=")) {
-      const repos = splitRepoList(readInlineOptionValue(arg, "--exclude", packageInfo));
+      const repos = splitRepoList(
+        readInlineOptionValue(arg, "--exclude", packageInfo),
+      );
       if (repos.length === 0) {
         throw new Error("--exclude requires at least one repository name.");
       }
@@ -246,7 +263,9 @@ function parseArgs(argv, packageInfo) {
 
 function validateUploadArgs(args) {
   if (args.upload && args.upload !== "b2") {
-    throw new Error(`Unsupported upload target "${args.upload}". Supported target: b2.`);
+    throw new Error(
+      `Unsupported upload target "${args.upload}". Supported target: b2.`,
+    );
   }
 
   if (!args.uploadRequested) {
@@ -356,7 +375,11 @@ async function collectConfig(args) {
   }
 }
 
-async function promptForValue(rl, prompt, { fallback, name, required = false }) {
+async function promptForValue(
+  rl,
+  prompt,
+  { fallback, name, required = false },
+) {
   if (!rl) {
     if (fallback !== undefined) {
       return fallback;
@@ -424,11 +447,19 @@ async function prepareTokenFile() {
       );
     }
 
-    process.stdout.write("GitHub token not found, or the token file is empty.\n");
-    process.stdout.write("This needs a GitHub fine-grained personal access token.\n");
+    process.stdout.write(
+      "GitHub token not found, or the token file is empty.\n",
+    );
+    process.stdout.write(
+      "This needs a GitHub fine-grained personal access token.\n",
+    );
     process.stdout.write(`Create one at: ${TOKEN_CREATE_URL}\n`);
-    process.stdout.write("Choose access to the repositories and account data you want backed up.\n");
-    const token = await promptHidden("Paste your fine-grained GitHub token and press Enter: ");
+    process.stdout.write(
+      "Choose access to the repositories and account data you want backed up.\n",
+    );
+    const token = await promptHidden(
+      "Paste your fine-grained GitHub token and press Enter: ",
+    );
     const normalized = validateRequired(token, "GitHub token");
     await writeFile(tokenFile, `${normalized}\n`, { mode: 0o600 });
   }
@@ -441,14 +472,18 @@ async function prepareUploadConfig(args) {
   const target = await resolveUploadTarget(args.target);
 
   if (target !== "b2") {
-    throw new Error(`Unsupported upload target "${target}". Supported target: b2.`);
+    throw new Error(
+      `Unsupported upload target "${target}". Supported target: b2.`,
+    );
   }
 
   const bucketName = await resolveRequiredUploadValue(args.bucket, {
     name: "B2 bucket",
     prompt: "Backblaze B2 bucket: ",
   });
-  const bucketPath = normalizeB2BucketPath(args.bucketPath ?? DEFAULT_B2_BUCKET_PATH);
+  const bucketPath = normalizeB2BucketPath(
+    args.bucketPath ?? DEFAULT_B2_BUCKET_PATH,
+  );
   const removeZipAfterUpload = await resolveRemoveZipAfterUpload({
     provided: args.removeZipAfterUploadProvided,
     value: args.removeZipAfterUpload,
@@ -461,7 +496,9 @@ async function prepareUploadConfig(args) {
   const bucket = await findB2Bucket(session, bucketName);
 
   if (!bucket) {
-    throw new Error(`B2 bucket "${bucketName}" does not exist or this key cannot access it.`);
+    throw new Error(
+      `B2 bucket "${bucketName}" does not exist or this key cannot access it.`,
+    );
   }
 
   await ensureB2BucketPath(session, bucket, bucketPath);
@@ -482,7 +519,9 @@ async function resolveUploadTarget(target) {
   }
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("--upload requires a target when running non-interactively. Supported target: b2.");
+    throw new Error(
+      "--upload requires a target when running non-interactively. Supported target: b2.",
+    );
   }
 
   return promptWithNewInterface("Upload target [b2]: ", {
@@ -537,7 +576,10 @@ async function resolveRemoveZipAfterUpload({ provided, value }) {
 }
 
 async function promptWithNewInterface(prompt, options) {
-  const promptRl = createInterface({ input: process.stdin, output: process.stdout });
+  const promptRl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
 
   try {
     return await promptForValue(promptRl, prompt, options);
@@ -560,14 +602,26 @@ async function prepareB2CredentialsFile(input) {
       );
     }
 
-    process.stdout.write("Backblaze B2 credentials not found, or the credentials file is empty.\n");
-    process.stdout.write("This needs a B2 application key ID and application key.\n");
-    const applicationKeyId = await promptWithNewInterface("B2 application key ID: ", {
-      name: "B2 application key ID",
-      required: true,
-    });
-    const applicationKey = await promptHidden("Paste your B2 application key and press Enter: ");
-    const normalizedKey = validateRequired(applicationKey, "B2 application key");
+    process.stdout.write(
+      "Backblaze B2 credentials not found, or the credentials file is empty.\n",
+    );
+    process.stdout.write(
+      "This needs a B2 application key ID and application key.\n",
+    );
+    const applicationKeyId = await promptWithNewInterface(
+      "B2 application key ID: ",
+      {
+        name: "B2 application key ID",
+        required: true,
+      },
+    );
+    const applicationKey = await promptHidden(
+      "Paste your B2 application key and press Enter: ",
+    );
+    const normalizedKey = validateRequired(
+      applicationKey,
+      "B2 application key",
+    );
 
     await writeFile(
       credentialsFile,
@@ -594,15 +648,24 @@ async function readB2Credentials(credentialsFile) {
     parsed = JSON.parse(await readFile(credentialsFile, "utf8"));
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error(`Backblaze B2 credentials file is not valid JSON: ${credentialsFile}`, { cause: error });
+      throw new Error(
+        `Backblaze B2 credentials file is not valid JSON: ${credentialsFile}`,
+        { cause: error },
+      );
     }
 
     throw error;
   }
 
   return {
-    applicationKey: validateRequired(parsed.applicationKey, "B2 application key"),
-    applicationKeyId: validateRequired(parsed.applicationKeyId, "B2 application key ID"),
+    applicationKey: validateRequired(
+      parsed.applicationKey,
+      "B2 application key",
+    ),
+    applicationKeyId: validateRequired(
+      parsed.applicationKeyId,
+      "B2 application key ID",
+    ),
   };
 }
 
@@ -671,14 +734,21 @@ function promptHidden(prompt) {
 
 async function runBackup(config) {
   const runDir = await realpathSafe(process.cwd());
-  const zipDir = runDir && isPathInside(runDir, config.backupDir) ? homedir() : process.cwd();
+  const zipDir =
+    runDir && isPathInside(runDir, config.backupDir)
+      ? homedir()
+      : process.cwd();
 
   if (zipDir !== process.cwd()) {
-    process.stdout.write("Current working directory is inside the backup directory.\n");
+    process.stdout.write(
+      "Current working directory is inside the backup directory.\n",
+    );
     process.stdout.write(`Saving the zip archive to: ${zipDir}\n`);
   }
 
-  process.stdout.write(`Clearing existing contents from: ${config.backupDir}\n`);
+  process.stdout.write(
+    `Clearing existing contents from: ${config.backupDir}\n`,
+  );
   await clearDirectory(config.backupDir);
   await chmod(config.backupDir, 0o700);
 
@@ -688,7 +758,9 @@ async function runBackup(config) {
   if (config.noForks) {
     process.stdout.write("Forked repositories are excluded.\n");
   }
-  process.stdout.write("Release asset files are excluded. Release metadata is still included.\n");
+  process.stdout.write(
+    "Release asset files are excluded. Release metadata is still included.\n",
+  );
 
   await runCommand("docker", dockerArgs(config), {
     failureMessage: "Docker backup command failed.",
@@ -763,7 +835,11 @@ function dockerArgs(config) {
 
 async function clearDirectory(path) {
   const entries = await readdir(path);
-  await Promise.all(entries.map((entry) => rm(join(path, entry), { force: true, recursive: true })));
+  await Promise.all(
+    entries.map((entry) =>
+      rm(join(path, entry), { force: true, recursive: true }),
+    ),
+  );
 }
 
 async function nextZipPath(zipDir) {
@@ -826,7 +902,9 @@ function checkCommand(command, args, { accessibleMessage, missingMessage }) {
 
   if (result.status !== 0) {
     const details = commandFailureDetails(result);
-    throw new Error(details ? `${accessibleMessage}\n${details}` : accessibleMessage);
+    throw new Error(
+      details ? `${accessibleMessage}\n${details}` : accessibleMessage,
+    );
   }
 }
 
@@ -855,7 +933,9 @@ function runCommand(command, args, { cwd = process.cwd(), failureMessage }) {
       }
 
       if (signal) {
-        rejectCommand(new Error(`${failureMessage} Process terminated by ${signal}.`));
+        rejectCommand(
+          new Error(`${failureMessage} Process terminated by ${signal}.`),
+        );
         return;
       }
 
@@ -917,10 +997,13 @@ async function authorizeB2(credentials) {
   const result = await readB2Response(response, "B2 authorization failed.");
   const storageApi = result.apiInfo?.storageApi ?? result;
   const apiUrl = storageApi.apiUrl;
-  const authorizationToken = result.authorizationToken ?? storageApi.authorizationToken;
+  const authorizationToken =
+    result.authorizationToken ?? storageApi.authorizationToken;
 
   if (!apiUrl || !authorizationToken || !result.accountId) {
-    throw new Error("B2 authorization response did not include the expected API details.");
+    throw new Error(
+      "B2 authorization response did not include the expected API details.",
+    );
   }
 
   return {
@@ -941,7 +1024,9 @@ async function findB2Bucket(session, bucketName) {
     "B2 bucket check failed.",
   );
 
-  return result.buckets?.find((bucket) => bucket.bucketName === bucketName) ?? null;
+  return (
+    result.buckets?.find((bucket) => bucket.bucketName === bucketName) ?? null
+  );
 }
 
 async function getB2UploadUrl(session, bucketId) {
@@ -1016,7 +1101,8 @@ async function readB2Response(response, failureMessage) {
   }
 
   if (!response.ok) {
-    const details = body?.message || body?.code || response.statusText || "Unknown B2 error.";
+    const details =
+      body?.message || body?.code || response.statusText || "Unknown B2 error.";
     throw new Error(`${failureMessage} ${response.status} ${details}`);
   }
 
@@ -1025,12 +1111,16 @@ async function readB2Response(response, failureMessage) {
 
 function ensureFetchAvailable() {
   if (typeof fetch !== "function") {
-    throw new Error("Backblaze B2 uploads require Node.js 18 or newer for built-in fetch.");
+    throw new Error(
+      "Backblaze B2 uploads require Node.js 18 or newer for built-in fetch.",
+    );
   }
 }
 
 function normalizeB2BucketPath(path) {
-  const value = validateRequired(path, "B2 bucket path").replace(/\\/g, "/").trim();
+  const value = validateRequired(path, "B2 bucket path")
+    .replace(/\\/g, "/")
+    .trim();
   const normalized = value.replace(/^\/+/, "").replace(/\/+$/, "");
   return normalized;
 }
@@ -1077,7 +1167,10 @@ function isPathInside(childPath, parentPath) {
   const parent = resolve(parentPath);
   const pathToChild = relative(parent, child);
 
-  return pathToChild === "" || (!pathToChild.startsWith("..") && !isAbsolute(pathToChild));
+  return (
+    pathToChild === "" ||
+    (!pathToChild.startsWith("..") && !isAbsolute(pathToChild))
+  );
 }
 
 async function realpathSafe(path) {

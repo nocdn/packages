@@ -26,7 +26,9 @@ if (!/flags=0x[0-9a-f]*\(.*runtime/.test(details)) {
 }
 
 const credentials = notaryCredentials();
-const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "record-notarize-"));
+const temporaryDirectory = await mkdtemp(
+  path.join(os.tmpdir(), "record-notarize-"),
+);
 const zipPath = path.join(temporaryDirectory, "Record.zip");
 let keyPath;
 
@@ -80,16 +82,24 @@ try {
     );
   }
 
-  console.log(`Notarization accepted (${submissionId ?? "no id"}). Stapling ticket…`);
-  execFileSync("xcrun", ["stapler", "staple", "-v", appPath], { stdio: "inherit" });
-  execFileSync("xcrun", ["stapler", "validate", "-v", appPath], { stdio: "inherit" });
+  console.log(
+    `Notarization accepted (${submissionId ?? "no id"}). Stapling ticket…`,
+  );
+  execFileSync("xcrun", ["stapler", "staple", "-v", appPath], {
+    stdio: "inherit",
+  });
+  execFileSync("xcrun", ["stapler", "validate", "-v", appPath], {
+    stdio: "inherit",
+  });
   execFileSync("codesign", ["--verify", "--deep", "--strict", appPath], {
     stdio: "inherit",
   });
 
   const stapledDetails = codesignDetails(appPath);
   if (!/Notarization Ticket=stapled/.test(stapledDetails)) {
-    throw new Error("The notarization ticket was not stapled to vendor/Record.app.");
+    throw new Error(
+      "The notarization ticket was not stapled to vendor/Record.app.",
+    );
   }
 
   console.log("Notarized and stapled vendor/Record.app");

@@ -16,9 +16,19 @@ test("shouldUseColor respects flags, TTY, and color env", () => {
     delete process.env.FORCE_COLOR;
 
     // --no-color wins over --color
-    assert.equal(shouldUseColor({ noColor: true, forceColor: true, stream: { isTTY: true } }), false);
+    assert.equal(
+      shouldUseColor({
+        noColor: true,
+        forceColor: true,
+        stream: { isTTY: true },
+      }),
+      false,
+    );
     // --color forces on without TTY
-    assert.equal(shouldUseColor({ forceColor: true, stream: { isTTY: false } }), true);
+    assert.equal(
+      shouldUseColor({ forceColor: true, stream: { isTTY: false } }),
+      true,
+    );
     // auto: TTY only
     assert.equal(shouldUseColor({ stream: { isTTY: false } }), false);
     assert.equal(shouldUseColor({ stream: { isTTY: true } }), true);
@@ -28,7 +38,10 @@ test("shouldUseColor respects flags, TTY, and color env", () => {
 
     process.env.NO_COLOR = "1";
     // NO_COLOR wins over FORCE_COLOR and --color
-    assert.equal(shouldUseColor({ forceColor: true, stream: { isTTY: true } }), false);
+    assert.equal(
+      shouldUseColor({ forceColor: true, stream: { isTTY: true } }),
+      false,
+    );
   } finally {
     if (prevNo === undefined) {
       delete process.env.NO_COLOR;
@@ -98,7 +111,10 @@ test("failed lines use red status", () => {
     color: true,
   });
   assert.match(plain, /✗ failed: path does not exist/);
-  assert.match(display, new RegExp(`\\x1b\\[31m✗ failed: path does not exist\\x1b\\[0m`));
+  assert.match(
+    display,
+    new RegExp(`\\x1b\\[31m✗ failed: path does not exist\\x1b\\[0m`),
+  );
 });
 
 test("colorizeDetail only rewrites lines +N / -M fragments", () => {

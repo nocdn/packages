@@ -202,9 +202,15 @@ export function signalPid(pid, signal = "SIGTERM") {
 /**
  * Kill a pid, its process group, known descendants, and optional extra pids.
  */
-export function killProcessTree(pid, { signal = "SIGTERM", extraPids = [] } = {}) {
+export function killProcessTree(
+  pid,
+  { signal = "SIGTERM", extraPids = [] } = {},
+) {
   const n = assertSafePid(pid);
-  const targets = new Set([n, ...extraPids.map(Number).filter((value) => value > 1)]);
+  const targets = new Set([
+    n,
+    ...extraPids.map(Number).filter((value) => value > 1),
+  ]);
   for (const child of listDescendantPids(n)) {
     targets.add(child);
   }

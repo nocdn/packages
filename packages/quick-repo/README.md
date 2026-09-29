@@ -102,19 +102,19 @@ The push authenticates through GitHub CLI, so it works even when git has no
 credential helper configured. Git is also run with `GIT_TERMINAL_PROMPT=0` so it
 fails with a clear error instead of hanging on a credential prompt.
 
-| argument | description |
-| --- | --- |
+| argument    | description                                                   |
+| ----------- | ------------------------------------------------------------- |
 | `repo-name` | optional repository name; defaults to the current folder name |
 
-| flag | description |
-| --- | --- |
-| `-d`, `--description <text>` | use this repository description without prompting |
-| `--public` | create a public repository without prompting |
-| `--private` | create a private repository without prompting |
-| `--init` | run `git init`, `git add .`, and `git commit -m "init: initial file upload"` before creating the GitHub repo |
-| `--push` | add `origin`, rename the branch to `main`, and push after creating the GitHub repo |
-| `-h`, `--help` | show help |
-| `-v`, `--version` | show version |
+| flag                         | description                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `-d`, `--description <text>` | use this repository description without prompting                                                            |
+| `--public`                   | create a public repository without prompting                                                                 |
+| `--private`                  | create a private repository without prompting                                                                |
+| `--init`                     | run `git init`, `git add .`, and `git commit -m "init: initial file upload"` before creating the GitHub repo |
+| `--push`                     | add `origin`, rename the branch to `main`, and push after creating the GitHub repo                           |
+| `-h`, `--help`               | show help                                                                                                    |
+| `-v`, `--version`            | show version                                                                                                 |
 
 ## Logs
 
@@ -123,11 +123,11 @@ with its exit code, output, and duration, plus any error) so issues can be
 debugged after the fact. When a run fails, the log path is printed in the error
 output. The log lives at a platform-appropriate location:
 
-| platform | path |
-| --- | --- |
-| macOS | `~/Library/Logs/quick-repo/quick-repo.log` |
-| Windows | `%LOCALAPPDATA%\quick-repo\logs\quick-repo.log` |
-| Linux | `$XDG_STATE_HOME/quick-repo/logs/quick-repo.log` (defaults to `~/.local/state/...`) |
+| platform | path                                                                                |
+| -------- | ----------------------------------------------------------------------------------- |
+| macOS    | `~/Library/Logs/quick-repo/quick-repo.log`                                          |
+| Windows  | `%LOCALAPPDATA%\quick-repo\logs\quick-repo.log`                                     |
+| Linux    | `$XDG_STATE_HOME/quick-repo/logs/quick-repo.log` (defaults to `~/.local/state/...`) |
 
 Run `quick-repo --help` to print the exact path on your system. Logging is
 best-effort: if the log file can't be written, the CLI still runs normally.

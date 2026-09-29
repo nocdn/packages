@@ -72,7 +72,10 @@ export async function findLiveMcpLock(lockPath = mcpLockPath()) {
 /**
  * Format the "already running" user-facing error.
  */
-export function formatMcpAlreadyRunningError(lock, { packageName = "pastepatch" } = {}) {
+export function formatMcpAlreadyRunningError(
+  lock,
+  { packageName = "pastepatch" } = {},
+) {
   const lines = [
     `Another pastepatch MCP session is already running on this machine (pid ${lock.pid}).`,
   ];
@@ -92,9 +95,7 @@ export function formatMcpAlreadyRunningError(lock, { packageName = "pastepatch" 
   lines.push(
     "Only one MCP instance should run at a time — a second process can steal the",
   );
-  lines.push(
-    "Cloudflare tunnel and drop or scramble the ChatGPT connection.",
-  );
+  lines.push("Cloudflare tunnel and drop or scramble the ChatGPT connection.");
   lines.push("");
   lines.push("Stop the other session first:");
   lines.push("  • In the other terminal: Ctrl+C");
@@ -110,19 +111,19 @@ export function formatMcpAlreadyRunningError(lock, { packageName = "pastepatch" 
 /**
  * Acquire the MCP lock for this process. Throws if another live instance holds it.
  */
-export async function acquireMcpLock(
-  {
-    pid = process.pid,
-    port,
-    root,
-    hostname = "",
-    packageName = "pastepatch",
-    lockPath = mcpLockPath(),
-  } = {},
-) {
+export async function acquireMcpLock({
+  pid = process.pid,
+  port,
+  root,
+  hostname = "",
+  packageName = "pastepatch",
+  lockPath = mcpLockPath(),
+} = {}) {
   const live = await findLiveMcpLock(lockPath);
   if (live && live.pid !== pid) {
-    const error = new Error(formatMcpAlreadyRunningError(live, { packageName }));
+    const error = new Error(
+      formatMcpAlreadyRunningError(live, { packageName }),
+    );
     error.code = "PASTEPATCH_MCP_ALREADY_RUNNING";
     error.lock = live;
     throw error;

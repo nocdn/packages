@@ -28,7 +28,10 @@ test("--help prints usage without touching GitHub", () => {
   const result = run(["--help"]);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Usage:/);
-  assert.match(result.stdout, new RegExp(packageInfo.version.replaceAll(".", "\\.")));
+  assert.match(
+    result.stdout,
+    new RegExp(packageInfo.version.replaceAll(".", "\\.")),
+  );
   assert.equal(result.stderr, "");
 });
 
@@ -38,4 +41,3 @@ test("unknown options are rejected", () => {
   assert.equal(result.stdout, "");
   assert.match(result.stderr, /Unknown option "--definitely-not-an-option"/);
 });
-

@@ -48,7 +48,11 @@ export function isPathInsideRoot(absolutePath, root) {
   return relative === "" || !pathEscapesRoot(relative);
 }
 
-export async function validateToolCall(call, root = process.cwd(), options = {}) {
+export async function validateToolCall(
+  call,
+  root = process.cwd(),
+  options = {},
+) {
   switch (call.tool) {
     case "create_file":
       requireString(call.path, "path", call.tool);
@@ -69,7 +73,13 @@ export async function validateToolCall(call, root = process.cwd(), options = {})
       requireString(call.old, "old", call.tool);
       requireString(call.new, "new", call.tool);
       await assertReadableFileTarget(call.path, root, options);
-      await validateReplacement(call.path, call.old, Boolean(call.replaceAll), root, options);
+      await validateReplacement(
+        call.path,
+        call.old,
+        Boolean(call.replaceAll),
+        root,
+        options,
+      );
       return;
 
     case "delete_file":
@@ -89,7 +99,11 @@ export async function validateToolCall(call, root = process.cwd(), options = {})
   }
 }
 
-export async function executeToolCall(call, root = process.cwd(), options = {}) {
+export async function executeToolCall(
+  call,
+  root = process.cwd(),
+  options = {},
+) {
   switch (call.tool) {
     case "create_file":
       requireString(call.path, "path", call.tool);
@@ -109,13 +123,23 @@ export async function executeToolCall(call, root = process.cwd(), options = {}) 
       requireString(call.path, "path", call.tool);
       requireString(call.old, "old", call.tool);
       requireString(call.new, "new", call.tool);
-      await replaceInFile(call.path, call.old, call.new, Boolean(call.replaceAll), root, options);
+      await replaceInFile(
+        call.path,
+        call.old,
+        call.new,
+        Boolean(call.replaceAll),
+        root,
+        options,
+      );
       return;
 
     case "delete_file":
       requireString(call.path, "path", call.tool);
       await assertDeletableTarget(call.path, root, options);
-      await rm(resolveToolPath(call.path, root, options), { recursive: true, force: false });
+      await rm(resolveToolPath(call.path, root, options), {
+        recursive: true,
+        force: false,
+      });
       return;
 
     case "move_file":
@@ -123,9 +147,18 @@ export async function executeToolCall(call, root = process.cwd(), options = {}) 
       requireString(call.to, "to", call.tool);
       await assertMovableSource(call.from, root, options);
       await assertWritableMoveTarget(call.to, root, options);
-      await mkdir(path.dirname(resolveToolPath(call.to, root, options)), { recursive: true });
-      await assertDirectoryPathSafe(path.dirname(resolveToolPath(call.to, root, options)), root, options);
-      await rename(resolveToolPath(call.from, root, options), resolveToolPath(call.to, root, options));
+      await mkdir(path.dirname(resolveToolPath(call.to, root, options)), {
+        recursive: true,
+      });
+      await assertDirectoryPathSafe(
+        path.dirname(resolveToolPath(call.to, root, options)),
+        root,
+        options,
+      );
+      await rename(
+        resolveToolPath(call.from, root, options),
+        resolveToolPath(call.to, root, options),
+      );
       return;
 
     default:
@@ -133,13 +166,21 @@ export async function executeToolCall(call, root = process.cwd(), options = {}) 
   }
 }
 
-export async function readTextFile(relativePath, root = process.cwd(), options = {}) {
+export async function readTextFile(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   await assertReadableFileTarget(relativePath, root, options);
   const target = resolveToolPath(relativePath, root, options);
   return readFile(target, "utf8");
 }
 
-export async function listDirectory(relativePath = ".", root = process.cwd(), options = {}) {
+export async function listDirectory(
+  relativePath = ".",
+  root = process.cwd(),
+  options = {},
+) {
   const absolute =
     relativePath === "." || relativePath === ""
       ? path.resolve(root)
@@ -178,7 +219,12 @@ export async function listDirectory(relativePath = ".", root = process.cwd(), op
   return lines.join("\n");
 }
 
-export async function writeTextFile(relativePath, content, root = process.cwd(), options = {}) {
+export async function writeTextFile(
+  relativePath,
+  content,
+  root = process.cwd(),
+  options = {},
+) {
   await assertWritableFileTarget(relativePath, root, options);
   const target = resolveToolPath(relativePath, root, options);
   await assertParentPathSafe(target, root, options);
@@ -187,7 +233,12 @@ export async function writeTextFile(relativePath, content, root = process.cwd(),
   await writeFile(target, content, "utf8");
 }
 
-export async function appendTextFile(relativePath, content, root = process.cwd(), options = {}) {
+export async function appendTextFile(
+  relativePath,
+  content,
+  root = process.cwd(),
+  options = {},
+) {
   await assertWritableFileTarget(relativePath, root, options);
   const target = resolveToolPath(relativePath, root, options);
   await assertParentPathSafe(target, root, options);
@@ -196,7 +247,14 @@ export async function appendTextFile(relativePath, content, root = process.cwd()
   await appendFile(target, content, "utf8");
 }
 
-export async function replaceInFile(relativePath, oldText, newText, replaceAll, root = process.cwd(), options = {}) {
+export async function replaceInFile(
+  relativePath,
+  oldText,
+  newText,
+  replaceAll,
+  root = process.cwd(),
+  options = {},
+) {
   await assertReadableFileTarget(relativePath, root, options);
   const target = resolveToolPath(relativePath, root, options);
   const current = await readFile(target, "utf8");
@@ -212,11 +270,19 @@ export async function replaceInFile(relativePath, oldText, newText, replaceAll, 
     );
   }
 
-  const updated = replaceAll ? current.split(oldText).join(newText) : current.replace(oldText, newText);
+  const updated = replaceAll
+    ? current.split(oldText).join(newText)
+    : current.replace(oldText, newText);
   await writeFile(target, updated, "utf8");
 }
 
-export async function validateReplacement(relativePath, oldText, replaceAll, root = process.cwd(), options = {}) {
+export async function validateReplacement(
+  relativePath,
+  oldText,
+  replaceAll,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   const current = await readFile(target, "utf8");
   const count = countOccurrences(current, oldText);
@@ -232,7 +298,11 @@ export async function validateReplacement(relativePath, oldText, replaceAll, roo
   }
 }
 
-export async function assertWritableFileTarget(relativePath, root = process.cwd(), options = {}) {
+export async function assertWritableFileTarget(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   await assertParentPathSafe(target, root, options);
 
@@ -255,7 +325,11 @@ export async function assertWritableFileTarget(relativePath, root = process.cwd(
   }
 }
 
-export async function assertReadableFileTarget(relativePath, root = process.cwd(), options = {}) {
+export async function assertReadableFileTarget(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   const stats = await assertExistingTarget(relativePath, root, options);
 
@@ -266,7 +340,11 @@ export async function assertReadableFileTarget(relativePath, root = process.cwd(
   await assertRealPathInsideRoot(target, root, options);
 }
 
-export async function assertDeletableTarget(relativePath, root = process.cwd(), options = {}) {
+export async function assertDeletableTarget(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   const stats = await assertExistingTarget(relativePath, root, options);
 
@@ -275,7 +353,11 @@ export async function assertDeletableTarget(relativePath, root = process.cwd(), 
   }
 }
 
-export async function assertRemovableCurrentPathSafe(relativePath, root = process.cwd(), options = {}) {
+export async function assertRemovableCurrentPathSafe(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   await assertParentPathSafe(target, root, options);
 
@@ -296,7 +378,11 @@ export async function assertRemovableCurrentPathSafe(relativePath, root = proces
   }
 }
 
-export async function assertMovableSource(relativePath, root = process.cwd(), options = {}) {
+export async function assertMovableSource(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   const stats = await assertExistingTarget(relativePath, root, options);
 
@@ -305,7 +391,11 @@ export async function assertMovableSource(relativePath, root = process.cwd(), op
   }
 }
 
-export async function assertWritableMoveTarget(relativePath, root = process.cwd(), options = {}) {
+export async function assertWritableMoveTarget(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   await assertParentPathSafe(target, root, options);
 
@@ -328,7 +418,11 @@ export async function assertWritableMoveTarget(relativePath, root = process.cwd(
   }
 }
 
-export async function assertExistingTarget(relativePath, root = process.cwd(), options = {}) {
+export async function assertExistingTarget(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const target = resolveToolPath(relativePath, root, options);
   await assertParentPathSafe(target, root, options);
 
@@ -341,17 +435,27 @@ export async function assertExistingTarget(relativePath, root = process.cwd(), o
     return stats;
   } catch (error) {
     if (error.code === "ENOENT") {
-      throw new Error(`${relativePath}: path does not exist.`, { cause: error });
+      throw new Error(`${relativePath}: path does not exist.`, {
+        cause: error,
+      });
     }
     throw error;
   }
 }
 
-export async function assertParentPathSafe(absolutePath, root = process.cwd(), options = {}) {
+export async function assertParentPathSafe(
+  absolutePath,
+  root = process.cwd(),
+  options = {},
+) {
   await assertDirectoryPathSafe(path.dirname(absolutePath), root, options);
 }
 
-export async function assertDirectoryPathSafe(absoluteDirectory, root = process.cwd(), options = {}) {
+export async function assertDirectoryPathSafe(
+  absoluteDirectory,
+  root = process.cwd(),
+  options = {},
+) {
   if (options.allowOutside) {
     return;
   }
@@ -359,16 +463,26 @@ export async function assertDirectoryPathSafe(absoluteDirectory, root = process.
   const rootPath = path.resolve(root);
   const rootRealPath = await realpath(rootPath);
   const relativeDirectory = path.relative(rootPath, absoluteDirectory);
-  const segments = relativeDirectory ? relativeDirectory.split(path.sep).filter(Boolean) : [];
+  const segments = relativeDirectory
+    ? relativeDirectory.split(path.sep).filter(Boolean)
+    : [];
 
   let current = rootPath;
-  await assertExistingDirectoryComponentSafe(current, rootRealPath, "project root");
+  await assertExistingDirectoryComponentSafe(
+    current,
+    rootRealPath,
+    "project root",
+  );
 
   for (const segment of segments) {
     current = path.join(current, segment);
 
     try {
-      await assertExistingDirectoryComponentSafe(current, rootRealPath, displayPath(current, rootPath));
+      await assertExistingDirectoryComponentSafe(
+        current,
+        rootRealPath,
+        displayPath(current, rootPath),
+      );
     } catch (error) {
       if (error.code === "ENOENT") {
         return;
@@ -378,7 +492,11 @@ export async function assertDirectoryPathSafe(absoluteDirectory, root = process.
   }
 }
 
-async function assertExistingDirectoryComponentSafe(absolutePath, rootRealPath, label) {
+async function assertExistingDirectoryComponentSafe(
+  absolutePath,
+  rootRealPath,
+  label,
+) {
   const stats = await lstat(absolutePath);
   if (stats.isSymbolicLink()) {
     throw new Error(`${label}: parent path contains a symbolic link.`);
@@ -389,16 +507,28 @@ async function assertExistingDirectoryComponentSafe(absolutePath, rootRealPath, 
   }
 
   const realDirectory = await realpath(absolutePath);
-  assertInsideRoot(realDirectory, rootRealPath, `${label}: parent path escapes the project root.`);
+  assertInsideRoot(
+    realDirectory,
+    rootRealPath,
+    `${label}: parent path escapes the project root.`,
+  );
 }
 
-export async function assertRealPathInsideRoot(absolutePath, root = process.cwd(), options = {}) {
+export async function assertRealPathInsideRoot(
+  absolutePath,
+  root = process.cwd(),
+  options = {},
+) {
   if (options.allowOutside) {
     return;
   }
   const rootRealPath = await realpath(path.resolve(root));
   const targetRealPath = await realpath(absolutePath);
-  assertInsideRoot(targetRealPath, rootRealPath, `${displayPath(absolutePath, root)}: path escapes the project root.`);
+  assertInsideRoot(
+    targetRealPath,
+    rootRealPath,
+    `${displayPath(absolutePath, root)}: path escapes the project root.`,
+  );
 }
 
 export async function assertDirectoryTreeHasNoSymlinks(absoluteDirectory) {
@@ -453,9 +583,13 @@ export function safePath(relativePath, root = process.cwd()) {
     throw new Error(`Refusing path containing "..": ${relativePath}`);
   }
 
-  const normalizedSegments = segments.filter((segment) => segment !== "" && segment !== ".");
+  const normalizedSegments = segments.filter(
+    (segment) => segment !== "" && segment !== ".",
+  );
   if (normalizedSegments.length === 0) {
-    throw new Error("Path must target a file or subdirectory, not the project root.");
+    throw new Error(
+      "Path must target a file or subdirectory, not the project root.",
+    );
   }
 
   const rootPath = path.resolve(root);
@@ -470,10 +604,18 @@ export function safePath(relativePath, root = process.cwd()) {
 }
 
 export function pathEscapesRoot(relativePath) {
-  return relativePath === ".." || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath);
+  return (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  );
 }
 
-export function normalizeRelativePath(relativePath, root = process.cwd(), options = {}) {
+export function normalizeRelativePath(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   if (options.allowOutside) {
     const absolute = resolveToolPath(relativePath, root, options);
     const rel = path.relative(path.resolve(root), absolute);
@@ -483,7 +625,11 @@ export function normalizeRelativePath(relativePath, root = process.cwd(), option
     return absolute;
   }
   safePath(relativePath, root);
-  return path.join(...relativePath.split(/[\\/]+/).filter((segment) => segment !== "" && segment !== "."));
+  return path.join(
+    ...relativePath
+      .split(/[\\/]+/)
+      .filter((segment) => segment !== "" && segment !== "."),
+  );
 }
 
 export function requireString(value, field, tool) {

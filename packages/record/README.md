@@ -30,39 +30,39 @@ npx @nocdn/record cameras
 npx @nocdn/record permissions
 ```
 
-| flag | description |
-| --- | --- |
-| `-h`, `--help` | show help |
-| `-v`, `--version` | show version |
-| `-o`, `--output <path>` | save to an exact path instead of the default location |
-| `--location <dir>` | save into this directory with a timestamped name (`--location .`, `--location ~/Pictures`) |
-| `--here` | save into the current directory (same as `--location .`) |
-| `--only-mic`, `--mic-only`, `--microphone` | record only the microphone as MP3 |
+| flag                                                                          | description                                                                                                      |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `-h`, `--help`                                                                | show help                                                                                                        |
+| `-v`, `--version`                                                             | show version                                                                                                     |
+| `-o`, `--output <path>`                                                       | save to an exact path instead of the default location                                                            |
+| `--location <dir>`                                                            | save into this directory with a timestamped name (`--location .`, `--location ~/Pictures`)                       |
+| `--here`                                                                      | save into the current directory (same as `--location .`)                                                         |
+| `--only-mic`, `--mic-only`, `--microphone`                                    | record only the microphone as MP3                                                                                |
 | `--only-system-audio`, `--system-audio-only`, `--internal`, `--internal-only` | record only system/application audio as MP3 (add `--mic <name>` to also include the mic, same as `--only-audio`) |
-| `--only-audio`, `--audio-only` | record system/application audio and the microphone as MP3, without video |
-| `--separate-audio-tracks` | store system audio and microphone as separate editable tracks instead of mixing them |
-| `--only-camera`, `--camera-only` | record only the camera |
-| `--no-mic` | disable microphone capture |
-| `--mic <name>` | select a microphone by name; default is the built-in Mac microphone, not the current system input |
-| `--list-mics` | list microphones that `--mic` can select |
-| `--no-system-audio` | disable system/application audio |
-| `--window`, `--app <name>` | capture a window by app or title instead of the whole display |
-| `--region [x,y,w,h]` | capture a rectangle; omit the value to click-drag one |
-| `--camera [name]` | overlay a face cam in the recording |
-| `--camera-size <0-1>` | face-cam width as a fraction of the video |
-| `--camera-position <pos>` | `bottom-right`, `bottom-left`, `top-right`, or `top-left` |
-| `--for`, `--duration <duration>` | stop and save after this long (`30`, `30s`, `1m30s`) |
-| `--in`, `--delay <duration>` | wait this long before recording starts |
-| `--hevc` | encode video with HEVC instead of H.264 |
-| `--codec <h264\|hevc>` | video codec |
-| `--quality <low\|high>` | simple quality preset; the fine flags override it |
-| `--scale <n>` | scale video (`0.5` or `50`) |
-| `--video-bitrate <rate>` | video bitrate (`8m`, `8000k`) |
-| `--audio-bitrate <rate>` | audio bitrate (`192k`) |
-| `--display <number>` | select a display, starting at `1` |
-| `--fps <number>` | set the frame rate, from greater than `0` through `120` |
-| `--format <mp4\|mov>` | choose the output container |
-| `--no-cursor` | hide the mouse cursor |
+| `--only-audio`, `--audio-only`                                                | record system/application audio and the microphone as MP3, without video                                         |
+| `--separate-audio-tracks`                                                     | store system audio and microphone as separate editable tracks instead of mixing them                             |
+| `--only-camera`, `--camera-only`                                              | record only the camera                                                                                           |
+| `--no-mic`                                                                    | disable microphone capture                                                                                       |
+| `--mic <name>`                                                                | select a microphone by name; default is the built-in Mac microphone, not the current system input                |
+| `--list-mics`                                                                 | list microphones that `--mic` can select                                                                         |
+| `--no-system-audio`                                                           | disable system/application audio                                                                                 |
+| `--window`, `--app <name>`                                                    | capture a window by app or title instead of the whole display                                                    |
+| `--region [x,y,w,h]`                                                          | capture a rectangle; omit the value to click-drag one                                                            |
+| `--camera [name]`                                                             | overlay a face cam in the recording                                                                              |
+| `--camera-size <0-1>`                                                         | face-cam width as a fraction of the video                                                                        |
+| `--camera-position <pos>`                                                     | `bottom-right`, `bottom-left`, `top-right`, or `top-left`                                                        |
+| `--for`, `--duration <duration>`                                              | stop and save after this long (`30`, `30s`, `1m30s`)                                                             |
+| `--in`, `--delay <duration>`                                                  | wait this long before recording starts                                                                           |
+| `--hevc`                                                                      | encode video with HEVC instead of H.264                                                                          |
+| `--codec <h264\|hevc>`                                                        | video codec                                                                                                      |
+| `--quality <low\|high>`                                                       | simple quality preset; the fine flags override it                                                                |
+| `--scale <n>`                                                                 | scale video (`0.5` or `50`)                                                                                      |
+| `--video-bitrate <rate>`                                                      | video bitrate (`8m`, `8000k`)                                                                                    |
+| `--audio-bitrate <rate>`                                                      | audio bitrate (`192k`)                                                                                           |
+| `--display <number>`                                                          | select a display, starting at `1`                                                                                |
+| `--fps <number>`                                                              | set the frame rate, from greater than `0` through `120`                                                          |
+| `--format <mp4\|mov>`                                                         | choose the output container                                                                                      |
+| `--no-cursor`                                                                 | hide the mouse cursor                                                                                            |
 
 With no flags, the command records the primary display at native resolution,
 system audio, and the built-in Mac microphone (not whichever input macOS
@@ -199,30 +199,30 @@ On npmjs.com, `@nocdn/record` trusts the `nocdn/packages` repository with
 workflow filename `record.yml`. Releases need these repository secrets
 (Settings → Secrets and variables → Actions):
 
-   | secret | value |
-   | --- | --- |
-   | `APPLE_DEVELOPER_ID_P12` | base64 of the exported Developer ID Application `.p12` |
-   | `APPLE_DEVELOPER_ID_P12_PASSWORD` | password for that `.p12` |
-   | `APPLE_API_KEY` | contents of the App Store Connect API `.p8` key |
-   | `APPLE_API_KEY_ID` | the key id, for example `AB12CD34EF` |
-   | `APPLE_API_ISSUER` | the issuer UUID from App Store Connect (required for team keys) |
+| secret                            | value                                                           |
+| --------------------------------- | --------------------------------------------------------------- |
+| `APPLE_DEVELOPER_ID_P12`          | base64 of the exported Developer ID Application `.p12`          |
+| `APPLE_DEVELOPER_ID_P12_PASSWORD` | password for that `.p12`                                        |
+| `APPLE_API_KEY`                   | contents of the App Store Connect API `.p8` key                 |
+| `APPLE_API_KEY_ID`                | the key id, for example `AB12CD34EF`                            |
+| `APPLE_API_ISSUER`                | the issuer UUID from App Store Connect (required for team keys) |
 
-   Instead of the API key trio you can set `APPLE_ID` and
-   `APPLE_APP_SPECIFIC_PASSWORD`. The workflow already uses team id
-   `7CAU3XFRLQ` and identity `Developer ID Application: Bartosz Bak (7CAU3XFRLQ)`.
+Instead of the API key trio you can set `APPLE_ID` and
+`APPLE_APP_SPECIFIC_PASSWORD`. The workflow already uses team id
+`7CAU3XFRLQ` and identity `Developer ID Application: Bartosz Bak (7CAU3XFRLQ)`.
 
-   Export the certificate from Keychain Access → My Certificates →
-   **Developer ID Application: Bartosz Bak**. Include the private key, set a
-   password, then:
+Export the certificate from Keychain Access → My Certificates →
+**Developer ID Application: Bartosz Bak**. Include the private key, set a
+password, then:
 
-   ```bash
-   base64 -i developer-id.p12 | pbcopy
-   ```
+```bash
+base64 -i developer-id.p12 | pbcopy
+```
 
-   Create an App Store Connect API key at
-   [Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api)
-   with at least the Developer role. The `.p8` file can be downloaded only
-   once.
+Create an App Store Connect API key at
+[Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api)
+with at least the Developer role. The `.p8` file can be downloaded only
+once.
 
 To release, bump the version in `package.json` and push to `main`.
 

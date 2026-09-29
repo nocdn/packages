@@ -53,13 +53,36 @@ test("dry run rejects invalid and stale tool plans", async () => {
   const root = await tempProject();
   await writeFile(path.join(root, "README.md"), "hello\n", "utf8");
 
-  await assertDryRunFails(root, [{ tool: "no_such_tool", path: "README.md" }], /Unknown tool/);
-  await assertDryRunFails(root, [{ tool: "create_file", path: "created.txt" }], /requires a string "content"/);
-  await assertDryRunFails(root, [{ tool: "delete_file", path: "." }], /project root/);
-  await assertDryRunFails(root, [{ tool: "delete_file", path: "missing.txt" }], /path does not exist/);
   await assertDryRunFails(
     root,
-    [{ tool: "replace_in_file", path: "README.md", old: "not present", new: "changed" }],
+    [{ tool: "no_such_tool", path: "README.md" }],
+    /Unknown tool/,
+  );
+  await assertDryRunFails(
+    root,
+    [{ tool: "create_file", path: "created.txt" }],
+    /requires a string "content"/,
+  );
+  await assertDryRunFails(
+    root,
+    [{ tool: "delete_file", path: "." }],
+    /project root/,
+  );
+  await assertDryRunFails(
+    root,
+    [{ tool: "delete_file", path: "missing.txt" }],
+    /path does not exist/,
+  );
+  await assertDryRunFails(
+    root,
+    [
+      {
+        tool: "replace_in_file",
+        path: "README.md",
+        old: "not present",
+        new: "changed",
+      },
+    ],
     /old string was not found/,
   );
 });
@@ -68,7 +91,9 @@ test("paths containing parent directory segments are rejected", async () => {
   const root = await tempProject();
   const result = await runCli(["--edit", "--dry-run"], {
     cwd: root,
-    input: JSON.stringify([{ tool: "create_file", path: "src/..", content: "x" }]),
+    input: JSON.stringify([
+      { tool: "create_file", path: "src/..", content: "x" },
+    ]),
   });
 
   assert.equal(result.code, 1);
@@ -79,11 +104,20 @@ test("windows-style relative paths are accepted", async () => {
   const root = await tempProject();
   const result = await runCli(["--edit", "--yes"], {
     cwd: root,
-    input: JSON.stringify([{ tool: "create_file", path: "src\\nested\\created.txt", content: "hello\n" }]),
+    input: JSON.stringify([
+      {
+        tool: "create_file",
+        path: "src\\nested\\created.txt",
+        content: "hello\n",
+      },
+    ]),
   });
 
   assert.equal(result.code, 0, result.stderr);
-  assert.equal(await readFile(path.join(root, "src", "nested", "created.txt"), "utf8"), "hello\n");
+  assert.equal(
+    await readFile(path.join(root, "src", "nested", "created.txt"), "utf8"),
+    "hello\n",
+  );
 });
 
 test("windows absolute paths are rejected", async () => {
@@ -96,7 +130,13 @@ test("windows absolute paths are rejected", async () => {
   );
   await assertDryRunFails(
     root,
-    [{ tool: "create_file", path: "\\\\server\\share\\created.txt", content: "x" }],
+    [
+      {
+        tool: "create_file",
+        path: "\\\\server\\share\\created.txt",
+        content: "x",
+      },
+    ],
     /Refusing absolute path/,
   );
 });
@@ -113,7 +153,9 @@ test("writes through symlinked parents are rejected", async (t) => {
 
   const result = await runCli(["--edit", "--dry-run"], {
     cwd: root,
-    input: JSON.stringify([{ tool: "create_file", path: "outside/file.txt", content: "x" }]),
+    input: JSON.stringify([
+      { tool: "create_file", path: "outside/file.txt", content: "x" },
+    ]),
   });
 
   assert.equal(result.code, 1);
@@ -134,7 +176,9 @@ test("delete_file fails when the target is missing", async () => {
 test("duplicate tool plan is refused without interactive confirmation", async () => {
   const root = await tempProject();
   await mkdir(path.join(root, ".git"));
-  const plan = [{ tool: "create_file", path: "created.txt", content: "hello\n" }];
+  const plan = [
+    { tool: "create_file", path: "created.txt", content: "hello\n" },
+  ];
 
   const first = await runCli(["--edit", "--yes"], {
     cwd: root,
@@ -150,13 +194,18 @@ test("duplicate tool plan is refused without interactive confirmation", async ()
   assert.equal(second.code, 1, second.stderr);
   assert.match(second.stderr, /matches the most recent pastepatch apply/i);
   assert.match(second.stderr, /Refusing to re-apply/i);
-  assert.equal(await readFile(path.join(root, "created.txt"), "utf8"), "hello\n");
+  assert.equal(
+    await readFile(path.join(root, "created.txt"), "utf8"),
+    "hello\n",
+  );
 });
 
 test("dry run warns when tool plan matches the last apply", async () => {
   const root = await tempProject();
   await mkdir(path.join(root, ".git"));
-  const plan = [{ tool: "create_file", path: "created.txt", content: "hello\n" }];
+  const plan = [
+    { tool: "create_file", path: "created.txt", content: "hello\n" },
+  ];
 
   const first = await runCli(["--edit", "--yes"], {
     cwd: root,
@@ -181,12 +230,19 @@ test("undo restores paths relative to the original edit directory", async () => 
 
   const applyResult = await runCli(["--edit", "--yes"], {
     cwd: root,
-    input: JSON.stringify([{ tool: "create_file", path: "created.txt", content: "hello\n" }]),
+    input: JSON.stringify([
+      { tool: "create_file", path: "created.txt", content: "hello\n" },
+    ]),
   });
   assert.equal(applyResult.code, 0, applyResult.stderr);
-  assert.equal(await readFile(path.join(root, "created.txt"), "utf8"), "hello\n");
+  assert.equal(
+    await readFile(path.join(root, "created.txt"), "utf8"),
+    "hello\n",
+  );
 
-  const undoResult = await runCli(["--undo"], { cwd: path.join(root, "subdir") });
+  const undoResult = await runCli(["--undo"], {
+    cwd: path.join(root, "subdir"),
+  });
   assert.equal(undoResult.code, 0, undoResult.stderr);
 
   await assertFileMissing(path.join(root, "created.txt"));
@@ -240,5 +296,9 @@ function runCli(args, options = {}) {
 }
 
 test.after(async () => {
-  await Promise.all(tempDirectories.map((directory) => rm(directory, { force: true, recursive: true })));
+  await Promise.all(
+    tempDirectories.map((directory) =>
+      rm(directory, { force: true, recursive: true }),
+    ),
+  );
 });

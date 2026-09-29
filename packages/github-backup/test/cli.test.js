@@ -28,7 +28,10 @@ test("--help prints usage without starting a backup", () => {
   const result = run(["--help"]);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Usage:/);
-  assert.match(result.stdout, new RegExp(packageInfo.version.replaceAll(".", "\\.")));
+  assert.match(
+    result.stdout,
+    new RegExp(packageInfo.version.replaceAll(".", "\\.")),
+  );
   assert.equal(result.stderr, "");
 });
 

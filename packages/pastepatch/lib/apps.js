@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
-import { listChildPids, listDescendantPids, readProcessSnapshot } from "./process-tree.js";
+import {
+  listChildPids,
+  listDescendantPids,
+  readProcessSnapshot,
+} from "./process-tree.js";
 
 const MAX_NAME_MATCHES = 12;
 const MAX_TREE_DEPTH = 24;
@@ -69,11 +73,15 @@ export function findPidsByProcessName(name) {
     return findPidsByProcessNameWin32(want);
   }
 
-  const result = spawnSync("ps", ["-ax", "-o", "pid=", "-o", "comm=", "-o", "command="], {
-    encoding: "utf8",
-    env: { ...process.env, LC_ALL: "C" },
-    maxBuffer: 8 * 1024 * 1024,
-  });
+  const result = spawnSync(
+    "ps",
+    ["-ax", "-o", "pid=", "-o", "comm=", "-o", "command="],
+    {
+      encoding: "utf8",
+      env: { ...process.env, LC_ALL: "C" },
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
   if (result.error || (result.status !== 0 && result.status !== 1)) {
     return [];
   }
@@ -101,12 +109,18 @@ function processNameMatches({ comm, command, want, name }) {
   if (String(comm || "").toLowerCase() === want) {
     return true;
   }
-  const base = path.basename(String(command || "").split(/\s+/)[0] || "").toLowerCase();
+  const base = path
+    .basename(String(command || "").split(/\s+/)[0] || "")
+    .toLowerCase();
   if (base && base === want) {
     return true;
   }
   const appNeedle = `/${name}.app/`.toLowerCase();
-  if (String(command || "").toLowerCase().includes(appNeedle)) {
+  if (
+    String(command || "")
+      .toLowerCase()
+      .includes(appNeedle)
+  ) {
     return true;
   }
   return false;
@@ -149,7 +163,9 @@ export function getProcessTree({ pid, name } = {}) {
     );
   }
 
-  const trees = roots.slice(0, MAX_NAME_MATCHES).map((rootPid) => buildOneTree(rootPid));
+  const trees = roots
+    .slice(0, MAX_NAME_MATCHES)
+    .map((rootPid) => buildOneTree(rootPid));
   return {
     query: pid ? { pid: Number(pid) } : { name: assertProcessName(name) },
     matchCount: roots.length,
@@ -181,7 +197,9 @@ function resolveTreeRoots({ pid, name }) {
 }
 
 function buildOneTree(pid) {
-  const ancestors = listAncestorPids(pid).map((ancestor) => describePid(ancestor));
+  const ancestors = listAncestorPids(pid).map((ancestor) =>
+    describePid(ancestor),
+  );
   const self = describePid(pid);
   const childPids = listChildPids(pid);
   const descendants = listDescendantPids(pid);
@@ -212,20 +230,30 @@ function formatOneTree(tree) {
   const lines = [];
   let indent = 0;
   for (const ancestor of tree.ancestors) {
-    lines.push(`${"  ".repeat(indent)}pid=${ancestor.pid}  ${shortCommand(ancestor.command)}`);
+    lines.push(
+      `${"  ".repeat(indent)}pid=${ancestor.pid}  ${shortCommand(ancestor.command)}`,
+    );
     indent += 1;
   }
-  lines.push(`${"  ".repeat(indent)}pid=${tree.self.pid}  ${shortCommand(tree.self.command)}  [requested]`);
+  lines.push(
+    `${"  ".repeat(indent)}pid=${tree.self.pid}  ${shortCommand(tree.self.command)}  [requested]`,
+  );
   indent += 1;
   for (const child of tree.children) {
-    const extra = child.childCount ? `  (+${child.childCount} child${child.childCount === 1 ? "" : "ren"})` : "";
-    lines.push(`${"  ".repeat(indent)}pid=${child.pid}  ${shortCommand(child.command)}${extra}`);
+    const extra = child.childCount
+      ? `  (+${child.childCount} child${child.childCount === 1 ? "" : "ren"})`
+      : "";
+    lines.push(
+      `${"  ".repeat(indent)}pid=${child.pid}  ${shortCommand(child.command)}${extra}`,
+    );
   }
   if (tree.childrenTruncated) {
     lines.push(`${"  ".repeat(indent)}… more children omitted`);
   }
   if (tree.descendantCount > tree.children.length) {
-    lines.push(`${"  ".repeat(indent)}(${tree.descendantCount} descendants total)`);
+    lines.push(
+      `${"  ".repeat(indent)}(${tree.descendantCount} descendants total)`,
+    );
   }
   return lines.join("\n");
 }
@@ -248,7 +276,9 @@ export function listRunningAppNames() {
     { encoding: "utf8" },
   );
   if (result.status !== 0) {
-    throw new Error(`Could not list running apps: ${(result.stderr || result.stdout || "").trim()}`);
+    throw new Error(
+      `Could not list running apps: ${(result.stderr || result.stdout || "").trim()}`,
+    );
   }
   return (result.stdout || "")
     .split(",")
@@ -267,7 +297,9 @@ export function quitApp(name) {
   const app = assertProcessName(name);
   const running = listRunningAppNames();
   if (!running.includes(app)) {
-    const caseHit = running.filter((item) => item.toLowerCase() === app.toLowerCase());
+    const caseHit = running.filter(
+      (item) => item.toLowerCase() === app.toLowerCase(),
+    );
     const hint = caseHit.length
       ? ` Exact name is case-sensitive. Did you mean: ${caseHit.join(", ")}?`
       : running.length
@@ -276,11 +308,17 @@ export function quitApp(name) {
     throw new Error(`No running application named "${app}".${hint}`);
   }
 
-  const result = spawnSync("osascript", ["-e", `tell application "${app}" to quit`], {
-    encoding: "utf8",
-  });
+  const result = spawnSync(
+    "osascript",
+    ["-e", `tell application "${app}" to quit`],
+    {
+      encoding: "utf8",
+    },
+  );
   if (result.status !== 0) {
-    throw new Error(`quit_app "${app}" failed: ${(result.stderr || result.stdout || "").trim()}`);
+    throw new Error(
+      `quit_app "${app}" failed: ${(result.stderr || result.stdout || "").trim()}`,
+    );
   }
   return {
     name: app,

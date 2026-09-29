@@ -55,14 +55,42 @@ async function createFixture() {
   await mkdir(path.join(root, ".next"), { recursive: true });
   await mkdir(path.join(root, ".firecrawl"), { recursive: true });
   await writeFile(path.join(root, "README.md"), "# Fixture\n", "utf8");
-  await writeFile(path.join(root, "src", "index.js"), "console.log('hello');\n", "utf8");
-  await writeFile(path.join(root, "src", "main.ts"), "export const main = true;\n", "utf8");
-  await writeFile(path.join(root, "src", "nested", "deep.ts"), "export const deep = true;\n", "utf8");
-  await writeFile(path.join(root, "node_modules", "left-pad", "index.js"), "module.exports = () => {};\n", "utf8");
+  await writeFile(
+    path.join(root, "src", "index.js"),
+    "console.log('hello');\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(root, "src", "main.ts"),
+    "export const main = true;\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(root, "src", "nested", "deep.ts"),
+    "export const deep = true;\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(root, "node_modules", "left-pad", "index.js"),
+    "module.exports = () => {};\n",
+    "utf8",
+  );
   await writeFile(path.join(root, ".git", "config"), "[core]\n", "utf8");
-  await writeFile(path.join(root, ".next", "build-manifest.json"), "{}\n", "utf8");
-  await writeFile(path.join(root, ".firecrawl", "search.md"), "junk from web searches\n", "utf8");
-  await writeFile(path.join(root, ".gitignore"), "ignored.txt\nnode_modules\n", "utf8");
+  await writeFile(
+    path.join(root, ".next", "build-manifest.json"),
+    "{}\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(root, ".firecrawl", "search.md"),
+    "junk from web searches\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(root, ".gitignore"),
+    "ignored.txt\nnode_modules\n",
+    "utf8",
+  );
   await writeFile(path.join(root, ".customignore"), "src/index.js\n", "utf8");
   await writeFile(path.join(root, "ignored.txt"), "ignored\n", "utf8");
   return root;
@@ -77,17 +105,30 @@ async function createAllFixture() {
   await writeFile(path.join(root, ".gitignore"), "ignored.txt\n", "utf8");
   await writeFile(path.join(root, "ignored.txt"), "ignored\n", "utf8");
   await writeFile(path.join(root, ".env"), "SECRET=value\n", "utf8");
-  await writeFile(path.join(root, "node_modules", "pkg", "index.js"), "module.exports = true;\n", "utf8");
+  await writeFile(
+    path.join(root, "node_modules", "pkg", "index.js"),
+    "module.exports = true;\n",
+    "utf8",
+  );
   await writeFile(path.join(root, ".git", "config"), "[core]\n", "utf8");
-  await writeFile(path.join(root, ".firecrawl", "search.md"), "junk from web searches\n", "utf8");
+  await writeFile(
+    path.join(root, ".firecrawl", "search.md"),
+    "junk from web searches\n",
+    "utf8",
+  );
   await writeFile(path.join(root, "document.pdf"), SIMPLE_PDF, "utf8");
   await writeFile(
     path.join(root, "notebook.ipynb"),
     JSON.stringify({
       nbformat: 4,
       nbformat_minor: 5,
-      metadata: { kernelspec: { display_name: "Python 3" }, language_info: { name: "python" } },
-      cells: [{ cell_type: "markdown", source: ["# Notebook\n"], metadata: {} }],
+      metadata: {
+        kernelspec: { display_name: "Python 3" },
+        language_info: { name: "python" },
+      },
+      cells: [
+        { cell_type: "markdown", source: ["# Notebook\n"], metadata: {} },
+      ],
     }),
     "utf8",
   );
@@ -104,7 +145,11 @@ describe("ingestPath", () => {
     assert.ok(result.summary.includes("Files analyzed: 5"));
     assert.ok(result.summary.includes("Stats: 14 words, 5 lines"));
     assert.ok(result.summary.includes(`Path: ${resolvedRoot}`));
-    assert.ok(result.summary.includes("Excluded directories: .firecrawl, .git, .next, node_modules"));
+    assert.ok(
+      result.summary.includes(
+        "Excluded directories: .firecrawl, .git, .next, node_modules",
+      ),
+    );
     assert.ok(!result.summary.includes("Estimated tokens"));
     assert.ok(!result.digest.includes("Estimated tokens"));
     assert.ok(result.tree.includes("Directory structure:"));
@@ -115,7 +160,11 @@ describe("ingestPath", () => {
     assert.ok(result.content.includes("FILE: src/main.ts"));
     assert.ok(result.content.includes("FILE: src/nested/deep.ts"));
     assert.ok(!result.content.includes("FILE: .firecrawl/search.md"));
-    assert.ok(result.digest.includes("================================================"));
+    assert.ok(
+      result.digest.includes(
+        "================================================",
+      ),
+    );
   });
 
   test("applies user exclude patterns", async () => {
@@ -129,7 +178,9 @@ describe("ingestPath", () => {
 
   test("applies include patterns while traversing directories", async () => {
     const root = await createFixture();
-    const result = await ingestPath(root, { include: ["src/**/*.ts", "README.md"] });
+    const result = await ingestPath(root, {
+      include: ["src/**/*.ts", "README.md"],
+    });
 
     assert.ok(result.summary.includes("Files analyzed: 3"));
     assert.ok(result.content.includes("FILE: README.md"));
@@ -140,7 +191,10 @@ describe("ingestPath", () => {
 
   test("applies the nextjs exclusion template", async () => {
     const root = await createFixture();
-    const result = await ingestPath(root, { includeDangerous: true, templates: ["nextjs"] });
+    const result = await ingestPath(root, {
+      includeDangerous: true,
+      templates: ["nextjs"],
+    });
 
     assert.ok(result.excludedDirectories.includes(".next"));
     assert.ok(!result.excludedDirectories.includes("node_modules"));
@@ -151,7 +205,9 @@ describe("ingestPath", () => {
 
   test("loads additional ignore file names", async () => {
     const root = await createFixture();
-    const result = await ingestPath(root, { ignoreFiles: [".gitignore", ".gitingestignore", ".customignore"] });
+    const result = await ingestPath(root, {
+      ignoreFiles: [".gitignore", ".gitingestignore", ".customignore"],
+    });
 
     assert.ok(!result.content.includes("FILE: src/index.js"));
     assert.ok(result.content.includes("FILE: src/main.ts"));
@@ -176,7 +232,9 @@ describe("ingestPath", () => {
     const result = await ingestPath(root);
 
     assert.ok(result.content.includes("FILE: document.pdf"));
-    assert.ok(result.content.includes("[PDF document - 1 page parsed by LiteParse]"));
+    assert.ok(
+      result.content.includes("[PDF document - 1 page parsed by LiteParse]"),
+    );
     assert.ok(result.content.includes("Hello LiteParse PDF"));
   });
 
@@ -194,11 +252,18 @@ describe("ingestPath", () => {
   test("CLI --all enables every special include option", async () => {
     const root = await createAllFixture();
 
-    const { stdout, stderr } = await execFileAsync(process.execPath, [CLI_PATH, root, "--all", "--stdout"], {
-      maxBuffer: 1024 * 1024,
-    });
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      [CLI_PATH, root, "--all", "--stdout"],
+      {
+        maxBuffer: 1024 * 1024,
+      },
+    );
 
-    assert.equal(stderr, "Running with: --include-dangerous, --include-gitignored, --include-env, --ipynb\n");
+    assert.equal(
+      stderr,
+      "Running with: --include-dangerous, --include-gitignored, --include-env, --ipynb\n",
+    );
     assert.ok(stdout.includes("FILE: ignored.txt"));
     assert.ok(stdout.includes("FILE: .env"));
     assert.ok(stdout.includes("FILE: node_modules/pkg/index.js"));
@@ -215,7 +280,14 @@ describe("ingestPath", () => {
 
     const { stdout, stderr } = await execFileAsync(
       process.execPath,
-      [CLI_PATH, root, "--all", "--exclude-gitignored", "--exclude-env", "--stdout"],
+      [
+        CLI_PATH,
+        root,
+        "--all",
+        "--exclude-gitignored",
+        "--exclude-env",
+        "--stdout",
+      ],
       { maxBuffer: 1024 * 1024 },
     );
 
@@ -231,12 +303,20 @@ describe("ingestPath", () => {
   test("CLI excludes PDFs with --exclude-pdf or --exclude PDF", async () => {
     const root = await createAllFixture();
 
-    const excludedByFlag = await execFileAsync(process.execPath, [CLI_PATH, root, "--all", "--exclude-pdf", "--stdout"], {
-      maxBuffer: 1024 * 1024,
-    });
-    const excludedByPattern = await execFileAsync(process.execPath, [CLI_PATH, root, "--all", "--exclude", "PDF", "--stdout"], {
-      maxBuffer: 1024 * 1024,
-    });
+    const excludedByFlag = await execFileAsync(
+      process.execPath,
+      [CLI_PATH, root, "--all", "--exclude-pdf", "--stdout"],
+      {
+        maxBuffer: 1024 * 1024,
+      },
+    );
+    const excludedByPattern = await execFileAsync(
+      process.execPath,
+      [CLI_PATH, root, "--all", "--exclude", "PDF", "--stdout"],
+      {
+        maxBuffer: 1024 * 1024,
+      },
+    );
 
     assert.ok(!excludedByFlag.stdout.includes("FILE: document.pdf"));
     assert.ok(!excludedByPattern.stdout.includes("FILE: document.pdf"));
@@ -244,9 +324,18 @@ describe("ingestPath", () => {
 
   test("CLI rejects invalid --repo URLs", async () => {
     await assert.rejects(
-      () => execFileAsync(process.execPath, [CLI_PATH, "--repo", "not-a-url", "--stdout"]),
+      () =>
+        execFileAsync(process.execPath, [
+          CLI_PATH,
+          "--repo",
+          "not-a-url",
+          "--stdout",
+        ]),
       (error) => {
-        assert.match(String(error.stderr), /Invalid repository URL: "not-a-url"/);
+        assert.match(
+          String(error.stderr),
+          /Invalid repository URL: "not-a-url"/,
+        );
         return true;
       },
     );

@@ -25,7 +25,10 @@ test("help is generated from package metadata and lists recorder options", () =>
   const result = run("--help");
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, new RegExp(`${packageInfo.name} ${packageInfo.version}`));
+  assert.match(
+    result.stdout,
+    new RegExp(`${packageInfo.name} ${packageInfo.version}`),
+  );
   assert.match(result.stdout, /--output <path>/);
   assert.match(result.stdout, /--no-mic/);
   assert.match(result.stdout, /--only-mic/);
@@ -85,15 +88,24 @@ test("duration and region flags are validated", () => {
   assert.match(run("--in", "nope").stderr, /--in must look like/);
   assert.match(run("--region", "1,2").stderr, /x,y,w,h/);
   assert.match(run("--quality", "ultra").stderr, /low/);
-  assert.match(run("--only-mic", "--camera").stderr, /cannot be combined with --camera/);
-  assert.match(run("--window", "Safari", "--region").stderr, /either --window or --region/);
+  assert.match(
+    run("--only-mic", "--camera").stderr,
+    /cannot be combined with --camera/,
+  );
+  assert.match(
+    run("--window", "Safari", "--region").stderr,
+    /either --window or --region/,
+  );
 });
 
 test("only-mic cannot be combined with no-mic", () => {
   const result = run("--only-mic", "--no-mic");
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /--only-mic option cannot be combined with --no-mic/);
+  assert.match(
+    result.stderr,
+    /--only-mic option cannot be combined with --no-mic/,
+  );
 });
 
 test("internal is an alias for only-system-audio", () => {
@@ -120,10 +132,7 @@ test("audio-only combines system and microphone audio", () => {
     run("--audio-only", "--no-system-audio").stderr,
     /--only-audio option cannot be combined/,
   );
-  assert.match(
-    run("--only-audio", "--only-mic").stderr,
-    /Choose only one of/,
-  );
+  assert.match(run("--only-audio", "--only-mic").stderr, /Choose only one of/);
   assert.match(
     run("--only-audio", "--camera").stderr,
     /cannot be combined with --camera/,
@@ -140,7 +149,8 @@ test("separate audio tracks require both sources and a multi-track container", (
     /requires both microphone and system audio/,
   );
   assert.match(
-    run("--only-audio", "--separate-audio-tracks", "-o", "recording.mp3").stderr,
+    run("--only-audio", "--separate-audio-tracks", "-o", "recording.mp3")
+      .stderr,
     /must use \.mov, \.mp4, \.m4a/,
   );
   assert.match(
@@ -149,12 +159,15 @@ test("separate audio tracks require both sources and a multi-track container", (
   );
 });
 
-test("separate audio-only defaults to MOV and reaches the native helper", macOSOnly, async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "record-tracks-"));
-  const helper = path.join(directory, "fake-native.js");
-  await writeFile(
-    helper,
-    `#!/usr/bin/env node
+test(
+  "separate audio-only defaults to MOV and reaches the native helper",
+  macOSOnly,
+  async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "record-tracks-"));
+    const helper = path.join(directory, "fake-native.js");
+    await writeFile(
+      helper,
+      `#!/usr/bin/env node
 const outputIndex = process.argv.indexOf("--output");
 if (!process.argv.includes("--only-audio") || !process.argv.includes("--separate-audio-tracks")) {
   process.stderr.write("missing multi-track native flags\\n");
@@ -164,30 +177,37 @@ const output = process.argv[outputIndex + 1];
 process.stdout.write(JSON.stringify({ event: "started", path: output }) + "\\n");
 process.stdout.write(JSON.stringify({ event: "saved", path: output }) + "\\n");
 `,
-  );
-  await chmod(helper, 0o755);
+    );
+    await chmod(helper, 0o755);
 
-  const result = spawnSync(
-    process.execPath,
-    [cliPath, "--only-audio", "--separate-audio-tracks", "--location", directory],
-    {
-      encoding: "utf8",
-      env: { ...process.env, RECORD_NATIVE: helper },
-    },
-  );
+    const result = spawnSync(
+      process.execPath,
+      [
+        cliPath,
+        "--only-audio",
+        "--separate-audio-tracks",
+        "--location",
+        directory,
+      ],
+      {
+        encoding: "utf8",
+        env: { ...process.env, RECORD_NATIVE: helper },
+      },
+    );
 
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /Saved: .*\.mov/);
-});
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Saved: .*\.mov/);
+  },
+);
 
 test("common-sense aliases map to the canonical flags", () => {
-  assert.match(
-    run("--camera-only", "--only-mic").stderr,
-    /Choose only one of/,
-  );
+  assert.match(run("--camera-only", "--only-mic").stderr, /Choose only one of/);
   assert.match(run("--duration", "0").stderr, /must be greater than 0/);
   assert.match(run("--delay", "nope").stderr, /must look like/);
-  assert.match(run("--app", "Safari", "--region").stderr, /either --window or --region/);
+  assert.match(
+    run("--app", "Safari", "--region").stderr,
+    /either --window or --region/,
+  );
 });
 
 test("recording header lists the active sources", macOSOnly, async () => {
@@ -219,10 +239,7 @@ process.stdout.write(JSON.stringify({ event: "saved", path: output }) + "\\n");
   assert.equal(microphone.status, 0);
   assert.match(microphone.stdout, /Recording \[microphone\]/);
   assert.equal(microphoneAndScreen.status, 0);
-  assert.match(
-    microphoneAndScreen.stdout,
-    /Recording \[microphone, screen\]/,
-  );
+  assert.match(microphoneAndScreen.stdout, /Recording \[microphone, screen\]/);
 });
 
 test("only one output destination is allowed", () => {

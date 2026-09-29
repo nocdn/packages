@@ -16,11 +16,19 @@ import {
   resolveToolPath,
 } from "./fs-ops.js";
 
-export async function createHistoryEntry(calls, root = process.cwd(), options = {}) {
+export async function createHistoryEntry(
+  calls,
+  root = process.cwd(),
+  options = {},
+) {
   const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${process.pid}`;
   const historyDirectory = await historyDir(root);
   const historyPath = path.join(historyDirectory, `${id}.json`);
-  const affectedPaths = [...new Set(calls.flatMap((call) => affectedPathsForCall(call, root, options)))];
+  const affectedPaths = [
+    ...new Set(
+      calls.flatMap((call) => affectedPathsForCall(call, root, options)),
+    ),
+  ];
   const snapshots = [];
 
   for (const relativePath of affectedPaths) {
@@ -44,7 +52,9 @@ export async function createHistoryEntry(calls, root = process.cwd(), options = 
 
 export function affectedPathsForCall(call, root = process.cwd(), options = {}) {
   if (call.tool === "move_file") {
-    return [call.from, call.to].filter(Boolean).map((p) => normalizeRelativePath(p, root, options));
+    return [call.from, call.to]
+      .filter(Boolean)
+      .map((p) => normalizeRelativePath(p, root, options));
   }
 
   if (call.path) {
@@ -54,7 +64,11 @@ export function affectedPathsForCall(call, root = process.cwd(), options = {}) {
   return [];
 }
 
-export async function snapshotPath(relativePath, root = process.cwd(), options = {}) {
+export async function snapshotPath(
+  relativePath,
+  root = process.cwd(),
+  options = {},
+) {
   const absolutePath = resolveToolPath(relativePath, root, options);
   const normalizedPath = normalizeRelativePath(relativePath, root, options);
 
@@ -87,7 +101,9 @@ export async function snapshotPath(relativePath, root = process.cwd(), options =
 
 async function snapshotDirectory(absoluteDirectory, relativeDirectory) {
   const entries = [];
-  const directoryEntries = await readdir(absoluteDirectory, { withFileTypes: true });
+  const directoryEntries = await readdir(absoluteDirectory, {
+    withFileTypes: true,
+  });
 
   for (const entry of directoryEntries) {
     const relativePath = path.join(relativeDirectory, entry.name);
@@ -103,7 +119,9 @@ async function snapshotDirectory(absoluteDirectory, relativeDirectory) {
     }
 
     if (entry.isSymbolicLink()) {
-      throw new Error(`${normalizeRelativePath(relativePath)}: symbolic links are not supported.`);
+      throw new Error(
+        `${normalizeRelativePath(relativePath)}: symbolic links are not supported.`,
+      );
     }
 
     entries.push({
@@ -123,7 +141,11 @@ function resolveHistoryPath(storedPath, root, options = {}) {
   return resolveToolPath(storedPath, root, options);
 }
 
-export async function restoreSnapshot(snapshot, root = process.cwd(), options = {}) {
+export async function restoreSnapshot(
+  snapshot,
+  root = process.cwd(),
+  options = {},
+) {
   if (snapshot.type === "file") {
     const target = resolveHistoryPath(snapshot.path, root, options);
     await assertParentPathSafe(target, root, options);
@@ -170,7 +192,10 @@ export async function readLatestHistoryEntryForCwd(root = process.cwd()) {
     throw error;
   }
 
-  const historyFiles = files.filter((file) => file.endsWith(".json")).sort().reverse();
+  const historyFiles = files
+    .filter((file) => file.endsWith(".json"))
+    .sort()
+    .reverse();
 
   for (const file of historyFiles) {
     const historyPath = path.join(directory, file);
@@ -196,7 +221,10 @@ export async function readLatestUndoableHistoryEntry(root = process.cwd()) {
     throw error;
   }
 
-  const historyFiles = files.filter((file) => file.endsWith(".json")).sort().reverse();
+  const historyFiles = files
+    .filter((file) => file.endsWith(".json"))
+    .sort()
+    .reverse();
 
   for (const file of historyFiles) {
     const historyPath = path.join(directory, file);
@@ -222,7 +250,10 @@ export async function undoLatestChange(root = process.cwd()) {
   const undoOptions = { allowOutside: true };
   for (const snapshot of entry.snapshots) {
     await assertRemovableCurrentPathSafe(snapshot.path, entryRoot, undoOptions);
-    await rm(resolveHistoryPath(snapshot.path, entryRoot, undoOptions), { recursive: true, force: true });
+    await rm(resolveHistoryPath(snapshot.path, entryRoot, undoOptions), {
+      recursive: true,
+      force: true,
+    });
   }
 
   for (const snapshot of entry.snapshots) {
@@ -232,7 +263,11 @@ export async function undoLatestChange(root = process.cwd()) {
   }
 
   entry.undoneAt = new Date().toISOString();
-  await writeFile(entry.historyPath, JSON.stringify(stripHistoryPath(entry), null, 2), "utf8");
+  await writeFile(
+    entry.historyPath,
+    JSON.stringify(stripHistoryPath(entry), null, 2),
+    "utf8",
+  );
   return entry;
 }
 
@@ -316,4 +351,3 @@ export async function findGitDirectory(startDirectory) {
     directory = parent;
   }
 }
-

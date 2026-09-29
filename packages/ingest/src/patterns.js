@@ -346,7 +346,9 @@ export function createPatternMatcher(patterns) {
 }
 
 export function createIncludeMatcher(patterns) {
-  const matchers = parsePatterns(patterns).map((pattern) => compilePattern(pattern));
+  const matchers = parsePatterns(patterns).map((pattern) =>
+    compilePattern(pattern),
+  );
 
   if (matchers.length === 0) {
     return null;
@@ -434,7 +436,10 @@ function globToRegex(pattern) {
 }
 
 function normalizePath(path) {
-  return String(path).replaceAll("\\", "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
+  return String(path)
+    .replaceAll("\\", "/")
+    .replace(/^\.\/+/, "")
+    .replace(/\/+$/, "");
 }
 
 function escapeRegex(char) {

@@ -18,15 +18,25 @@ import { resolveToolPath, validateToolCall } from "../lib/fs-ops.js";
 const tempDirectories = [];
 
 test.after(async () => {
-  await Promise.all(tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempDirectories.map((dir) => rm(dir, { recursive: true, force: true })),
+  );
 });
 
 async function tempProject() {
   const root = await mkdtemp(path.join(os.tmpdir(), "pastepatch-search-"));
   tempDirectories.push(root);
   await mkdir(path.join(root, "src"), { recursive: true });
-  await writeFile(path.join(root, "README.md"), "hello unique-token-xyz\n", "utf8");
-  await writeFile(path.join(root, "src", "app.js"), "export const uniqueTokenXyz = 1;\n", "utf8");
+  await writeFile(
+    path.join(root, "README.md"),
+    "hello unique-token-xyz\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(root, "src", "app.js"),
+    "export const uniqueTokenXyz = 1;\n",
+    "utf8",
+  );
   return root;
 }
 
@@ -41,7 +51,11 @@ test("findFiles finds files by name", async () => {
   const root = await tempProject();
   const result = await findFiles({ root, pattern: "app.js" });
   assert.match(result.output, /src\/app\.js|src\\app\.js/);
-  assert.ok(result.engine === "fd" || result.engine === "fdfind" || result.engine === "find");
+  assert.ok(
+    result.engine === "fd" ||
+      result.engine === "fdfind" ||
+      result.engine === "find",
+  );
 });
 
 test("start_here guide mentions tools and project root", () => {
@@ -73,7 +87,8 @@ test("start_here guide mentions tools and project root", () => {
 });
 
 test("start_here guide appends AGENTS.md verbatim when provided", () => {
-  const agentsMd = "# Project rules\n\n- Prefer small diffs\n- Never invent APIs\n";
+  const agentsMd =
+    "# Project rules\n\n- Prefer small diffs\n- Never invent APIs\n";
   const guide = buildStartHereGuide({
     root: "/tmp/proj",
     version: "1.1.1",
@@ -132,7 +147,10 @@ test("resolveProjectRoot refuses home without explicit path", async () => {
     () => resolveProjectRoot({ pathArg: os.homedir(), pathExplicit: false }),
     /Refusing to bind MCP/,
   );
-  const root = await resolveProjectRoot({ pathArg: os.homedir(), pathExplicit: true });
+  const root = await resolveProjectRoot({
+    pathArg: os.homedir(),
+    pathExplicit: true,
+  });
   assert.equal(root, path.resolve(os.homedir()));
 });
 
@@ -156,7 +174,11 @@ test("path sandbox blocks outside paths by default", async () => {
   assert.throws(() => resolveToolPath("../secret.txt", root), /\.\./);
   assert.throws(() => resolveToolPath("/etc/passwd", root), /absolute/i);
   await assert.rejects(
-    () => validateToolCall({ tool: "create_file", path: "../out.txt", content: "x" }, root),
+    () =>
+      validateToolCall(
+        { tool: "create_file", path: "../out.txt", content: "x" },
+        root,
+      ),
     /\.\./,
   );
 });
@@ -178,11 +200,18 @@ test("path sandbox allows outside paths with allowOutside", async () => {
 test("MCP exposes search, find_files, start_here, handoff", async () => {
   const root = await tempProject();
   const port = await freePort();
-  const server = await startMcpHttpServer({ root, port, host: "127.0.0.1", version: "test" });
+  const server = await startMcpHttpServer({
+    root,
+    port,
+    host: "127.0.0.1",
+    version: "test",
+  });
 
   try {
     const client = new Client({ name: "pastepatch-test", version: "0.0.0" });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${port}/mcp`),
+    );
     await client.connect(transport);
 
     const tools = await client.listTools();
@@ -249,11 +278,18 @@ test("MCP start_here includes project AGENTS.md when present", async () => {
   await writeFile(path.join(root, "AGENTS.md"), agentsBody, "utf8");
 
   const port = await freePort();
-  const server = await startMcpHttpServer({ root, port, host: "127.0.0.1", version: "test" });
+  const server = await startMcpHttpServer({
+    root,
+    port,
+    host: "127.0.0.1",
+    version: "test",
+  });
 
   try {
     const client = new Client({ name: "pastepatch-test", version: "0.0.0" });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${port}/mcp`),
+    );
     await client.connect(transport);
 
     const start = await client.callTool({ name: "start_here", arguments: {} });

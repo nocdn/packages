@@ -112,7 +112,11 @@ export function formatToolLogLine({
   color = false,
 } = {}) {
   const extras = details
-    .map((part) => String(part ?? "").replace(/\s+/g, " ").trim())
+    .map((part) =>
+      String(part ?? "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
     .filter(Boolean);
 
   const statusPlain = ok
@@ -139,7 +143,10 @@ export function formatToolLogLine({
       );
   // Tool name stays default (terminal foreground). Summary + details are
   // the same dim gray as the timestamp; +N / -N keep green / red.
-  const payload = extras.length > 0 ? `${summary}; ${extras.join("; ")}` : String(summary ?? "");
+  const payload =
+    extras.length > 0
+      ? `${summary}; ${extras.join("; ")}`
+      : String(summary ?? "");
   const payloadDisplay = paint(true, ansi.dim, colorizeDetail(payload, true));
 
   const display = `${tag} ${time} ${status} → ${tool}: ${payloadDisplay}`;

@@ -361,9 +361,7 @@ async function main() {
     } else if (flags.agents === "blank") {
       agentsContent = "";
     } else if (flags.agents === "minimal") {
-      const runtime =
-        flags.runtime ??
-        (framework === "hono" ? "bun" : null);
+      const runtime = flags.runtime ?? (framework === "hono" ? "bun" : null);
 
       if (!runtime) {
         const selectedRuntime = await clack.select({
@@ -606,9 +604,13 @@ async function main() {
       s.start("Initializing git...");
       await execFileAsync("git", ["init"], { cwd: projectPath });
       await execFileAsync("git", ["add", "."], { cwd: projectPath });
-      await execFileAsync("git", ["commit", "-m", "init: initial file upload"], {
-        cwd: projectPath,
-      });
+      await execFileAsync(
+        "git",
+        ["commit", "-m", "init: initial file upload"],
+        {
+          cwd: projectPath,
+        },
+      );
       s.stop("Git initialized");
     }
 

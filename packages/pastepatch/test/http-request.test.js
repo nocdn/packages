@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import test from "node:test";
-import { httpRequest, isLoopbackUrl, parseHttpUrl } from "../lib/http-request.js";
+import {
+  httpRequest,
+  isLoopbackUrl,
+  parseHttpUrl,
+} from "../lib/http-request.js";
 
 test("parseHttpUrl locks to loopback by default", () => {
   assert.equal(isLoopbackUrl("http://127.0.0.1:8081/v1"), true);
@@ -30,7 +34,9 @@ test("http_request GET/POST against a loopback server", async () => {
   });
 
   try {
-    const get = await httpRequest({ url: `http://127.0.0.1:${server.port}/health` });
+    const get = await httpRequest({
+      url: `http://127.0.0.1:${server.port}/health`,
+    });
     assert.equal(get.status, 200);
     assert.equal(get.json.ok, true);
     assert.equal(get.json.path, "/health");

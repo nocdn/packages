@@ -96,7 +96,9 @@ async function runRecording(args) {
         process.stdout.write(`Starting in ${event.remaining}…\n`);
         break;
       case "region-prompt":
-        process.stdout.write("Drag a rectangle on the display, then release. Esc cancels.\n");
+        process.stdout.write(
+          "Drag a rectangle on the display, then release. Esc cancels.\n",
+        );
         break;
       case "progress":
         if (started && !stopping) {
@@ -337,7 +339,9 @@ function createRecordingStatusRenderer(stream, sources) {
         ...meters.map(({ label }) => `${label}:`.length),
       );
       for (const meter of meters) {
-        statusLines.push(formatAudioMeter(meter.label, meter.level, labelWidth));
+        statusLines.push(
+          formatAudioMeter(meter.label, meter.level, labelWidth),
+        );
       }
 
       if (!interactive) {
@@ -464,20 +468,23 @@ function parseArgs(argv, info) {
       continue;
     }
 
-    if (
-      (arg === "mics" || arg === "microphones") &&
-      args.command === null
-    ) {
+    if ((arg === "mics" || arg === "microphones") && args.command === null) {
       args.command = "mics";
       continue;
     }
 
-    if ((arg === "windows" || arg === "--list-windows") && args.command === null) {
+    if (
+      (arg === "windows" || arg === "--list-windows") &&
+      args.command === null
+    ) {
       args.command = "windows";
       continue;
     }
 
-    if ((arg === "cameras" || arg === "--list-cameras") && args.command === null) {
+    if (
+      (arg === "cameras" || arg === "--list-cameras") &&
+      args.command === null
+    ) {
       args.command = "cameras";
       continue;
     }
@@ -512,7 +519,11 @@ function parseArgs(argv, info) {
       continue;
     }
 
-    if (arg === "--only-mic" || arg === "--mic-only" || arg === "--microphone") {
+    if (
+      arg === "--only-mic" ||
+      arg === "--mic-only" ||
+      arg === "--microphone"
+    ) {
       args.onlyMic = true;
       args.microphone = true;
       args.systemAudio = false;
@@ -568,7 +579,11 @@ function parseArgs(argv, info) {
 
     if (arg === "--camera-position") {
       args.cameraPosition = requiredValue(argv, ++index, arg).toLowerCase();
-      if (!["bottom-right", "bottom-left", "top-right", "top-left"].includes(args.cameraPosition)) {
+      if (
+        !["bottom-right", "bottom-left", "top-right", "top-left"].includes(
+          args.cameraPosition,
+        )
+      ) {
         throw new Error(
           'The camera position must be "bottom-right", "bottom-left", "top-right", or "top-left".',
         );
@@ -715,9 +730,16 @@ function parseArgs(argv, info) {
     args.systemAudio = true;
   }
 
-  const onlyModes = [args.onlyMic, args.onlySystemAudio, args.onlyAudio, args.onlyCamera].filter(Boolean);
+  const onlyModes = [
+    args.onlyMic,
+    args.onlySystemAudio,
+    args.onlyAudio,
+    args.onlyCamera,
+  ].filter(Boolean);
   if (onlyModes.length > 1) {
-    throw new Error("Choose only one of --only-mic, --only-system-audio, --only-audio, or --only-camera.");
+    throw new Error(
+      "Choose only one of --only-mic, --only-system-audio, --only-audio, or --only-camera.",
+    );
   }
 
   if (args.onlyMic && !args.microphone) {
@@ -737,7 +759,9 @@ function parseArgs(argv, info) {
   }
 
   if (args.separateAudioTracks && args.onlyCamera) {
-    throw new Error("The --separate-audio-tracks option cannot be combined with --only-camera.");
+    throw new Error(
+      "The --separate-audio-tracks option cannot be combined with --only-camera.",
+    );
   }
 
   if (args.separateAudioTracks && (!args.microphone || !args.systemAudio)) {
@@ -748,7 +772,9 @@ function parseArgs(argv, info) {
 
   if (args.separateAudioTracks && args.output) {
     const extension = path.extname(args.output).toLowerCase();
-    const allowed = args.onlyAudio ? [".mov", ".mp4", ".m4a"] : [".mov", ".mp4"];
+    const allowed = args.onlyAudio
+      ? [".mov", ".mp4", ".m4a"]
+      : [".mov", ".mp4"];
     if (extension && !allowed.includes(extension)) {
       throw new Error(
         `The --separate-audio-tracks output must use ${allowed.join(", ")}, or have no extension.`,
@@ -764,15 +790,27 @@ function parseArgs(argv, info) {
     throw new Error("Choose either --window or --region.");
   }
 
-  if ((args.onlyMic || args.onlySystemAudio || args.onlyAudio || args.onlyCamera) && (args.windowName || args.region)) {
-    throw new Error("Window and region capture cannot be combined with an audio-only or camera-only recording.");
+  if (
+    (args.onlyMic ||
+      args.onlySystemAudio ||
+      args.onlyAudio ||
+      args.onlyCamera) &&
+    (args.windowName || args.region)
+  ) {
+    throw new Error(
+      "Window and region capture cannot be combined with an audio-only or camera-only recording.",
+    );
   }
 
   if (args.codec === "h264") {
     args.hevc = false;
   }
 
-  const destinations = [args.output !== null, args.here, args.location !== null].filter(Boolean);
+  const destinations = [
+    args.output !== null,
+    args.here,
+    args.location !== null,
+  ].filter(Boolean);
   if (destinations.length > 1) {
     throw new Error("Choose only one of --output, --location, or --here.");
   }
@@ -782,11 +820,12 @@ function parseArgs(argv, info) {
 
 function resolveOutputPath(args) {
   const audioOnly = args.onlyMic || args.onlySystemAudio || args.onlyAudio;
-  const extension = args.onlyAudio && args.separateAudioTracks
-    ? ".mov"
-    : audioOnly
-      ? ".mp3"
-      : `.${args.format}`;
+  const extension =
+    args.onlyAudio && args.separateAudioTracks
+      ? ".mov"
+      : audioOnly
+        ? ".mp3"
+        : `.${args.format}`;
   const defaultDirectory = args.here
     ? process.cwd()
     : args.location
@@ -841,7 +880,10 @@ async function nativeExecutable() {
   }
 
   const executable = fileURLToPath(
-    new URL("../vendor/Record.app/Contents/MacOS/record-native", import.meta.url),
+    new URL(
+      "../vendor/Record.app/Contents/MacOS/record-native",
+      import.meta.url,
+    ),
   );
 
   try {
@@ -880,7 +922,9 @@ function positiveInteger(value, flag) {
 function positiveNumber(value, flag) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0 || number > 120) {
-    throw new Error(`Option ${flag} must be greater than 0 and no more than 120.`);
+    throw new Error(
+      `Option ${flag} must be greater than 0 and no more than 120.`,
+    );
   }
   return number;
 }
@@ -888,7 +932,9 @@ function positiveNumber(value, flag) {
 function unitInterval(value, flag) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0 || number > 1) {
-    throw new Error(`Option ${flag} must be greater than 0 and no more than 1.`);
+    throw new Error(
+      `Option ${flag} must be greater than 0 and no more than 1.`,
+    );
   }
   return number;
 }
@@ -902,7 +948,9 @@ function parseScale(value, flag) {
     return number / 100;
   }
   if (number > 1) {
-    throw new Error(`Option ${flag} must be between 0 and 1, or a percent up to 100.`);
+    throw new Error(
+      `Option ${flag} must be between 0 and 1, or a percent up to 100.`,
+    );
   }
   return number;
 }
@@ -917,13 +965,17 @@ function parseDuration(value, flag) {
     return seconds;
   }
 
-  const match = raw.match(/^(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m)?(?:(\d+(?:\.\d+)?)s)?$/);
+  const match = raw.match(
+    /^(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m)?(?:(\d+(?:\.\d+)?)s)?$/,
+  );
   if (!match || (!match[1] && !match[2] && !match[3])) {
     throw new Error(`Option ${flag} must look like 30, 30s, 1m, or 1m30s.`);
   }
 
   const seconds =
-    Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+    Number(match[1] || 0) * 3600 +
+    Number(match[2] || 0) * 60 +
+    Number(match[3] || 0);
   if (seconds <= 0) {
     throw new Error(`Option ${flag} must be greater than 0.`);
   }
@@ -931,7 +983,9 @@ function parseDuration(value, flag) {
 }
 
 function parseRegion(value, flag) {
-  const parts = String(value).split(",").map((part) => Number(part.trim()));
+  const parts = String(value)
+    .split(",")
+    .map((part) => Number(part.trim()));
   if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
     throw new Error(`Option ${flag} must look like x,y,w,h in display points.`);
   }
@@ -955,7 +1009,9 @@ function parseBitrate(value, flag) {
   }
   const number = Number(numberPart);
   if (!Number.isFinite(number) || number <= 0) {
-    throw new Error(`Option ${flag} must be a bitrate such as 8m, 8000k, or 8000000.`);
+    throw new Error(
+      `Option ${flag} must be a bitrate such as 8m, 8000k, or 8000000.`,
+    );
   }
   return Math.round(number * multiplier);
 }
@@ -965,7 +1021,7 @@ function nativeRecordingArgs(args, outputPath) {
 
   if (args.display !== 1) {
     nativeArgs.push("--display", String(args.display));
-  } else if (args.onlySystemAudio || !args.onlyMic && !args.onlyCamera) {
+  } else if (args.onlySystemAudio || (!args.onlyMic && !args.onlyCamera)) {
     nativeArgs.push("--display", String(args.display));
   }
 
@@ -1001,7 +1057,13 @@ function nativeRecordingArgs(args, outputPath) {
   }
 
   if (args.onlyCamera) {
-    nativeArgs.push("--only-camera", "--fps", String(args.fps), "--format", args.format);
+    nativeArgs.push(
+      "--only-camera",
+      "--fps",
+      String(args.fps),
+      "--format",
+      args.format,
+    );
     appendCameraArgs(nativeArgs, args);
     appendQualityArgs(nativeArgs, args);
     return nativeArgs;

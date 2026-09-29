@@ -29,7 +29,13 @@ export function countLines(text) {
 
 export function sliceTextLines(
   text,
-  { grep, grepContext = 0, lineOffset, lineLimit, caseInsensitive = false } = {},
+  {
+    grep,
+    grepContext = 0,
+    lineOffset,
+    lineLimit,
+    caseInsensitive = false,
+  } = {},
 ) {
   const source = typeof text === "string" ? text : "";
   const normalized = source.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -48,13 +54,19 @@ export function sliceTextLines(
     try {
       regex = new RegExp(grep, caseInsensitive ? "i" : "");
     } catch (error) {
-      throw new Error(`Invalid grep pattern: ${error.message}`, { cause: error });
+      throw new Error(`Invalid grep pattern: ${error.message}`, {
+        cause: error,
+      });
     }
     const context = Math.min(Math.max(Number(grepContext) || 0, 0), 20);
     const keep = new Set();
     lines.forEach((line, index) => {
       if (regex.test(line)) {
-        for (let i = Math.max(0, index - context); i <= Math.min(lines.length - 1, index + context); i += 1) {
+        for (
+          let i = Math.max(0, index - context);
+          i <= Math.min(lines.length - 1, index + context);
+          i += 1
+        ) {
           keep.add(i);
         }
       }
@@ -72,13 +84,19 @@ export function sliceTextLines(
     lines = picked;
   }
 
-  if ((lineOffset !== undefined && lineOffset !== null && lineOffset !== "") || lineLimit) {
+  if (
+    (lineOffset !== undefined && lineOffset !== null && lineOffset !== "") ||
+    lineLimit
+  ) {
     const start = Math.max(0, (Number(lineOffset) || 1) - 1);
     const count =
       lineLimit === undefined || lineLimit === null || lineLimit === ""
         ? undefined
         : Math.max(0, Number(lineLimit) || 0);
-    lines = count === undefined ? lines.slice(start) : lines.slice(start, start + count);
+    lines =
+      count === undefined
+        ? lines.slice(start)
+        : lines.slice(start, start + count);
   }
 
   return {
@@ -90,7 +108,11 @@ export function sliceTextLines(
 }
 
 export function formatSlicedText({ path, sliced, query = {} } = {}) {
-  const parts = [`path=${path}`, `total_lines=${sliced.totalLines}`, `returned_lines=${sliced.lineCount}`];
+  const parts = [
+    `path=${path}`,
+    `total_lines=${sliced.totalLines}`,
+    `returned_lines=${sliced.lineCount}`,
+  ];
   if (query.grep) {
     parts.push(`grep=/${query.grep}/`);
     if (query.grepContext) {

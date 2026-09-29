@@ -4,7 +4,11 @@ import { createInterface } from "node:readline/promises";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { describeCall, executeToolCall, validateToolCall } from "../lib/fs-ops.js";
+import {
+  describeCall,
+  executeToolCall,
+  validateToolCall,
+} from "../lib/fs-ops.js";
 import {
   createHistoryEntry,
   findDuplicateAppliedPlan,
@@ -12,7 +16,11 @@ import {
   undoLatestChange,
 } from "../lib/history.js";
 import { acquireMcpLock, releaseMcpLock } from "../lib/mcp-lock.js";
-import { loadOrCreateMcpSecret, mcpPathForSecret, mcpSecretPath } from "../lib/mcp-secret.js";
+import {
+  loadOrCreateMcpSecret,
+  mcpPathForSecret,
+  mcpSecretPath,
+} from "../lib/mcp-secret.js";
 import { startMcpHttpServer } from "../lib/mcp-server.js";
 import { formatProjectBanner, resolveProjectRoot } from "../lib/project.js";
 import {
@@ -35,7 +43,9 @@ async function main() {
     const args = parseArgs(process.argv.slice(2), packageInfo);
 
     if (args.help) {
-      process.stdout.write(args.mcp ? mcpHelpText(packageInfo) : helpText(packageInfo));
+      process.stdout.write(
+        args.mcp ? mcpHelpText(packageInfo) : helpText(packageInfo),
+      );
       return;
     }
 
@@ -101,9 +111,14 @@ function parseArgs(argv, packageInfo) {
     include: [],
     exclude: [],
     ingestArgs: [],
-    port: process.env.PASTEPATCH_MCP_PORT ? Number(process.env.PASTEPATCH_MCP_PORT) : null,
+    port: process.env.PASTEPATCH_MCP_PORT
+      ? Number(process.env.PASTEPATCH_MCP_PORT)
+      : null,
     hostname: process.env.PASTEPATCH_MCP_HOSTNAME || "",
-    tunnelToken: process.env.PASTEPATCH_TUNNEL_TOKEN || process.env.CLOUDFLARE_TUNNEL_TOKEN || "",
+    tunnelToken:
+      process.env.PASTEPATCH_TUNNEL_TOKEN ||
+      process.env.CLOUDFLARE_TUNNEL_TOKEN ||
+      "",
     tunnelName: process.env.PASTEPATCH_TUNNEL_NAME || "",
     noTunnel: false,
     setupTunnel: false,
@@ -287,9 +302,13 @@ function parseArgs(argv, packageInfo) {
     args.pathExplicit = true;
   }
 
-  const modes = [args.init, args.edit, args.undo, args.log, args.mcp].filter(Boolean).length;
+  const modes = [args.init, args.edit, args.undo, args.log, args.mcp].filter(
+    Boolean,
+  ).length;
   if (modes > 1) {
-    throw new Error("Choose only one mode: --init, --edit, --undo, --log, or --mcp.");
+    throw new Error(
+      "Choose only one mode: --init, --edit, --undo, --log, or --mcp.",
+    );
   }
 
   return args;
@@ -322,7 +341,9 @@ async function runInit(args, packageInfo, logger) {
 
   if (!args.noClipboard) {
     await copyToClipboard(prompt, logger);
-    process.stderr.write("ChatGPT coding prompt copied to clipboard. Paste it into ChatGPT.\n");
+    process.stderr.write(
+      "ChatGPT coding prompt copied to clipboard. Paste it into ChatGPT.\n",
+    );
   }
 
   await logger(`INIT complete promptBytes=${Buffer.byteLength(prompt)}`);
@@ -478,7 +499,9 @@ async function runEdit(args, logger) {
     throw new Error("No tool calls found in pasted input.");
   }
 
-  process.stderr.write(`Parsed ${calls.length} tool call${calls.length === 1 ? "" : "s"}.\n`);
+  process.stderr.write(
+    `Parsed ${calls.length} tool call${calls.length === 1 ? "" : "s"}.\n`,
+  );
   for (const [index, call] of calls.entries()) {
     process.stderr.write(`${index + 1}. ${describeCall(call)}\n`);
   }
@@ -495,7 +518,9 @@ async function runEdit(args, logger) {
         appliedCount: 0,
         phase: "preflight",
       });
-      await logger(`EDIT preflight failed at tool call ${error.callIndex + 1}: ${error.callDetail}`);
+      await logger(
+        `EDIT preflight failed at tool call ${error.callIndex + 1}: ${error.callDetail}`,
+      );
       error.reported = true;
     }
     throw error;
@@ -507,14 +532,18 @@ async function runEdit(args, logger) {
     if (duplicatePlan) {
       writeDuplicatePlanNotice(duplicatePlan);
     }
-    process.stderr.write(`Dry run complete; no files changed.\nLog: ${logPath()}\n`);
+    process.stderr.write(
+      `Dry run complete; no files changed.\nLog: ${logPath()}\n`,
+    );
     await logger("EDIT dry-run complete");
     return;
   }
 
   if (duplicatePlan) {
     writeDuplicatePlanNotice(duplicatePlan);
-    await logger(`EDIT duplicate plan detected createdAt=${duplicatePlan.createdAt}`);
+    await logger(
+      `EDIT duplicate plan detected createdAt=${duplicatePlan.createdAt}`,
+    );
 
     if (!process.stdin.isTTY) {
       throw new Error(
@@ -522,7 +551,9 @@ async function runEdit(args, logger) {
       );
     }
 
-    const confirmed = await confirm("Re-apply the same tool plan anyway? [y/N] ");
+    const confirmed = await confirm(
+      "Re-apply the same tool plan anyway? [y/N] ",
+    );
     if (!confirmed) {
       process.stderr.write("Aborted.\n");
       await logger("EDIT aborted duplicate plan");
@@ -541,7 +572,9 @@ async function runEdit(args, logger) {
   await logger(`HISTORY saved ${history.path}`);
 
   for (const [index, call] of calls.entries()) {
-    await logger(`TOOL ${index + 1}/${calls.length} ${JSON.stringify(redactLargeFields(call))}`);
+    await logger(
+      `TOOL ${index + 1}/${calls.length} ${JSON.stringify(redactLargeFields(call))}`,
+    );
     try {
       await executeToolCall(call, root);
     } catch (error) {
@@ -553,13 +586,17 @@ async function runEdit(args, logger) {
         appliedCount: index,
         phase: "apply",
       });
-      await logger(`EDIT apply failed at tool call ${index + 1}: ${error.message}`);
+      await logger(
+        `EDIT apply failed at tool call ${index + 1}: ${error.message}`,
+      );
       error.reported = true;
       throw error;
     }
   }
 
-  process.stderr.write(`Changes applied.\nUndo with: pastepatch --undo\nLog: ${logPath()}\n`);
+  process.stderr.write(
+    `Changes applied.\nUndo with: pastepatch --undo\nLog: ${logPath()}\n`,
+  );
   await logger("EDIT complete dryRun=false");
 }
 
@@ -589,7 +626,11 @@ async function runMcp(args, packageInfo, logger) {
       existingConfig: existing,
     });
     process.stdout.write(
-      formatSetupCompleteMessage({ config, packageName: command, mcpPath: mcpPathForSecret(secret) }),
+      formatSetupCompleteMessage({
+        config,
+        packageName: command,
+        mcpPath: mcpPathForSecret(secret),
+      }),
     );
     return;
   }
@@ -600,7 +641,9 @@ async function runMcp(args, packageInfo, logger) {
     allowHome: args.allowHome,
   });
 
-  const { secret, created: secretCreated } = await loadOrCreateMcpSecret({ rotate: args.rotateSecret });
+  const { secret, created: secretCreated } = await loadOrCreateMcpSecret({
+    rotate: args.rotateSecret,
+  });
   const mcpPath = mcpPathForSecret(secret);
 
   const saved = await loadTunnelConfig();
@@ -630,7 +673,11 @@ async function runMcp(args, packageInfo, logger) {
       });
       tunnelIdOrName = saved.tunnelId;
       tunnelMode = "config";
-      if (saved.port !== port || saved.hostname !== hostname || saved.cloudflaredConfigFile !== tunnelConfigFile) {
+      if (
+        saved.port !== port ||
+        saved.hostname !== hostname ||
+        saved.cloudflaredConfigFile !== tunnelConfigFile
+      ) {
         await saveTunnelConfig({
           ...saved,
           hostname,
@@ -737,9 +784,13 @@ async function runMcp(args, packageInfo, logger) {
   );
 
   if (tunnelMode === "config") {
-    process.stderr.write("Starting Cloudflare Tunnel (local credentials + config)...\n");
+    process.stderr.write(
+      "Starting Cloudflare Tunnel (local credentials + config)...\n",
+    );
     if (!args.verbose) {
-      process.stderr.write("Tunnel logs quiet (pass --verbose for cloudflared/HTTP details).\n");
+      process.stderr.write(
+        "Tunnel logs quiet (pass --verbose for cloudflared/HTTP details).\n",
+      );
     }
     tunnelHandle = startCloudflaredWithReconnect({
       start: () =>
@@ -756,7 +807,9 @@ async function runMcp(args, packageInfo, logger) {
   } else if (tunnelMode === "token") {
     process.stderr.write("Starting Cloudflare Tunnel (token)...\n");
     if (!args.verbose) {
-      process.stderr.write("Tunnel logs quiet (pass --verbose for cloudflared/HTTP details).\n");
+      process.stderr.write(
+        "Tunnel logs quiet (pass --verbose for cloudflared/HTTP details).\n",
+      );
     }
     tunnelHandle = startCloudflaredWithReconnect({
       start: () =>
@@ -770,11 +823,15 @@ async function runMcp(args, packageInfo, logger) {
       isShuttingDown: () => shuttingDown,
     });
   } else {
-    process.stderr.write("Tunnel disabled (--no-tunnel). MCP is only on localhost.\n");
+    process.stderr.write(
+      "Tunnel disabled (--no-tunnel). MCP is only on localhost.\n",
+    );
   }
 
   if (hostname) {
-    process.stderr.write(`Public MCP URL (ChatGPT): https://${hostname}${mcpPath}\n`);
+    process.stderr.write(
+      `Public MCP URL (ChatGPT): https://${hostname}${mcpPath}\n`,
+    );
   }
 
   if (secretCreated) {
@@ -835,7 +892,9 @@ async function readToolPlanInput() {
   const input = await readClipboard();
 
   if (!input.trim()) {
-    throw new Error("Clipboard is empty. Copy ChatGPT's JSON tool plan, then run --edit again.");
+    throw new Error(
+      "Clipboard is empty. Copy ChatGPT's JSON tool plan, then run --edit again.",
+    );
   }
 
   return input;
@@ -925,10 +984,14 @@ function extractJsonCandidates(input) {
 }
 
 function normalizeToolPlan(plan) {
-  const rawCalls = Array.isArray(plan) ? plan : plan.tools || plan.tool_calls || plan.calls;
+  const rawCalls = Array.isArray(plan)
+    ? plan
+    : plan.tools || plan.tool_calls || plan.calls;
 
   if (!Array.isArray(rawCalls)) {
-    throw new Error("Tool plan must be an array or an object with a tools array.");
+    throw new Error(
+      "Tool plan must be an array or an object with a tools array.",
+    );
   }
 
   return rawCalls.map((call) => {
@@ -960,7 +1023,9 @@ function normalizeCallArguments(call) {
     return call.arguments;
   }
 
-  throw new Error("Tool call arguments must be an object or JSON object string.");
+  throw new Error(
+    "Tool call arguments must be an object or JSON object string.",
+  );
 }
 
 async function preflightToolCalls(calls, root = process.cwd()) {
@@ -968,7 +1033,9 @@ async function preflightToolCalls(calls, root = process.cwd()) {
     try {
       await validateToolCall(call, root);
     } catch (error) {
-      const wrapped = new Error(`Tool call ${index + 1} (${call.tool || "unknown"}): ${error.message}`);
+      const wrapped = new Error(
+        `Tool call ${index + 1} (${call.tool || "unknown"}): ${error.message}`,
+      );
       wrapped.callIndex = index;
       wrapped.callDetail = error.message;
       wrapped.callTool = call.tool || "unknown";
@@ -1007,7 +1074,14 @@ function formatNumberRanges(numbers) {
   return parts.join(", ");
 }
 
-function reportToolCallFailure({ calls, failedIndex, tool, detail, appliedCount, phase }) {
+function reportToolCallFailure({
+  calls,
+  failedIndex,
+  tool,
+  detail,
+  appliedCount,
+  phase,
+}) {
   const total = calls.length;
   const failedNumber = failedIndex + 1;
 
@@ -1026,20 +1100,28 @@ function reportToolCallFailure({ calls, failedIndex, tool, detail, appliedCount,
 
   if (applied.length > 0) {
     const label = applied.length === 1 ? "Tool call" : "Tool calls";
-    process.stderr.write(`${label} ${formatNumberRanges(applied)}: applied successfully\n`);
+    process.stderr.write(
+      `${label} ${formatNumberRanges(applied)}: applied successfully\n`,
+    );
   }
 
   process.stderr.write(`Tool call ${failedNumber}: failed (not applied)\n`);
 
   if (notApplied.length > 0) {
     const label = notApplied.length === 1 ? "Tool call" : "Tool calls";
-    process.stderr.write(`${label} ${formatNumberRanges(notApplied)}: not applied\n`);
+    process.stderr.write(
+      `${label} ${formatNumberRanges(notApplied)}: not applied\n`,
+    );
   }
 
   if (phase === "preflight") {
-    process.stderr.write(`\nNo changes were applied (validation failed before any files were edited).\n`);
+    process.stderr.write(
+      `\nNo changes were applied (validation failed before any files were edited).\n`,
+    );
   } else if (applied.length > 0) {
-    process.stderr.write(`\nThe first ${applied.length} change${applied.length === 1 ? " is" : "s are"} already written to disk. Undo with: pastepatch --undo\n`);
+    process.stderr.write(
+      `\nThe first ${applied.length} change${applied.length === 1 ? " is" : "s are"} already written to disk. Undo with: pastepatch --undo\n`,
+    );
   }
 }
 
@@ -1047,7 +1129,10 @@ async function confirm(message) {
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   try {
     const answer = await rl.question(message);
-    return answer.trim().toLowerCase() === "y" || answer.trim().toLowerCase() === "yes";
+    return (
+      answer.trim().toLowerCase() === "y" ||
+      answer.trim().toLowerCase() === "yes"
+    );
   } finally {
     rl.close();
   }
@@ -1063,7 +1148,9 @@ async function copyToClipboard(text, logger) {
       return;
     } catch (error) {
       errors.push(`${command}: ${error.message}`);
-      await logger(`CLIPBOARD failed command=${command} error=${error.message}`);
+      await logger(
+        `CLIPBOARD failed command=${command} error=${error.message}`,
+      );
     }
   }
 
@@ -1143,7 +1230,9 @@ function runCommand(command, args, options = {}) {
         resolve(stdout);
         return;
       }
-      const error = new Error(`${command} exited with code ${code}: ${stderr.trim()}`);
+      const error = new Error(
+        `${command} exited with code ${code}: ${stderr.trim()}`,
+      );
       error.code = code;
       reject(error);
     });
@@ -1164,7 +1253,10 @@ async function windowsCommandExists(command) {
 }
 
 function commandSpawnConfig(command, args) {
-  if (process.platform !== "win32" || isDirectlySpawnableWindowsCommand(command)) {
+  if (
+    process.platform !== "win32" ||
+    isDirectlySpawnableWindowsCommand(command)
+  ) {
     return { command, args, options: {} };
   }
 
@@ -1184,10 +1276,10 @@ function isDirectlySpawnableWindowsCommand(command) {
 function quoteWindowsCmdArgument(value) {
   const string = String(value);
   if (string.length === 0) {
-    return "\"\"";
+    return '""';
   }
 
-  let quoted = "\"";
+  let quoted = '"';
   let backslashes = 0;
 
   for (const character of string) {
@@ -1196,7 +1288,7 @@ function quoteWindowsCmdArgument(value) {
       continue;
     }
 
-    if (character === "\"") {
+    if (character === '"') {
       quoted += "\\".repeat(backslashes * 2 + 1);
       quoted += character;
       backslashes = 0;
@@ -1209,7 +1301,7 @@ function quoteWindowsCmdArgument(value) {
   }
 
   quoted += "\\".repeat(backslashes * 2);
-  quoted += "\"";
+  quoted += '"';
   return quoted;
 }
 
@@ -1228,7 +1320,11 @@ function readStream(stream) {
 function createLogger() {
   return async (message) => {
     await mkdir(path.dirname(logPath()), { recursive: true });
-    await appendFile(logPath(), `[${new Date().toISOString()}] ${message}\n`, "utf8");
+    await appendFile(
+      logPath(),
+      `[${new Date().toISOString()}] ${message}\n`,
+      "utf8",
+    );
   };
 }
 
@@ -1247,7 +1343,11 @@ async function readPackageInfo() {
 }
 
 function commandName(packageInfo) {
-  if (packageInfo.bin && typeof packageInfo.bin === "object" && !Array.isArray(packageInfo.bin)) {
+  if (
+    packageInfo.bin &&
+    typeof packageInfo.bin === "object" &&
+    !Array.isArray(packageInfo.bin)
+  ) {
     const [name] = Object.keys(packageInfo.bin);
     if (name) {
       return name;

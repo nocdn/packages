@@ -24,8 +24,16 @@ import { createCommandRunner } from "./commands.js";
 import { formatProcessTree, getProcessTree, quitApp } from "./apps.js";
 import { formatHttpResult, httpRequest } from "./http-request.js";
 import { formatToolLogLine, shouldUseColor } from "./log-color.js";
-import { formatSkillsList, listRemoteSkills, readRemoteSkill } from "./skills.js";
-import { formatSlicedText, hasTextSliceQuery, sliceTextLines } from "./text-slice.js";
+import {
+  formatSkillsList,
+  listRemoteSkills,
+  readRemoteSkill,
+} from "./skills.js";
+import {
+  formatSlicedText,
+  hasTextSliceQuery,
+  sliceTextLines,
+} from "./text-slice.js";
 import { formatBytes, viewImageFile } from "./view-image.js";
 import { WAIT_CONDITIONS, formatWaitResult, waitUntil } from "./wait.js";
 import { safeTokenEqual } from "./mcp-secret.js";
@@ -112,12 +120,16 @@ export function createPastepatchMcpServer({
   });
 
   const errorResult = (error) => ({
-    content: [{ type: "text", text: `Error: ${error.message || String(error)}` }],
+    content: [
+      { type: "text", text: `Error: ${error.message || String(error)}` },
+    ],
     isError: true,
   });
 
   function previewText(value, max = 120) {
-    const text = String(value ?? "").replace(/\s+/g, " ").trim();
+    const text = String(value ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
     if (text.length <= max) {
       return text;
     }
@@ -185,13 +197,15 @@ export function createPastepatchMcpServer({
       case "get_session":
         return "session env/cwd/jobs";
       case "set_session":
-        return [
-          args.cwd ? `cwd=${args.cwd}` : null,
-          args.venv ? `venv=${args.venv}` : null,
-          args.deactivate_venv ? "deactivate_venv" : null,
-        ]
-          .filter(Boolean)
-          .join(" ") || "update session";
+        return (
+          [
+            args.cwd ? `cwd=${args.cwd}` : null,
+            args.venv ? `venv=${args.venv}` : null,
+            args.deactivate_venv ? "deactivate_venv" : null,
+          ]
+            .filter(Boolean)
+            .join(" ") || "update session"
+        );
       case "wait_until":
         return args.condition || "condition";
       case "http_request":
@@ -221,7 +235,13 @@ export function createPastepatchMcpServer({
    *   [mcp] [HH:MM:SS] ✗ failed: reason → tool: summary; detail1
    * stderr may be ANSI-colored; logger always gets plain text.
    */
-  async function emitToolLog({ ok, failureDetail = "", tool, summary, details = [] }) {
+  async function emitToolLog({
+    ok,
+    failureDetail = "",
+    tool,
+    summary,
+    details = [],
+  }) {
     const { plain, display } = formatToolLogLine({
       ok,
       failureDetail: failureDetail ? previewText(failureDetail, 200) : "",
@@ -303,7 +323,11 @@ export function createPastepatchMcpServer({
 
   async function existingFileLineCount(relativePath) {
     try {
-      const content = await readTextFile(relativePath, resolvedRoot, pathOptions);
+      const content = await readTextFile(
+        relativePath,
+        resolvedRoot,
+        pathOptions,
+      );
       return countLines(content);
     } catch {
       return null;
@@ -354,11 +378,15 @@ export function createPastepatchMcpServer({
         grep: z
           .string()
           .optional()
-          .describe("Regex filter; returns matching lines only (plus grep_context)."),
+          .describe(
+            "Regex filter; returns matching lines only (plus grep_context).",
+          ),
         grep_context: z
           .number()
           .optional()
-          .describe("Lines of context around each grep match (0-20). Default 0."),
+          .describe(
+            "Lines of context around each grep match (0-20). Default 0.",
+          ),
         case_insensitive: z
           .boolean()
           .optional()
@@ -377,17 +405,42 @@ export function createPastepatchMcpServer({
       grep_context: grepContext,
       case_insensitive: caseInsensitive,
     }) =>
-      runTool("read_file", { path: filePath, grep, line_offset: lineOffset, line_limit: lineLimit }, async (note) => {
-        const content = await readTextFile(filePath, resolvedRoot, pathOptions);
-        const query = { grep, grepContext, lineOffset, lineLimit, caseInsensitive: Boolean(caseInsensitive) };
-        if (!hasTextSliceQuery(query)) {
-          note(`read ${filePath} (${Buffer.byteLength(content, "utf8")} bytes)`);
-          return textResult(content);
-        }
-        const sliced = sliceTextLines(content, query);
-        note(`read ${filePath} lines ${sliced.lineCount}/${sliced.totalLines}`);
-        return textResult(formatSlicedText({ path: filePath, sliced, query }));
-      }),
+      runTool(
+        "read_file",
+        {
+          path: filePath,
+          grep,
+          line_offset: lineOffset,
+          line_limit: lineLimit,
+        },
+        async (note) => {
+          const content = await readTextFile(
+            filePath,
+            resolvedRoot,
+            pathOptions,
+          );
+          const query = {
+            grep,
+            grepContext,
+            lineOffset,
+            lineLimit,
+            caseInsensitive: Boolean(caseInsensitive),
+          };
+          if (!hasTextSliceQuery(query)) {
+            note(
+              `read ${filePath} (${Buffer.byteLength(content, "utf8")} bytes)`,
+            );
+            return textResult(content);
+          }
+          const sliced = sliceTextLines(content, query);
+          note(
+            `read ${filePath} lines ${sliced.lineCount}/${sliced.totalLines}`,
+          );
+          return textResult(
+            formatSlicedText({ path: filePath, sliced, query }),
+          );
+        },
+      ),
   );
 
   server.registerTool(
@@ -397,7 +450,9 @@ export function createPastepatchMcpServer({
       description:
         "Load an image file from the remote project at full resolution and return it as MCP image content (so you can actually see it), plus text metadata (format, dimensions, size). Use for screenshots, UI mocks, design assets, and test failure PNGs. Do not use read_file on binary images. Files larger than ~20MB are rejected.",
       inputSchema: {
-        path: z.string().describe("Relative path to an image file (png, jpeg, webp, gif, …)"),
+        path: z
+          .string()
+          .describe("Relative path to an image file (png, jpeg, webp, gif, …)"),
       },
       annotations: {
         readOnlyHint: true,
@@ -414,7 +469,9 @@ export function createPastepatchMcpServer({
         const { meta } = result;
         const imagePart = result.content.find((part) => part.type === "image");
         // Base64 string length ≈ bytes on the wire inside the MCP JSON payload
-        const payloadBytes = imagePart?.data ? Buffer.byteLength(imagePart.data, "utf8") : 0;
+        const payloadBytes = imagePart?.data
+          ? Buffer.byteLength(imagePart.data, "utf8")
+          : 0;
 
         note(
           `${meta.width}×${meta.height}; ${meta.format}; image ${formatBytes(meta.bytes)}; ` +
@@ -443,9 +500,15 @@ export function createPastepatchMcpServer({
     },
     async ({ path: dirPath = "." }) =>
       runTool("list_directory", { path: dirPath }, async (note) => {
-        const listing = await listDirectory(dirPath || ".", resolvedRoot, pathOptions);
+        const listing = await listDirectory(
+          dirPath || ".",
+          resolvedRoot,
+          pathOptions,
+        );
         const count = listing ? listing.split("\n").filter(Boolean).length : 0;
-        note(`listed ${count} entr${count === 1 ? "y" : "ies"} in ${dirPath || "."}`);
+        note(
+          `listed ${count} entr${count === 1 ? "y" : "ies"} in ${dirPath || "."}`,
+        );
         return textResult(listing || "(empty)");
       }),
   );
@@ -482,7 +545,9 @@ export function createPastepatchMcpServer({
           `lines ${formatLineStats(lineStats)}${previousLines === null ? " (new file)" : " (overwrite)"}`,
         );
         return {
-          ...textResult(`Created/overwrote ${filePath} (history ${history.id}).`),
+          ...textResult(
+            `Created/overwrote ${filePath} (history ${history.id}).`,
+          ),
           _lineStats: lineStats,
         };
       }),
@@ -518,8 +583,15 @@ export function createPastepatchMcpServer({
           let occurrenceCount = 1;
           if (replaceAll) {
             try {
-              const current = await readTextFile(filePath, resolvedRoot, pathOptions);
-              occurrenceCount = Math.max(1, countOccurrencesIn(current, oldText));
+              const current = await readTextFile(
+                filePath,
+                resolvedRoot,
+                pathOptions,
+              );
+              occurrenceCount = Math.max(
+                1,
+                countOccurrencesIn(current, oldText),
+              );
             } catch {
               occurrenceCount = 1;
             }
@@ -539,7 +611,9 @@ export function createPastepatchMcpServer({
             `lines ${formatLineStats(lineStats)}${replaceAll && occurrenceCount > 1 ? ` ×${occurrenceCount}` : ""}`,
           );
           return {
-            ...textResult(`Replaced text in ${filePath} (history ${history.id}).`),
+            ...textResult(
+              `Replaced text in ${filePath} (history ${history.id}).`,
+            ),
             _lineStats: lineStats,
           };
         },
@@ -596,7 +670,10 @@ export function createPastepatchMcpServer({
     async ({ path: filePath }) =>
       runTool("delete_file", { path: filePath }, async (note) => {
         const previousLines = await existingFileLineCount(filePath);
-        const history = await applyWrite({ tool: "delete_file", path: filePath }, note);
+        const history = await applyWrite(
+          { tool: "delete_file", path: filePath },
+          note,
+        );
         const lineStats = {
           added: 0,
           removed: previousLines ?? 0,
@@ -613,7 +690,8 @@ export function createPastepatchMcpServer({
     "move_file",
     {
       title: "Move or rename file",
-      description: "Rename or move a file or directory within the project root.",
+      description:
+        "Rename or move a file or directory within the project root.",
       inputSchema: {
         from: z.string().describe("Relative source path"),
         to: z.string().describe("Relative destination path"),
@@ -649,7 +727,9 @@ export function createPastepatchMcpServer({
     async () =>
       runTool("undo_last_change", {}, async () => {
         const entry = await undoLatestChange(resolvedRoot);
-        return textResult(`Undid change set ${entry.id} from ${entry.createdAt}.`);
+        return textResult(
+          `Undid change set ${entry.id} from ${entry.createdAt}.`,
+        );
       }),
   );
 
@@ -657,7 +737,8 @@ export function createPastepatchMcpServer({
     "project_info",
     {
       title: "Project info",
-      description: "Return the absolute project root this MCP server is bound to.",
+      description:
+        "Return the absolute project root this MCP server is bound to.",
       inputSchema: {},
       annotations: {
         readOnlyHint: true,
@@ -665,7 +746,9 @@ export function createPastepatchMcpServer({
       },
     },
     async () =>
-      runTool("project_info", {}, async () => textResult(JSON.stringify({ root: resolvedRoot }, null, 2))),
+      runTool("project_info", {}, async () =>
+        textResult(JSON.stringify({ root: resolvedRoot }, null, 2)),
+      ),
   );
 
   server.registerTool(
@@ -684,7 +767,9 @@ export function createPastepatchMcpServer({
       runTool("start_here", {}, async (note) => {
         const agentsMd = await loadProjectAgentsMd(resolvedRoot);
         if (agentsMd != null && agentsMd.trim() !== "") {
-          note(`included AGENTS.md (${Buffer.byteLength(agentsMd, "utf8")} bytes)`);
+          note(
+            `included AGENTS.md (${Buffer.byteLength(agentsMd, "utf8")} bytes)`,
+          );
         } else {
           note("no AGENTS.md");
         }
@@ -706,14 +791,25 @@ export function createPastepatchMcpServer({
       description:
         "Search file contents under the project (ripgrep if installed, else grep). Returns path:line:text matches. Use this to find symbols, strings, and call sites before editing.",
       inputSchema: {
-        pattern: z.string().describe("Regex (rg) or basic pattern (grep fallback)"),
+        pattern: z
+          .string()
+          .describe("Regex (rg) or basic pattern (grep fallback)"),
         path: z
           .string()
           .optional()
           .describe('Relative directory or file to search within. Default "."'),
-        glob: z.string().optional().describe('Optional glob filter, e.g. "*.js" or "*.{ts,tsx}"'),
-        caseInsensitive: z.boolean().optional().describe("Case-insensitive search. Default false."),
-        maxResults: z.number().optional().describe("Max matches to return (default 50, max 200)."),
+        glob: z
+          .string()
+          .optional()
+          .describe('Optional glob filter, e.g. "*.js" or "*.{ts,tsx}"'),
+        caseInsensitive: z
+          .boolean()
+          .optional()
+          .describe("Case-insensitive search. Default false."),
+        maxResults: z
+          .number()
+          .optional()
+          .describe("Max matches to return (default 50, max 200)."),
       },
       annotations: {
         readOnlyHint: true,
@@ -737,7 +833,9 @@ export function createPastepatchMcpServer({
           const suffix = result.truncated
             ? `\n\n(truncated at max results; engine=${result.engine})`
             : `\n\n(engine=${result.engine})`;
-          note(`search engine=${result.engine}${result.truncated ? " truncated" : ""}`);
+          note(
+            `search engine=${result.engine}${result.truncated ? " truncated" : ""}`,
+          );
           return textResult(`${result.output}${suffix}`);
         },
       ),
@@ -752,12 +850,17 @@ export function createPastepatchMcpServer({
       inputSchema: {
         pattern: z
           .string()
-          .describe("Filename glob or substring (e.g. *.tsx, package.json, config)"),
+          .describe(
+            "Filename glob or substring (e.g. *.tsx, package.json, config)",
+          ),
         path: z
           .string()
           .optional()
           .describe('Relative directory to search within. Default "."'),
-        maxResults: z.number().optional().describe("Max paths to return (default 50, max 200)."),
+        maxResults: z
+          .number()
+          .optional()
+          .describe("Max paths to return (default 50, max 200)."),
       },
       annotations: {
         readOnlyHint: true,
@@ -765,20 +868,26 @@ export function createPastepatchMcpServer({
       },
     },
     async ({ pattern, path: searchPath, maxResults }) =>
-      runTool("find_files", { pattern, path: searchPath, maxResults }, async (note) => {
-        const result = await findFiles({
-          root: resolvedRoot,
-          pattern,
-          path: searchPath,
-          maxResults,
-          allowOutside: pathOptions.allowOutside,
-        });
-        const suffix = result.truncated
-          ? `\n\n(truncated; engine=${result.engine})`
-          : `\n\n(engine=${result.engine})`;
-        note(`find_files engine=${result.engine}${result.truncated ? " truncated" : ""}`);
-        return textResult(`${result.output}${suffix}`);
-      }),
+      runTool(
+        "find_files",
+        { pattern, path: searchPath, maxResults },
+        async (note) => {
+          const result = await findFiles({
+            root: resolvedRoot,
+            pattern,
+            path: searchPath,
+            maxResults,
+            allowOutside: pathOptions.allowOutside,
+          });
+          const suffix = result.truncated
+            ? `\n\n(truncated; engine=${result.engine})`
+            : `\n\n(engine=${result.engine})`;
+          note(
+            `find_files engine=${result.engine}${result.truncated ? " truncated" : ""}`,
+          );
+          return textResult(`${result.output}${suffix}`);
+        },
+      ),
   );
 
   server.registerTool(
@@ -790,19 +899,29 @@ export function createPastepatchMcpServer({
       inputSchema: {
         achieved: z
           .string()
-          .describe("What was accomplished in this thread (concrete outcomes)."),
+          .describe(
+            "What was accomplished in this thread (concrete outcomes).",
+          ),
         files: z
           .string()
-          .describe("Files and directories touched or important to the work (relative paths)."),
+          .describe(
+            "Files and directories touched or important to the work (relative paths).",
+          ),
         changes: z
           .string()
-          .describe("What changed and why, per file or logical change, technical detail."),
+          .describe(
+            "What changed and why, per file or logical change, technical detail.",
+          ),
         user_guidance: z
           .string()
-          .describe("Instructions, preferences, and constraints the user stated."),
+          .describe(
+            "Instructions, preferences, and constraints the user stated.",
+          ),
         remember: z
           .string()
-          .describe("Facts the next session must remember (stack, APIs, decisions, gotchas)."),
+          .describe(
+            "Facts the next session must remember (stack, APIs, decisions, gotchas).",
+          ),
         important: z
           .string()
           .describe(
@@ -816,7 +935,10 @@ export function createPastepatchMcpServer({
           .string()
           .optional()
           .describe("Recommended next actions for the following thread."),
-        extra: z.string().optional().describe("Any additional technical context."),
+        extra: z
+          .string()
+          .optional()
+          .describe("Any additional technical context."),
       },
       annotations: {
         readOnlyHint: true,
@@ -859,7 +981,11 @@ export function createPastepatchMcpServer({
       description:
         "Run a shell command in the project. cwd defaults to the session cwd if set_session was used, otherwise the project root. The process is started in a new process group and tagged as owned by this MCP session. Waits up to wait_ms (default 30000); if still running, keeps it in the background and returns output so far plus a job_id. Output returned to you defaults to a short ~8k-character tail so context is not flooded — the job still retains up to ~100k in memory. If truncated, call get_command_output with the same job_id and a larger max_output_chars (32000 extended, or 0 for full retained buffer). Use stop_command to kill the process group. Dangerous commands are blocked by a blacklist.",
       inputSchema: {
-        command: z.string().describe("Shell command to run (zsh on macOS/Linux, cmd on Windows)"),
+        command: z
+          .string()
+          .describe(
+            "Shell command to run (zsh on macOS/Linux, cmd on Windows)",
+          ),
         cwd: z
           .string()
           .optional()
@@ -867,7 +993,9 @@ export function createPastepatchMcpServer({
         wait_ms: z
           .number()
           .optional()
-          .describe("Ms to wait for exit before backgrounding (default 30000, max 120000). 0 = background immediately."),
+          .describe(
+            "Ms to wait for exit before backgrounding (default 30000, max 120000). 0 = background immediately.",
+          ),
         max_output_chars: z
           .number()
           .optional()
@@ -881,20 +1009,29 @@ export function createPastepatchMcpServer({
         openWorldHint: false,
       },
     },
-    async ({ command, cwd, wait_ms: waitMs, max_output_chars: maxOutputChars }) =>
-      runTool("run_command", { command, cwd, wait_ms: waitMs }, async (note) => {
-        const result = await runner.runCommand({
-          command,
-          cwd,
-          waitMs,
-          maxOutputChars,
-        });
-        note(
-          `status=${result.status} job=${result.jobId} exit=${result.exitCode ?? "-"}` +
-            ` returned=${result.returnedChars ?? "?"} retained=${result.outputChars ?? "?"}`,
-        );
-        return textResult(result.text);
-      }),
+    async ({
+      command,
+      cwd,
+      wait_ms: waitMs,
+      max_output_chars: maxOutputChars,
+    }) =>
+      runTool(
+        "run_command",
+        { command, cwd, wait_ms: waitMs },
+        async (note) => {
+          const result = await runner.runCommand({
+            command,
+            cwd,
+            waitMs,
+            maxOutputChars,
+          });
+          note(
+            `status=${result.status} job=${result.jobId} exit=${result.exitCode ?? "-"}` +
+              ` returned=${result.returnedChars ?? "?"} retained=${result.outputChars ?? "?"}`,
+          );
+          return textResult(result.text);
+        },
+      ),
   );
 
   server.registerTool(
@@ -908,7 +1045,9 @@ export function createPastepatchMcpServer({
         only_new: z
           .boolean()
           .optional()
-          .describe("If true, only return output appended since last poll of this stream. Default false."),
+          .describe(
+            "If true, only return output appended since last poll of this stream. Default false.",
+          ),
         max_output_chars: z
           .number()
           .optional()
@@ -918,15 +1057,21 @@ export function createPastepatchMcpServer({
         stream: z
           .enum(["stdout", "stderr", "both"])
           .optional()
-          .describe("Which stream to return. Default both (stderr after a banner)."),
+          .describe(
+            "Which stream to return. Default both (stderr after a banner).",
+          ),
         grep: z
           .string()
           .optional()
-          .describe("Regex filter applied to the selected stream (server-side). Returns matching lines only."),
+          .describe(
+            "Regex filter applied to the selected stream (server-side). Returns matching lines only.",
+          ),
         grep_context: z
           .number()
           .optional()
-          .describe("Lines of context around each grep match (0-20). Default 0."),
+          .describe(
+            "Lines of context around each grep match (0-20). Default 0.",
+          ),
         line_offset: z
           .number()
           .optional()
@@ -956,23 +1101,27 @@ export function createPastepatchMcpServer({
       line_limit: lineLimit,
       case_insensitive: caseInsensitive,
     }) =>
-      runTool("get_command_output", { job_id: jobId, only_new: onlyNew, stream, grep }, async (note) => {
-        const result = runner.getCommandOutput({
-          jobId,
-          onlyNew: Boolean(onlyNew),
-          maxOutputChars,
-          stream,
-          grep,
-          grepContext,
-          lineOffset,
-          lineLimit,
-          caseInsensitive: Boolean(caseInsensitive),
-        });
-        note(
-          `status=${result.status} returned=${result.returnedChars ?? "?"} retained=${result.outputChars ?? "?"}`,
-        );
-        return textResult(result.text);
-      }),
+      runTool(
+        "get_command_output",
+        { job_id: jobId, only_new: onlyNew, stream, grep },
+        async (note) => {
+          const result = runner.getCommandOutput({
+            jobId,
+            onlyNew: Boolean(onlyNew),
+            maxOutputChars,
+            stream,
+            grep,
+            grepContext,
+            lineOffset,
+            lineLimit,
+            caseInsensitive: Boolean(caseInsensitive),
+          });
+          note(
+            `status=${result.status} returned=${result.returnedChars ?? "?"} retained=${result.outputChars ?? "?"}`,
+          );
+          return textResult(result.text);
+        },
+      ),
   );
 
   server.registerTool(
@@ -986,11 +1135,15 @@ export function createPastepatchMcpServer({
         force: z
           .boolean()
           .optional()
-          .describe("If true, send SIGKILL immediately. Default false (SIGTERM)."),
+          .describe(
+            "If true, send SIGKILL immediately. Default false (SIGTERM).",
+          ),
         recursive: z
           .boolean()
           .optional()
-          .describe("If true (default), kill the process group and session-tagged descendants."),
+          .describe(
+            "If true (default), kill the process group and session-tagged descendants.",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -1014,7 +1167,8 @@ export function createPastepatchMcpServer({
     "list_commands",
     {
       title: "List commands",
-      description: "List background/finished shell jobs started by run_command in this MCP process.",
+      description:
+        "List background/finished shell jobs started by run_command in this MCP process.",
       inputSchema: {},
       annotations: {
         readOnlyHint: true,
@@ -1051,7 +1205,9 @@ export function createPastepatchMcpServer({
       },
     },
     async () =>
-      runTool("get_session", {}, async () => textResult(runner.formatSession())),
+      runTool("get_session", {}, async () =>
+        textResult(runner.formatSession()),
+      ),
   );
 
   server.registerTool(
@@ -1064,11 +1220,15 @@ export function createPastepatchMcpServer({
         cwd: z
           .string()
           .optional()
-          .describe('Working directory for later run_command calls. "." or "" resets to the project root.'),
+          .describe(
+            'Working directory for later run_command calls. "." or "" resets to the project root.',
+          ),
         env: z
           .record(z.string(), z.string())
           .optional()
-          .describe("Environment variables to set (overlay). Reserved: PASTEPATCH_SESSION, PASTEPATCH_JOB."),
+          .describe(
+            "Environment variables to set (overlay). Reserved: PASTEPATCH_SESSION, PASTEPATCH_JOB.",
+          ),
         unset_env: z
           .array(z.string())
           .optional()
@@ -1076,7 +1236,9 @@ export function createPastepatchMcpServer({
         venv: z
           .string()
           .optional()
-          .describe("Virtualenv root to activate (bin/ or Scripts/ on PATH, VIRTUAL_ENV set). Absolute and ~/ paths allowed."),
+          .describe(
+            "Virtualenv root to activate (bin/ or Scripts/ on PATH, VIRTUAL_ENV set). Absolute and ~/ paths allowed.",
+          ),
         deactivate_venv: z
           .boolean()
           .optional()
@@ -1088,18 +1250,28 @@ export function createPastepatchMcpServer({
         openWorldHint: false,
       },
     },
-    async ({ cwd, env, unset_env: unsetEnv, venv, deactivate_venv: deactivateVenv }) =>
-      runTool("set_session", { cwd, venv, deactivate_venv: deactivateVenv }, async (note) => {
-        const snapshot = runner.setSession({
-          cwd,
-          env,
-          unsetEnv,
-          venv,
-          deactivateVenv: Boolean(deactivateVenv),
-        });
-        note(`session=${snapshot.sessionId} cwd=${snapshot.cwd}`);
-        return textResult(runner.formatSession(snapshot));
-      }),
+    async ({
+      cwd,
+      env,
+      unset_env: unsetEnv,
+      venv,
+      deactivate_venv: deactivateVenv,
+    }) =>
+      runTool(
+        "set_session",
+        { cwd, venv, deactivate_venv: deactivateVenv },
+        async (note) => {
+          const snapshot = runner.setSession({
+            cwd,
+            env,
+            unsetEnv,
+            venv,
+            deactivateVenv: Boolean(deactivateVenv),
+          });
+          note(`session=${snapshot.sessionId} cwd=${snapshot.cwd}`);
+          return textResult(runner.formatSession(snapshot));
+        },
+      ),
   );
 
   server.registerTool(
@@ -1121,24 +1293,45 @@ export function createPastepatchMcpServer({
           .optional()
           .describe("Poll interval (default 200)."),
         port: z.number().optional().describe("port_open: TCP port"),
-        host: z.string().optional().describe("port_open: host (default 127.0.0.1)"),
-        url: z.string().optional().describe("http_status: URL (loopback unless allow_public)"),
-        expect_status: z.number().optional().describe("http_status: expected status (default 200)"),
-        method: z.string().optional().describe("http_status: HTTP method (default GET)"),
+        host: z
+          .string()
+          .optional()
+          .describe("port_open: host (default 127.0.0.1)"),
+        url: z
+          .string()
+          .optional()
+          .describe("http_status: URL (loopback unless allow_public)"),
+        expect_status: z
+          .number()
+          .optional()
+          .describe("http_status: expected status (default 200)"),
+        method: z
+          .string()
+          .optional()
+          .describe("http_status: HTTP method (default GET)"),
         allow_public: z
           .boolean()
           .optional()
           .describe("http_status: allow non-loopback URLs (default false)"),
         job_id: z.string().optional().describe("job_exits / output_matches"),
         pid: z.number().optional().describe("process_exits"),
-        path: z.string().optional().describe("file_size_stable: path relative to project root"),
-        settle_ms: z.number().optional().describe("file_size_stable: quiet period (default 1000)"),
+        path: z
+          .string()
+          .optional()
+          .describe("file_size_stable: path relative to project root"),
+        settle_ms: z
+          .number()
+          .optional()
+          .describe("file_size_stable: quiet period (default 1000)"),
         pattern: z.string().optional().describe("output_matches: regex"),
         stream: z
           .enum(["stdout", "stderr", "both"])
           .optional()
           .describe("output_matches / which stream to search (default both)"),
-        case_insensitive: z.boolean().optional().describe("output_matches: case-insensitive regex"),
+        case_insensitive: z
+          .boolean()
+          .optional()
+          .describe("output_matches: case-insensitive regex"),
       },
       annotations: {
         readOnlyHint: true,
@@ -1165,7 +1358,9 @@ export function createPastepatchMcpServer({
         "Make an HTTP request and return status + body (JSON parsed when possible). Locked to loopback (localhost / 127.0.0.1 / ::1) unless allow_public is true. Use this for local servers (Ollama, mlx-vlm) instead of curl/jq quoting.",
       inputSchema: {
         method: z.string().optional().describe("HTTP method (default GET)"),
-        url: z.string().describe("URL. Loopback only unless allow_public is true."),
+        url: z
+          .string()
+          .describe("URL. Loopback only unless allow_public is true."),
         headers: z
           .record(z.string(), z.string())
           .optional()
@@ -1173,13 +1368,23 @@ export function createPastepatchMcpServer({
         json: z
           .any()
           .optional()
-          .describe("JSON body (object or string). Sets Content-Type: application/json."),
-        body: z.string().optional().describe("Raw request body (ignored if json is set)"),
-        timeout_ms: z.number().optional().describe("Timeout (default 30000, max 120000)"),
+          .describe(
+            "JSON body (object or string). Sets Content-Type: application/json.",
+          ),
+        body: z
+          .string()
+          .optional()
+          .describe("Raw request body (ignored if json is set)"),
+        timeout_ms: z
+          .number()
+          .optional()
+          .describe("Timeout (default 30000, max 120000)"),
         max_body_chars: z
           .number()
           .optional()
-          .describe("Max response body characters to return (default 32000, 0 = 200000 cap)"),
+          .describe(
+            "Max response body characters to return (default 32000, 0 = 200000 cap)",
+          ),
         allow_public: z
           .boolean()
           .optional()
@@ -1224,7 +1429,10 @@ export function createPastepatchMcpServer({
       description:
         "Safer kill: signal a pastepatch-owned process only. Prefer job_id from run_command. A bare pid is refused unless it belongs to this session (job leader or PASTEPATCH_SESSION-tagged descendant). Verifies process identity before kill so a recycled PID is not signaled. recursive (default true) kills the process group and leftovers.",
       inputSchema: {
-        job_id: z.string().optional().describe("Job id from run_command (preferred)"),
+        job_id: z
+          .string()
+          .optional()
+          .describe("Job id from run_command (preferred)"),
         pid: z
           .number()
           .optional()
@@ -1233,7 +1441,9 @@ export function createPastepatchMcpServer({
         recursive: z
           .boolean()
           .optional()
-          .describe("Kill process group + session-tagged descendants (default true)"),
+          .describe(
+            "Kill process group + session-tagged descendants (default true)",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -1242,16 +1452,20 @@ export function createPastepatchMcpServer({
       },
     },
     async ({ job_id: jobId, pid, force, recursive }) =>
-      runTool("terminate_process", { job_id: jobId, pid, force }, async (note) => {
-        const result = await runner.terminateProcess({
-          jobId,
-          pid,
-          force: Boolean(force),
-          recursive: recursive !== false,
-        });
-        note(result.message);
-        return textResult(`${result.message}\n\n${result.text || ""}`.trim());
-      }),
+      runTool(
+        "terminate_process",
+        { job_id: jobId, pid, force },
+        async (note) => {
+          const result = await runner.terminateProcess({
+            jobId,
+            pid,
+            force: Boolean(force),
+            recursive: recursive !== false,
+          });
+          note(result.message);
+          return textResult(`${result.message}\n\n${result.text || ""}`.trim());
+        },
+      ),
   );
 
   server.registerTool(
@@ -1261,7 +1475,10 @@ export function createPastepatchMcpServer({
       description:
         "Stop every job launched by this pastepatch MCP process, plus leftover descendants tagged with PASTEPATCH_SESSION. Use this after benchmark / server work instead of hunting mlx_vlm / ollama PIDs by hand.",
       inputSchema: {
-        force: z.boolean().optional().describe("SIGKILL immediately (default SIGTERM then escalate)"),
+        force: z
+          .boolean()
+          .optional()
+          .describe("SIGKILL immediately (default SIGTERM then escalate)"),
       },
       annotations: {
         readOnlyHint: false,
@@ -1271,7 +1488,9 @@ export function createPastepatchMcpServer({
     },
     async ({ force } = {}) =>
       runTool("stop_all_session_processes", { force }, async (note) => {
-        const result = await runner.stopAllSessionProcesses({ force: Boolean(force) });
+        const result = await runner.stopAllSessionProcesses({
+          force: Boolean(force),
+        });
         note(result.message);
         return textResult(
           `${result.message}\nstopped_jobs=${(result.stoppedJobs || []).join(",") || "(none)"}\nextra_pids=${(result.extraPids || []).join(",") || "(none)"}`,
@@ -1290,7 +1509,9 @@ export function createPastepatchMcpServer({
         name: z
           .string()
           .optional()
-          .describe('Exact process or app name (e.g. "Ollama", "ollama"). No wildcards.'),
+          .describe(
+            'Exact process or app name (e.g. "Ollama", "ollama"). No wildcards.',
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -1314,7 +1535,9 @@ export function createPastepatchMcpServer({
       inputSchema: {
         name: z
           .string()
-          .describe('Exact application name, e.g. "Ollama" or "Visual Studio Code".'),
+          .describe(
+            'Exact application name, e.g. "Ollama" or "Visual Studio Code".',
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -1359,7 +1582,9 @@ export function createPastepatchMcpServer({
       inputSchema: {
         name: z
           .string()
-          .describe("Skill name (from list_remote_skills) or path to skill dir / SKILL.md"),
+          .describe(
+            "Skill name (from list_remote_skills) or path to skill dir / SKILL.md",
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -1368,8 +1593,12 @@ export function createPastepatchMcpServer({
     },
     async ({ name }) =>
       runTool("read_remote_skill", { name }, async (note) => {
-        const skill = await readRemoteSkill(name, { projectRoot: resolvedRoot });
-        note(`${skill.name} (${Buffer.byteLength(skill.content, "utf8")} bytes)`);
+        const skill = await readRemoteSkill(name, {
+          projectRoot: resolvedRoot,
+        });
+        note(
+          `${skill.name} (${Buffer.byteLength(skill.content, "utf8")} bytes)`,
+        );
         const header = [
           `# Skill: ${skill.name}`,
           `path: ${skill.path}`,
@@ -1450,7 +1679,14 @@ export async function startMcpHttpServer({
     host,
     "localhost",
     "127.0.0.1",
-    ...allowedHosts.map((value) => String(value).replace(/^https?:\/\//, "").split("/")[0]).filter(Boolean),
+    ...allowedHosts
+      .map(
+        (value) =>
+          String(value)
+            .replace(/^https?:\/\//, "")
+            .split("/")[0],
+      )
+      .filter(Boolean),
   ];
   // Replicates the SDK's createMcpExpressApp inline: that helper hardwires
   // express.json()'s 100kb default body limit, which rejects large tool
@@ -1523,7 +1759,11 @@ export async function startMcpHttpServer({
 
       if (sessionId && transports[sessionId]) {
         transport = transports[sessionId];
-      } else if (!sessionId && req.method === "POST" && isInitializeRequest(req.body)) {
+      } else if (
+        !sessionId &&
+        req.method === "POST" &&
+        isInitializeRequest(req.body)
+      ) {
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (sid) => {

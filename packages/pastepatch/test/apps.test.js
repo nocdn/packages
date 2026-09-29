@@ -25,7 +25,10 @@ test("get_process_tree walks this process", () => {
 
 test("get_process_tree rejects missing pid and unknown name", () => {
   assert.throws(() => getProcessTree({ pid: 999_999_991 }), /No process/);
-  assert.throws(() => getProcessTree({ name: "DefinitelyNotAProcessNameZZZ" }), /No process matching/);
+  assert.throws(
+    () => getProcessTree({ name: "DefinitelyNotAProcessNameZZZ" }),
+    /No process matching/,
+  );
   assert.throws(() => getProcessTree({}), /pid or name/);
 });
 
@@ -34,6 +37,9 @@ test("quit_app refuses non-macOS or missing exact name", () => {
     assert.throws(() => quitApp("Finder"), /only available on macOS/);
     return;
   }
-  assert.throws(() => quitApp("DefinitelyNotAnAppZZZ"), /No running application/);
+  assert.throws(
+    () => quitApp("DefinitelyNotAnAppZZZ"),
+    /No running application/,
+  );
   assert.throws(() => quitApp('Bad"Name'), /Invalid name/);
 });

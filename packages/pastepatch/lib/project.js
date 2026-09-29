@@ -69,7 +69,9 @@ export function formatProjectBanner({
   }
   lines.push(`Verbose:  ${verbose ? "on" : "off"}`);
   if (allowOutside) {
-    lines.push("Sandbox:  OFF (--allow-outside) — tools may leave this directory");
+    lines.push(
+      "Sandbox:  OFF (--allow-outside) — tools may leave this directory",
+    );
   } else {
     lines.push("Sandbox:  ON — tools cannot read/write outside this directory");
   }
