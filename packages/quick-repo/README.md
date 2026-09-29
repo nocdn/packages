@@ -135,8 +135,10 @@ best-effort: if the log file can't be written, the CLI still runs normally.
 ## Develop
 
 ```bash
+# from the repository root
 npm install
-npm start
+npm test --workspace packages/quick-repo
+npm start --workspace packages/quick-repo -- --help
 ```
 
 The CLI entry point lives in [`bin/cli.js`](./bin/cli.js). The package is built
@@ -144,16 +146,8 @@ with plain Node.js and npm for maximum runtime compatibility.
 
 ## Publishing
 
-This project includes a GitHub Actions workflow at
-[`.github/workflows/publish.yml`](./.github/workflows/publish.yml) that publishes
-the package to npm with [trusted publishing](https://docs.npmjs.com/trusted-publishers)
-on every push, as long as the version in `package.json` is not already on npm.
-`package.json` sets `publishConfig.access` to `public`, so the package is
-published publicly by default.
-
-To enable it once:
-
-1. Push the repository to GitHub.
-2. On npmjs.com, configure the package as a trusted publisher pointing at the
-   `publish.yml` workflow in this repository.
-3. Bump the version in `package.json` and push - the workflow will publish.
+This package lives in the [nocdn/packages](https://github.com/nocdn/packages)
+monorepo. To release it, bump `version` in this `package.json` and push to
+`main`. The repository's publish workflow releases every version that is not
+on npm yet with npm trusted publishing, so there is no npm token and every
+release has provenance. See the [repository README](../../README.md#releasing).

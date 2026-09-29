@@ -183,11 +183,10 @@ async function ensureGitHubCli() {
   } catch (error) {
     if (error.code === "ENOENT") {
       throw new Error(
-        "GitHub CLI (`gh`) is required. Install it from https://cli.github.com/ and run `gh auth login`, then try again.",
-      );
+        "GitHub CLI (`gh`) is required. Install it from https://cli.github.com/ and run `gh auth login`, then try again.", { cause: error });
     }
 
-    throw new Error(`Could not run GitHub CLI (gh): ${commandErrorOutput(error)}`);
+    throw new Error(`Could not run GitHub CLI (gh): ${commandErrorOutput(error)}`, { cause: error });
   }
 }
 
@@ -197,13 +196,11 @@ async function ensureGitHubAuth() {
   } catch (error) {
     if (error.code === "ENOENT") {
       throw new Error(
-        "GitHub CLI (`gh`) is required. Install it from https://cli.github.com/ and run `gh auth login`, then try again.",
-      );
+        "GitHub CLI (`gh`) is required. Install it from https://cli.github.com/ and run `gh auth login`, then try again.", { cause: error });
     }
 
     throw new Error(
-      "You are not authenticated with GitHub CLI for github.com. Run `gh auth login` first, then try again.",
-    );
+      "You are not authenticated with GitHub CLI for github.com. Run `gh auth login` first, then try again.", { cause: error });
   }
 }
 
@@ -402,8 +399,7 @@ async function authenticatedLogin() {
     return login;
   } catch (error) {
     throw new Error(
-      `Could not read the authenticated GitHub username. Run \`gh auth login\` first, then try again. ${commandErrorOutput(error)}`,
-    );
+      `Could not read the authenticated GitHub username. Run \`gh auth login\` first, then try again. ${commandErrorOutput(error)}`, { cause: error });
   }
 }
 
@@ -418,8 +414,7 @@ async function createBlankRepository(fullName, answers) {
     await runGh(args);
   } catch (error) {
     throw new Error(
-      `GitHub CLI could not create ${fullName}. ${commandErrorOutput(error)}`,
-    );
+      `GitHub CLI could not create ${fullName}. ${commandErrorOutput(error)}`, { cause: error });
   }
 }
 
@@ -439,8 +434,7 @@ async function runGitStep(args) {
     await runGit(args);
   } catch (error) {
     throw new Error(
-      `Could not run \`${formatCommand("git", args)}\`. ${commandErrorOutput(error)}`,
-    );
+      `Could not run \`${formatCommand("git", args)}\`. ${commandErrorOutput(error)}`, { cause: error });
   }
 }
 
@@ -487,13 +481,11 @@ async function ensurePushableRepository() {
   } catch (error) {
     if (error.code === "ENOENT") {
       throw new Error(
-        "Git is required for `--push`. Install Git and try again.",
-      );
+        "Git is required for `--push`. Install Git and try again.", { cause: error });
     }
 
     throw new Error(
-      "There is no local git repository here. Run `git init` and make a commit first, or use `--init` to do it for you.",
-    );
+      "There is no local git repository here. Run `git init` and make a commit first, or use `--init` to do it for you.", { cause: error });
   }
 
   try {
