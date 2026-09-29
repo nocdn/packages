@@ -3,18 +3,6 @@
   "version": "0.9.0",
   "description": "Scaffold Next.js, Vite, TanStack Start, or Hono my preferred way",
   "license": "MIT",
-  "type": "module",
-  "bin": {
-    "create-nocdn-app": "index.js"
-  },
-  "files": [
-    "index.js",
-    "templates"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nocdn/create-nocdn-app.git"
-  },
   "keywords": [
     "create-nocdn-app",
     "next.js",
@@ -28,7 +16,30 @@
     "template",
     "nocdn"
   ],
+  "homepage": "https://github.com/nocdn/packages/tree/main/packages/create-nocdn-app#readme",
+  "bugs": {
+    "url": "https://github.com/nocdn/packages/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocdn/packages.git",
+    "directory": "packages/create-nocdn-app"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "bin": {
+    "create-nocdn-app": "index.js"
+  },
+  "files": [
+    "index.js",
+    "templates"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
   "dependencies": {
-    "@clack/prompts": "latest"
+    "@clack/prompts": "^1.8.1"
   }
 }

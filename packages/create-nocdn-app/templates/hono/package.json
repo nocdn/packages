@@ -17,13 +17,13 @@
     "check": "bun run lint && bun run typecheck && bun test"
   },
   "dependencies": {
-    "hono": "4.12.32"
+    "hono": "4.13.10"
   },
   "devDependencies": {
     "@hono/eslint-config": "2.1.1",
-    "@types/bun": "1.3.14",
-    "eslint": "10.8.0",
-    "prettier": "3.9.6",
+    "@types/bun": "1.4.2",
+    "eslint": "10.11.0",
+    "prettier": "3.9.9",
     "typescript": "6.0.3"
   }
 }

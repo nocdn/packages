@@ -1,70 +1,78 @@
 #!/usr/bin/env node
 
 import * as clack from "@clack/prompts";
-import { exec } from "child_process";
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-import { promisify } from "util";
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseArgs, promisify } from "node:util";
 
-const execAsync = promisify(exec);
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const execFileAsync = promisify(execFile);
+const templatesDir = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "templates",
+);
 
 const packageJsonUrl = new URL("./package.json", import.meta.url);
 const { version: VERSION } = JSON.parse(
   await fs.readFile(packageJsonUrl, "utf-8"),
 );
 
-const args = process.argv.slice(2);
-
-function getArgValue(short, long) {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === short || args[i] === long) return args[i + 1] ?? null;
-    if (long && args[i].startsWith(`${long}=`)) return args[i].split("=")[1];
-  }
-  return null;
+let parsedArgs;
+try {
+  parsedArgs = parseArgs({
+    args: process.argv.slice(2),
+    allowPositionals: true,
+    strict: true,
+    options: {
+      help: { type: "boolean", short: "h" },
+      version: { type: "boolean", short: "v" },
+      "skip-install": { type: "boolean" },
+      "skip-git": { type: "boolean" },
+      open: { type: "boolean" },
+      "use-npm": { type: "boolean" },
+      "use-pnpm": { type: "boolean" },
+      template: { type: "string", short: "t" },
+      port: { type: "string", short: "p" },
+      description: { type: "string", short: "d" },
+      "no-agents": { type: "boolean" },
+      agents: { type: "string", short: "a" },
+      runtime: { type: "string" },
+    },
+  });
+} catch (error) {
+  console.error(`error: ${error.message}`);
+  console.error("Run create-nocdn-app --help for usage.");
+  process.exit(1);
 }
 
-const valuedFlags = new Set();
-for (let i = 0; i < args.length; i++) {
-  if (
-    [
-      "-t",
-      "--template",
-      "-p",
-      "--port",
-      "-d",
-      "--description",
-      "-a",
-      "--agents",
-      "--runtime",
-    ].includes(args[i])
-  ) {
-    valuedFlags.add(i);
-    valuedFlags.add(i + 1);
-  }
+const { values, positionals } = parsedArgs;
+
+if (positionals.length > 1) {
+  console.error(
+    `error: expected at most one project name, got: ${positionals.join(" ")}`,
+  );
+  process.exit(1);
 }
 
 const flags = {
-  help: args.includes("-h") || args.includes("--help"),
-  version: args.includes("-v") || args.includes("--version"),
-  skipInstall: args.includes("--skip-install"),
-  skipGit: args.includes("--skip-git"),
-  open: args.includes("--open"),
-  useNpm: args.includes("--use-npm"),
-  usePnpm: args.includes("--use-pnpm"),
-  testing: args.includes("--testing"),
-  template: getArgValue("-t", "--template"),
-  port: getArgValue("-p", "--port"),
-  description: getArgValue("-d", "--description"),
-  noAgents: args.includes("--no-agents"),
-  agents: getArgValue("-a", "--agents"),
-  runtime: getArgValue(null, "--runtime"),
+  help: values.help === true,
+  version: values.version === true,
+  skipInstall: values["skip-install"] === true,
+  skipGit: values["skip-git"] === true,
+  open: values.open === true,
+  useNpm: values["use-npm"] === true,
+  usePnpm: values["use-pnpm"] === true,
+  template: values.template ?? null,
+  port: values.port ?? null,
+  description: values.description ?? null,
+  noAgents: values["no-agents"] === true,
+  agents: values.agents ?? null,
+  runtime: values.runtime ?? null,
 };
 
-const cliProjectName = args.find(
-  (arg, i) => !arg.startsWith("-") && !valuedFlags.has(i),
-);
+const cliProjectName = positionals[0];
 
 const VALID_TEMPLATES = [
   "next",
@@ -73,7 +81,6 @@ const VALID_TEMPLATES = [
   "tanstack-start",
   "start",
   "hono",
-  "cli",
 ];
 const VALID_AGENTS = ["none", "blank", "minimal"];
 const VALID_RUNTIMES = ["bun", "npm", "pnpm", "yarn"];
@@ -87,17 +94,17 @@ function showHelp() {
   console.log(`
 create-nocdn-app v${VERSION}
 
-Scaffold a new Next.js, Vite, TanStack Start, Hono, or CLI project.
+Scaffold a new Next.js, Vite, TanStack Start, or Hono project.
 
 Usage:
   bunx create-nocdn-app [project-name] [options]
 
 Template:
-  -t, --template <name>    next | vite | tanstack (or start) | hono | cli
+  -t, --template <name>    next | vite | tanstack (or start) | hono
 
 Project options:
   -p, --port <number>      Port for Hono API (default: 3000)
-  -d, --description <text> Project description (Next.js, TanStack, CLI)
+  -d, --description <text> Project description (Next.js, TanStack)
 
 AGENTS.md:
   -a, --agents <mode>      none | blank | minimal (default: prompt)
@@ -119,8 +126,6 @@ Examples:
   bunx create-nocdn-app my-app -t next -d "My website" --no-agents
   bunx create-nocdn-app my-app -t tanstack --skip-git --skip-install
   bunx create-nocdn-app my-app -t vite --agents minimal --runtime pnpm
-  bunx create-nocdn-app my-cli -t cli -d "My CLI tool"
-  bunx create-nocdn-app @nocdn/my-cli -t cli
 `);
   process.exit(0);
 }
@@ -141,72 +146,6 @@ function validateProjectName(value) {
   }
 }
 
-function normalizeOrganizationName(value) {
-  return value.startsWith("@") ? value.slice(1) : value;
-}
-
-function validateOrganizationName(value) {
-  if (value.length === 0) return;
-
-  const organization = normalizeOrganizationName(value);
-
-  if (organization.length === 0) return "Organization name cannot be only @";
-  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(organization)) {
-    return "Organization name must start and end with a lowercase letter or number and can contain hyphens";
-  }
-}
-
-function validatePackageNameLength(projectName, packageOrganization) {
-  if (buildPackageName(projectName, packageOrganization).length > 214) {
-    return "npm package name must be 214 characters or fewer, including its scope";
-  }
-}
-
-function parseProjectNameArg(value) {
-  if (!value.startsWith("@")) {
-    const validationError = validateProjectName(value);
-    return {
-      projectName: value,
-      packageOrganization: null,
-      isScopedPackageName: false,
-      validationError,
-    };
-  }
-
-  const match = value.match(/^@([^/]+)\/(.+)$/);
-
-  if (!match) {
-    return {
-      projectName: null,
-      packageOrganization: null,
-      isScopedPackageName: true,
-      validationError:
-        "Scoped package names must use the format @organization/package-name",
-    };
-  }
-
-  const [, rawOrganization, projectName] = match;
-  const packageOrganization = normalizeOrganizationName(rawOrganization);
-  const organizationError = validateOrganizationName(packageOrganization);
-  const projectNameError = validateProjectName(projectName);
-
-  return {
-    projectName,
-    packageOrganization,
-    isScopedPackageName: true,
-    validationError:
-      organizationError ??
-      projectNameError ??
-      validatePackageNameLength(projectName, packageOrganization),
-  };
-}
-
-function buildPackageName(projectName, packageOrganization) {
-  return packageOrganization
-    ? `@${packageOrganization}/${projectName}`
-    : projectName;
-}
-
 function validatePort(value) {
   if (value.length === 0) return "Port is required";
   if (!/^\d+$/.test(value)) return "Port must be a number";
@@ -219,9 +158,9 @@ function validatePort(value) {
 }
 
 function getPackageManager() {
-  if (flags.useNpm) return { name: "npm", install: "npm install" };
-  if (flags.usePnpm) return { name: "pnpm", install: "pnpm install" };
-  return { name: "bun", install: "bun install" };
+  if (flags.useNpm) return { name: "npm" };
+  if (flags.usePnpm) return { name: "pnpm" };
+  return { name: "bun" };
 }
 
 function getFrameworkConfig(framework) {
@@ -249,17 +188,9 @@ function getFrameworkConfig(framework) {
     };
   }
 
-  if (framework === "cli") {
-    return {
-      templateDir: "cli",
-      installPackageManager: { name: "npm", install: "npm install" },
-      runCommand: () => "npm start",
-    };
-  }
-
   return {
     templateDir: "hono",
-    installPackageManager: { name: "bun", install: "bun install" },
+    installPackageManager: { name: "bun" },
     runCommand: () => "bun run dev",
   };
 }
@@ -274,13 +205,6 @@ async function replaceInFile(filePath, replacements) {
   await fs.writeFile(filePath, content);
 }
 
-async function renameIfExists(sourcePath, targetPath) {
-  try {
-    await fs.access(sourcePath);
-    await fs.rename(sourcePath, targetPath);
-  } catch {}
-}
-
 function buildMinimalAgentsContent(framework, runtime) {
   let content = `For this project you must only use ${runtime} for installing dependencies, running builds, dev servers, linting, formatting, etc. Look in the package.json for the scripts. You must NOT use the other package managers/runtimes unless the user specifies.`;
 
@@ -289,19 +213,6 @@ function buildMinimalAgentsContent(framework, runtime) {
       "\n\n" +
       [
         "Prefer the project's custom Link component in components/link.tsx over next/link, because it navigates onMouseDown. Wherever navigation links are used in the app, do not disable prefetching unless the user explicitly asks for that behavior.",
-      ].join("\n\n");
-  }
-
-  if (framework === "cli") {
-    content +=
-      "\n\n" +
-      [
-        "Write all code in plain JavaScript (ESM), not TypeScript, so there is no transpilation step at any point in the workflow.",
-        "Keep dependencies minimal. Prefer Node built-ins (node:fs, node:path, node:child_process, node:url, etc.) over third-party packages whenever possible.",
-        "Keep `bin/cli.js` as the small executable adapter and put testable CLI behavior in `src/cli.js`. Read the package version and metadata from `package.json` at runtime so `--version` and help text always stay in sync.",
-        "Use Node's strict `node:util.parseArgs` for options. Always implement `-h`/`--help` and `-v`/`--version`, reject unsupported input, write normal output to stdout, write diagnostics to stderr, and return a non-zero exit status for errors.",
-        "Use the built-in `node:test` runner. When you add, change, or remove flags or behavior, update both the tests and README.md.",
-        "A GitHub Actions workflow for npm trusted and staged publishing has been created at `.github/workflows/publish.yml`. Before relying on it, make sure the package already exists on npm, configure this exact workflow as a trusted publisher with `npm stage publish` permission, and add a `package.json` repository URL that exactly matches the GitHub repository. Ask the user for unknown repository or npm details rather than guessing.",
       ].join("\n\n");
   }
 
@@ -371,7 +282,6 @@ async function main() {
           label: "TanStack Start (TypeScript, React, Compiler)",
         },
         { value: "hono", label: "Hono (Bun API)" },
-        { value: "cli", label: "CLI (Node, npm, plain JavaScript)" },
       ],
     });
 
@@ -382,27 +292,15 @@ async function main() {
   }
 
   let projectName;
-  let packageOrganization = null;
-  let scopedPackageNameArg = false;
 
   if (cliProjectName) {
-    const parsedProjectName = parseProjectNameArg(cliProjectName);
-    const validationError = parsedProjectName.validationError;
+    const validationError = validateProjectName(cliProjectName);
     if (validationError) {
       clack.log.error(validationError);
       clack.cancel("Invalid project name");
       process.exit(1);
     }
-    if (parsedProjectName.isScopedPackageName && framework !== "cli") {
-      clack.log.error(
-        "Scoped package names are only supported by the CLI template",
-      );
-      clack.cancel("Invalid project name");
-      process.exit(1);
-    }
-    projectName = parsedProjectName.projectName;
-    packageOrganization = parsedProjectName.packageOrganization;
-    scopedPackageNameArg = parsedProjectName.isScopedPackageName;
+    projectName = cliProjectName;
     clack.log.info(`Creating project: ${projectName}`);
   } else {
     projectName = await clack.text({
@@ -417,39 +315,11 @@ async function main() {
     }
   }
 
-  if (framework === "cli" && !packageOrganization && !nonInteractive) {
-    const organizationValue = await clack.text({
-      message: "npm organization (optional, press Enter to skip)",
-      placeholder: "nocdn",
-      validate: (value) =>
-        validateOrganizationName(value) ??
-        validatePackageNameLength(
-          projectName,
-          value ? normalizeOrganizationName(value) : null,
-        ),
-    });
-
-    if (clack.isCancel(organizationValue)) {
-      clack.cancel("Operation cancelled");
-      process.exit(0);
-    }
-
-    packageOrganization = organizationValue
-      ? normalizeOrganizationName(organizationValue)
-      : null;
-  }
-
-  if (framework === "cli" && scopedPackageNameArg) {
-    clack.log.info(
-      `Using npm package name: ${buildPackageName(projectName, packageOrganization)}`,
-    );
-  }
-
   let projectDescription = null;
   let projectPort = null;
   let agentsContent = null;
 
-  if (framework === "next" || framework === "tanstack" || framework === "cli") {
+  if (framework === "next" || framework === "tanstack") {
     if (flags.description !== null) {
       projectDescription = flags.description;
     } else if (!nonInteractive) {
@@ -493,7 +363,7 @@ async function main() {
     } else if (flags.agents === "minimal") {
       const runtime =
         flags.runtime ??
-        (framework === "hono" ? "bun" : framework === "cli" ? "npm" : null);
+        (framework === "hono" ? "bun" : null);
 
       if (!runtime) {
         const selectedRuntime = await clack.select({
@@ -531,9 +401,7 @@ async function main() {
       const minimalLabel =
         framework === "hono"
           ? "bun runtime, lean containers, .env conventions"
-          : framework === "cli"
-            ? "npm runtime, plain JS, bin/cli.js conventions"
-            : "specify runtime";
+          : "specify runtime";
 
       const agentsOption = await clack.select({
         message: "How would you like to create AGENTS.md?",
@@ -566,9 +434,9 @@ async function main() {
         agentsOption === "minimal" ||
         agentsOption === "minimal-edit"
       ) {
-        let runtime = framework === "cli" ? "npm" : "bun";
+        let runtime = "bun";
 
-        if (framework !== "hono" && framework !== "cli") {
+        if (framework !== "hono") {
           runtime = await clack.select({
             message: "Which runtime are you using?",
             options: [
@@ -612,11 +480,10 @@ async function main() {
   try {
     const projectPath = path.join(process.cwd(), projectName);
 
-    try {
-      await fs.access(projectPath);
+    if (existsSync(projectPath)) {
       clack.cancel(`Directory ${projectName} already exists`);
       process.exit(1);
-    } catch {}
+    }
 
     if (framework === "hono" && (flags.useNpm || flags.usePnpm)) {
       clack.log.info(
@@ -624,46 +491,32 @@ async function main() {
       );
     }
 
-    s.start(
-      flags.testing ? "Copying local template..." : "Cloning template...",
+    // Templates ship inside this package, so the scaffold always matches the
+    // version being run and works offline.
+    s.start("Copying template...");
+    await fs.cp(path.join(templatesDir, templateDir), projectPath, {
+      recursive: true,
+      dereference: true,
+    });
+    await fs.copyFile(
+      path.join(templatesDir, "shared", "gitignore"),
+      path.join(projectPath, ".gitignore"),
     );
-    if (flags.testing) {
-      const localTemplatePath = path.join(scriptDir, "templates", templateDir);
-      const localSharedPath = path.join(scriptDir, "templates", "shared");
-      await fs.cp(localTemplatePath, projectPath, {
-        recursive: true,
-        dereference: true,
-      });
-      await fs.copyFile(
-        path.join(localSharedPath, "gitignore"),
-        path.join(projectPath, ".gitignore"),
+    // npm never packs .gitignore or .npmignore files, so templates store
+    // them without the leading dot.
+    if (existsSync(path.join(projectPath, "npmignore"))) {
+      await fs.rename(
+        path.join(projectPath, "npmignore"),
+        path.join(projectPath, ".npmignore"),
       );
-      s.stop("Local template copied");
-    } else {
-      const tempPath = path.join(process.cwd(), `.temp-${Date.now()}`);
-      await execAsync(
-        `git clone --depth 1 https://github.com/nocdn/create-nocdn-app.git "${tempPath}"`,
-      );
-      await fs.cp(path.join(tempPath, "templates", templateDir), projectPath, {
-        recursive: true,
-        dereference: true,
-      });
-      await fs.copyFile(
-        path.join(tempPath, "templates", "shared", "gitignore"),
-        path.join(projectPath, ".gitignore"),
-      );
-      await fs.rm(tempPath, { recursive: true, force: true });
-      s.stop("Template cloned");
     }
+    s.stop("Template copied");
 
     s.start("Configuring project...");
 
     const packageJsonPath = path.join(projectPath, "package.json");
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
-    packageJson.name =
-      framework === "cli"
-        ? buildPackageName(projectName, packageOrganization)
-        : projectName;
+    packageJson.name = projectName;
     await fs.writeFile(
       packageJsonPath,
       `${JSON.stringify(packageJson, null, 2)}\n`,
@@ -735,35 +588,6 @@ async function main() {
         replaceInFile(path.join(projectPath, "compose.yaml"), replacements),
         replaceInFile(path.join(projectPath, "Dockerfile"), replacements),
       ]);
-    } else if (framework === "cli") {
-      const descriptionValue =
-        projectDescription && projectDescription.trim()
-          ? projectDescription.trim()
-          : "A CLI scaffolded with create-nocdn-app";
-      const cliPackageJson = JSON.parse(
-        await fs.readFile(packageJsonPath, "utf-8"),
-      );
-
-      cliPackageJson.description = descriptionValue;
-      cliPackageJson.bin = {
-        [projectName]: "bin/cli.js",
-      };
-      await fs.writeFile(
-        packageJsonPath,
-        `${JSON.stringify(cliPackageJson, null, 2)}\n`,
-      );
-
-      const replacements = {
-        "project-name": projectName,
-        "package-name": buildPackageName(projectName, packageOrganization),
-        "project-description": descriptionValue.replace(/\s+/g, " "),
-        year: String(new Date().getFullYear()),
-      };
-
-      await Promise.all([
-        replaceInFile(path.join(projectPath, "README.md"), replacements),
-        replaceInFile(path.join(projectPath, "LICENSE"), replacements),
-      ]);
     }
 
     if (agentsContent !== null) {
@@ -774,15 +598,15 @@ async function main() {
 
     if (!flags.skipInstall) {
       s.start(`Installing dependencies with ${pm.name}...`);
-      await execAsync(pm.install, { cwd: projectPath });
+      await run(pm.name, ["install"], { cwd: projectPath });
       s.stop("Dependencies installed");
     }
 
     if (!flags.skipGit) {
       s.start("Initializing git...");
-      await execAsync("git init", { cwd: projectPath });
-      await execAsync("git add .", { cwd: projectPath });
-      await execAsync('git commit -m "init: initial file upload"', {
+      await execFileAsync("git", ["init"], { cwd: projectPath });
+      await execFileAsync("git", ["add", "."], { cwd: projectPath });
+      await execFileAsync("git", ["commit", "-m", "init: initial file upload"], {
         cwd: projectPath,
       });
       s.stop("Git initialized");
@@ -790,7 +614,7 @@ async function main() {
 
     if (flags.open) {
       s.start("Opening in editor...");
-      await execAsync(`code "${projectPath}"`);
+      await run("code", ["."], { cwd: projectPath });
       s.stop("Opened in VS Code");
     }
 
@@ -809,4 +633,17 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+// Package managers and `code` are .cmd shims on Windows, which only run
+// through a shell. Callers pass fixed arguments without spaces, so this is
+// safe; use execFileAsync directly for anything else.
+function run(command, commandArgs, options = {}) {
+  return execFileAsync(command, commandArgs, {
+    ...options,
+    shell: process.platform === "win32",
+  });
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
