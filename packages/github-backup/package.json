@@ -1,6 +1,6 @@
 {
   "name": "@nocdn/github-backup",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A CLI to backup a whole github personal profile",
   "license": "MIT",
   "homepage": "https://github.com/nocdn/packages/tree/main/packages/github-backup#readme",
