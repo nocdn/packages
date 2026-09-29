@@ -239,6 +239,9 @@ Conventions every CLI follows:
   `throw new Error("Could not read config", { cause: error })`.
 - **No network or file access at import time.** Do the work inside `runCli`,
   so `--help` and `--version` are instant and offline.
+- **Keep docs and tests in step.** When you add, change or remove a flag or a
+  behaviour, update the help text, the tests and the package README in the
+  same change.
 
 ### 5. Prefer these built-ins
 
@@ -360,21 +363,32 @@ monorepo. To release it, bump `version` in this `package.json` and push to
 ### 9. First release (manual, once)
 
 npm can only attach a trusted publisher to a package that already exists, so
-the owner publishes the first version by hand and then hands releases to CI:
+the first version is published from the owner's machine and releases are then
+handed to CI. Every one of these commands needs the owner to approve it in
+their browser (npm login, 2FA on publish, and each `npm trust` call). Run them
+through `scripts/npm-browser-auth.js`, which opens each approval page in the
+owner's browser and waits while they approve:
 
 ```bash
-npm publish --workspace packages/<name> --access public
-npm trust github @nocdn/<name> --repo nocdn/packages --file publish.yml
+# is npm logged in? if not, log in first
+npm whoami || node scripts/npm-browser-auth.js login --auth-type=web
+
+node scripts/npm-browser-auth.js publish --workspace packages/<name> --access public
+node scripts/npm-browser-auth.js trust github @nocdn/<name> \
+  --repo nocdn/packages --file publish.yml --allow-publish -y
+node scripts/npm-browser-auth.js trust list @nocdn/<name>
 ```
 
-Both need the owner's npm login and 2FA; leave them to the owner rather than
-running them yourself. After that, on npmjs.com under the package's
-**Settings**, set publishing access to require 2FA and disallow tokens. From
-then on a version bump pushed to `main` releases it.
+Tell the owner a browser tab is about to open before each command, run them
+one at a time, and check each exits 0 before starting the next. A plain
+`npm publish` or `npm trust` in a non-interactive shell fails with `EOTP`
+instead of prompting; that is why the helper runs npm in a pseudo-terminal.
+Never try to approve a page yourself or work around 2FA.
 
-`npm publish` needs a one-time password and `npm trust` needs a browser
-approval for every command, so neither can run unattended. `npm trust` only
-prompts when run in a real terminal; agents cannot approve it.
+Once `trust list` shows `nocdn/packages` with `publish.yml`, a version bump
+pushed to `main` releases the package. Then suggest the owner sets publishing
+access to "Require two-factor authentication and disallow tokens" under the
+package's **Settings** on npmjs.com, which only they can do.
 
 ## Releasing a change
 
@@ -409,6 +423,10 @@ previous version until you bump it.
   dependencies from the registry (as `npx` does), and runs each bin with
   `--version` and `--help`. It skips packages whose `os` excludes the current
   platform.
+- **`scripts/npm-browser-auth.js`:** runs an npm command that needs the
+  owner's browser approval (`login`, a first `publish`, `trust ...`) in a
+  pseudo-terminal and opens each approval URL in their browser. Owner's
+  machine only; CI never needs it.
 - **`scripts/release-plan.js`:** lists packages whose version is not on npm.
   Only an npm 404 counts as "not published"; any other registry error fails
   the release rather than risking a bad publish.

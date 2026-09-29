@@ -80,12 +80,15 @@ needs the Apple signing secrets listed in
 ### Adding a new package
 
 npm can only attach a trusted publisher to a package that already exists, so
-the very first version of a new package is published by hand:
+the very first version of a new package is published from your machine. Each
+command opens an approval page in your browser; an agent can run them for you
+and you approve in the browser:
 
 ```bash
-npm login
-npm publish --workspace packages/<name> --access public
-npm trust github @nocdn/<name> --repo nocdn/packages --file publish.yml
+node scripts/npm-browser-auth.js login --auth-type=web   # if `npm whoami` fails
+node scripts/npm-browser-auth.js publish --workspace packages/<name> --access public
+node scripts/npm-browser-auth.js trust github @nocdn/<name> \
+  --repo nocdn/packages --file publish.yml --allow-publish -y
 ```
 
 After that, releases go through `publish.yml` like every other package. See
