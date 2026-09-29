@@ -30,7 +30,10 @@ const DEFAULT_BACKUP_DIR = "~/backups/github";
 const DEFAULT_TOKEN_FILE = "~/.config/github-backup/token";
 const DEFAULT_B2_CREDENTIALS_FILE = "~/.config/github-backup/b2";
 const DEFAULT_B2_BUCKET_PATH = "/github";
-const DOCKER_IMAGE = "ghcr.io/josegonzalez/python-github-backup";
+// Pinned by tag and digest: this container receives your GitHub token, so it
+// must not change underneath you. Bump both together after reviewing a release.
+const DOCKER_IMAGE =
+  "ghcr.io/josegonzalez/python-github-backup:0.65.1@sha256:774877e2088bec2e5fe5abc29ed457c660c6eda580e3ccab39c526d13abe4874";
 const TOKEN_CREATE_URL = "https://github.com/settings/personal-access-tokens/new";
 const TOKEN_DOCS_URL =
   "https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token";
@@ -591,7 +594,7 @@ async function readB2Credentials(credentialsFile) {
     parsed = JSON.parse(await readFile(credentialsFile, "utf8"));
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error(`Backblaze B2 credentials file is not valid JSON: ${credentialsFile}`);
+      throw new Error(`Backblaze B2 credentials file is not valid JSON: ${credentialsFile}`, { cause: error });
     }
 
     throw error;
@@ -1067,21 +1070,6 @@ function expandHome(path) {
   }
 
   return isAbsolute(value) ? value : resolve(value);
-}
-
-function displayPath(path) {
-  const resolvedPath = resolve(path);
-  const homePath = resolve(homedir());
-
-  if (resolvedPath === homePath) {
-    return "~";
-  }
-
-  if (isPathInside(resolvedPath, homePath)) {
-    return `~/${relative(homePath, resolvedPath)}`;
-  }
-
-  return resolvedPath;
 }
 
 function isPathInside(childPath, parentPath) {
