@@ -1,0 +1,90 @@
+name: Publish
+
+# Publishes every package whose package.json version is not on npm yet, using
+# npm trusted publishing (OIDC, no npm token). Bump a package's version and
+# push to main to release it; pushes without a version bump publish nothing.
+#
+# On npmjs.com each package trusts this repository with workflow filename
+# `publish.yml`. Keep the filename, or update the trusted publishers as well.
+# @nocdn/record is published by record.yml because it needs a signed macOS build.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions: {}
+
+# Never run two releases at once, and never cancel one halfway.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    uses: ./.github/workflows/checks.yml
+    permissions:
+      contents: read
+
+  plan:
+    name: Plan release
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      packages: ${{ steps.plan.outputs.packages }}
+      any: ${{ steps.plan.outputs.any }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Find versions that are not on npm yet
+        id: plan
+        run: node scripts/release-plan.js --exclude @nocdn/record
+
+  publish:
+    name: Publish ${{ matrix.package.name }}@${{ matrix.package.version }}
+    needs: plan
+    if: needs.plan.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    # The only job that can mint an npm token. It installs no dependencies and
+    # runs no lifecycle scripts, so no third-party code runs next to the token.
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.plan.outputs.packages) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # Node 24 ships npm 11, which supports trusted publishing.
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          # Caches can be poisoned; never restore one in a publishing job.
+          package-manager-cache: false
+
+      - name: Check npm supports trusted publishing
+        run: node scripts/check-npm-version.js 11.5.1
+
+      - name: Publish to npm
+        env:
+          PACKAGE_DIR: ${{ matrix.package.dir }}
+        run: npm publish --workspace "$PACKAGE_DIR" --ignore-scripts --provenance --access public

@@ -1,0 +1,87 @@
+name: Templates
+
+# Scaffolds every create-nocdn-app template the way a user would, then installs,
+# builds, lints, typechecks and tests the generated project with Bun. Runs when
+# the scaffolder or its templates change, and weekly to catch upstream breakage.
+on:
+  pull_request:
+    paths:
+      - "packages/create-nocdn-app/**"
+      - ".github/workflows/templates.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/create-nocdn-app/**"
+      - ".github/workflows/templates.yml"
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: templates-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  template:
+    name: ${{ matrix.template }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - template: next
+            checks: "lint typecheck build"
+          - template: vite
+            checks: "lint build"
+          - template: tanstack
+            checks: "lint typecheck build"
+          - template: hono
+            checks: "lint typecheck test build"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      # Keep in step with the Hono template's Dockerfile and @types/bun.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.2"
+
+      - name: Install create-nocdn-app dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Scaffold ${{ matrix.template }}
+        env:
+          TEMPLATE: ${{ matrix.template }}
+        run: |
+          node packages/create-nocdn-app/index.js app -t "$TEMPLATE" \
+            --skip-install --skip-git --no-agents
+          mv app "$RUNNER_TEMP/app"
+
+      - name: Install template dependencies
+        working-directory: ${{ runner.temp }}/app
+        run: bun install
+
+      - name: Run ${{ matrix.checks }}
+        working-directory: ${{ runner.temp }}/app
+        env:
+          CHECKS: ${{ matrix.checks }}
+        run: |
+          for script in $CHECKS; do
+            echo "::group::bun run $script"
+            bun run "$script"
+            echo "::endgroup::"
+          done

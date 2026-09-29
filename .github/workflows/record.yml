@@ -1,0 +1,224 @@
+name: Record
+
+# Builds @nocdn/record's native helper on a GitHub-hosted macOS 26 runner. For a
+# release (a version not on npm yet, pushed to main) it signs the helper with a
+# Developer ID Application certificate, notarizes and staples it, and a separate
+# job publishes it with npm trusted publishing.
+#
+# On npmjs.com @nocdn/record trusts this repository with workflow filename
+# `record.yml`. The Apple signing and notarization secrets listed in
+# packages/record/README.md must exist in this repository's secrets.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/record/**"
+      - "package-lock.json"
+      - "scripts/release-plan.js"
+      - ".github/workflows/record.yml"
+  pull_request:
+    paths:
+      - "packages/record/**"
+      - ".github/workflows/record.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: record-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build native helper
+    # macos-26 is the current GitHub-hosted Apple Silicon image. The helper
+    # targets macOS 15+ and is compiled as a universal arm64 + x86_64 binary.
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.plan.outputs.any }}
+    env:
+      APPLE_TEAM_ID: 7CAU3XFRLQ
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Show Xcode and Swift versions
+        run: |
+          xcodebuild -version
+          xcrun swiftc --version
+          uname -m
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run tests
+        run: npm test --workspace packages/record
+
+      - name: Check whether this version needs releasing
+        id: plan
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pull request; will compile the helper but will not notarize or publish."
+          else
+            node scripts/release-plan.js --only @nocdn/record
+          fi
+
+      - name: Require Apple signing secrets for a release
+        if: steps.plan.outputs.any == 'true'
+        env:
+          APPLE_DEVELOPER_ID_P12: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          missing=0
+          if [[ -z "$APPLE_DEVELOPER_ID_P12" || -z "$APPLE_DEVELOPER_ID_P12_PASSWORD" ]]; then
+            echo "::error::Add APPLE_DEVELOPER_ID_P12 and APPLE_DEVELOPER_ID_P12_PASSWORD repository secrets."
+            missing=1
+          fi
+          if [[ -n "$APPLE_API_KEY" && -n "$APPLE_API_KEY_ID" ]]; then
+            if [[ -z "$APPLE_API_ISSUER" ]]; then
+              echo "::error::Team App Store Connect API keys also need APPLE_API_ISSUER."
+              missing=1
+            fi
+          elif [[ -z "$APPLE_ID" || -z "$APPLE_APP_SPECIFIC_PASSWORD" ]]; then
+            echo "::error::Add APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER, or APPLE_ID and APPLE_APP_SPECIFIC_PASSWORD."
+            missing=1
+          fi
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.plan.outputs.any == 'true'
+        env:
+          APPLE_DEVELOPER_ID_P12: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/record-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+
+          printf '%s' "$APPLE_DEVELOPER_ID_P12" | openssl base64 -d -A -out "$CERTIFICATE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_DEVELOPER_ID_P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          rm -f "$CERTIFICATE_PATH"
+
+      - name: Build native helper
+        working-directory: packages/record
+        env:
+          RECORD_NATIVE_ARCH: ${{ steps.plan.outputs.any == 'true' && 'arm64,x86_64' || 'arm64' }}
+          RECORD_SIGNING_IDENTITY: "${{ steps.plan.outputs.any == 'true' && format('Developer ID Application: Bartosz Bak ({0})', env.APPLE_TEAM_ID) || '-' }}"
+        run: npm run build
+
+      - name: Notarize and staple Record.app
+        if: steps.plan.outputs.any == 'true'
+        working-directory: packages/record
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: npm run notarize
+
+      - name: Verify the bundled helper
+        working-directory: packages/record
+        env:
+          RELEASE: ${{ steps.plan.outputs.any }}
+        run: |
+          codesign --verify --deep --strict --verbose=2 vendor/Record.app
+          codesign -dv --verbose=4 vendor/Record.app
+          file vendor/Record.app/Contents/MacOS/record-native
+          if [[ "$RELEASE" == "true" ]]; then
+            xcrun stapler validate vendor/Record.app
+          fi
+
+      # A tarball keeps the executable bit and the signed bundle byte-for-byte;
+      # artifact zips do not preserve file modes.
+      - name: Archive the signed helper
+        if: steps.plan.outputs.any == 'true'
+        run: tar -czf "$RUNNER_TEMP/record-vendor.tgz" -C packages/record vendor
+
+      - name: Upload the signed helper
+        if: steps.plan.outputs.any == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: record-vendor
+          path: ${{ runner.temp }}/record-vendor.tgz
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Publish @nocdn/record
+    needs: build
+    if: needs.build.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    # The only job that can mint an npm token; the Apple secrets stay in the
+    # build job, and nothing here installs dependencies or runs scripts.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Download the signed helper
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: record-vendor
+          path: ${{ runner.temp }}
+
+      - name: Unpack the signed helper
+        run: |
+          tar -xzf "$RUNNER_TEMP/record-vendor.tgz" -C packages/record
+          test -x packages/record/vendor/Record.app/Contents/MacOS/record-native
+
+      - name: Check npm supports trusted publishing
+        run: node scripts/check-npm-version.js 11.5.1
+
+      # --ignore-scripts skips prepack, which would rebuild (and unsign) the
+      # helper; the signed build from the macOS job is published as-is.
+      - name: Publish to npm
+        run: npm publish --workspace packages/record --ignore-scripts --provenance --access public

@@ -1,0 +1,52 @@
+version: 2
+
+updates:
+  # The workspace packages and the root tooling share one package-lock.json.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    # Give new releases a week to be yanked or flagged before adopting them.
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 10
+
+  # create-nocdn-app templates. They have no lockfile; the Templates workflow
+  # builds each one, so a green pull request means the scaffold still works.
+  - package-ecosystem: npm
+    directories:
+      - "/packages/create-nocdn-app/templates/next"
+      - "/packages/create-nocdn-app/templates/vite"
+      - "/packages/create-nocdn-app/templates/tanstack"
+      - "/packages/create-nocdn-app/templates/hono"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      templates:
+        patterns:
+          - "*"
+    ignore:
+      # eslint-plugin-react, -import and -jsx-a11y (via eslint-config-next)
+      # do not support ESLint 10 yet.
+      - dependency-name: "eslint"
+        update-types:
+          - version-update:semver-major
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
