@@ -5,6 +5,9 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 
+import { spawnCloudflaredProcess } from "./cloudflared-process.js";
+export { isNoisyCloudflaredLine } from "./cloudflared-process.js";
+
 const CONFIG_VERSION = 1;
 const DEFAULT_TUNNEL_NAME = "pastepatch";
 const DEFAULT_PORT = 8787;
@@ -249,11 +252,13 @@ export function cloudflaredMissingError({ packageName = "pastepatch" } = {}) {
 
   return new Error(
     `cloudflared is not installed (or not on PATH).\n\n` +
-      `${packageName} --mcp needs the Cloudflare Tunnel daemon to expose a stable public URL to ChatGPT.\n\n` +
-      `Install it, then re-run:\n` +
+      `${packageName} --mcp needs the Cloudflare Tunnel daemon to expose a public HTTPS URL to ChatGPT.\n\n` +
+      `Install it:\n` +
       `  ${install}\n\n` +
+      `Temporary tunnel (no account or domain needed):\n` +
+      `  ${packageName} --mcp --quick-tunnel\n\n` +
       `Docs: https://developers.cloudflare.com/tunnel/downloads/\n` +
-      `After install, run:\n` +
+      `For a stable named tunnel, run:\n` +
       `  ${packageName} --mcp --setup-tunnel`,
   );
 }
@@ -861,118 +866,6 @@ export function startCloudflaredWithReconnect({
 /** @deprecated use startCloudflaredWithToken */
 export function startCloudflaredTunnel(options) {
   return startCloudflaredWithToken(options);
-}
-
-/**
- * cloudflared is chatty (INF spam + "stream canceled by remote" on normal client disconnects).
- * Default: silence those lines. --verbose shows everything. Always log non-noise ERRs.
- */
-export function isNoisyCloudflaredLine(line) {
-  const text = String(line);
-  if (/\bINF\b/.test(text)) {
-    return true;
-  }
-  if (/stream \d+ canceled by remote/i.test(text)) {
-    return true;
-  }
-  if (/Request failed error="stream \d+ canceled by remote/i.test(text)) {
-    return true;
-  }
-  if (
-    /CONNECTIVITY PRE-CHECKS|SUMMARY: Environment is healthy|precheck /i.test(
-      text,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /Generated Connector ID|Initial protocol|ICMP proxy|metrics server|Tunnel connection curve/i.test(
-      text,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /Registered tunnel connection|Starting tunnel|Version |GOOS:|Settings: map|cloudflared will not automatically/i.test(
-      text,
-    )
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function spawnCloudflaredProcess({
-  binary,
-  args,
-  logger,
-  label,
-  verbose = false,
-}) {
-  const child = spawn(binary, args, {
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-  });
-
-  let settled = false;
-  let resolveExit;
-  let rejectExit;
-  const exitPromise = new Promise((resolve, reject) => {
-    resolveExit = resolve;
-    rejectExit = reject;
-  });
-
-  const onData = (streamName) => (chunk) => {
-    const text = chunk.toString("utf8").trimEnd();
-    if (!text) {
-      return;
-    }
-    for (const line of text.split("\n")) {
-      if (!verbose && isNoisyCloudflaredLine(line)) {
-        // Still keep a short trail in the pastepatch log file for debugging
-        void logger(`cloudflared(${label}) quiet: ${line.slice(0, 200)}`);
-        continue;
-      }
-      process.stderr.write(`[cloudflared] ${line}\n`);
-      void logger(`cloudflared(${label}) ${streamName}: ${line.slice(0, 500)}`);
-    }
-  };
-
-  child.stdout?.on("data", onData("stdout"));
-  child.stderr?.on("data", onData("stderr"));
-
-  child.on("error", (error) => {
-    if (!settled) {
-      settled = true;
-      rejectExit(error);
-    }
-  });
-
-  child.on("close", (code, signal) => {
-    if (!settled) {
-      settled = true;
-      if (code === 0 || signal === "SIGTERM" || signal === "SIGINT") {
-        resolveExit({ code, signal });
-      } else {
-        rejectExit(
-          new Error(
-            `cloudflared exited unexpectedly (code=${code ?? "null"}, signal=${signal ?? "null"}). ` +
-              "Check tunnel credentials, DNS route, and that the hostname matches the config.",
-          ),
-        );
-      }
-    }
-  });
-
-  return {
-    child,
-    exitPromise,
-    kill() {
-      if (!child.killed) {
-        child.kill("SIGTERM");
-      }
-    },
-  };
 }
 
 /**

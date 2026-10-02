@@ -74,8 +74,10 @@ export async function searchContent({
   }
 
   const args = [
-    "-R",
+    "-r", // GNU -R follows symlinks, including links outside the project.
     "-n",
+    "-H",
+    "-E",
     "-I",
     "--exclude-dir=.git",
     "--exclude-dir=node_modules",
@@ -143,6 +145,8 @@ export async function findFiles({
       "-a", // absolute paths for easy relativizing
       "--max-results",
       String(limit),
+      /[*?[\]{}]/.test(pattern) ? "--glob" : "--fixed-strings",
+      "--",
       pattern,
       searchRoot,
     ];

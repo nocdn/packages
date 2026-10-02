@@ -47,6 +47,58 @@ test("searchContent finds matches under project root", async () => {
   assert.ok(result.engine === "rg" || result.engine === "grep");
 });
 
+test(
+  "grep fallback skips symlinks, includes filenames, and accepts alternation",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await tempProject();
+    const outside = await tempProject();
+    await writeFile(
+      path.join(outside, "private.txt"),
+      "private-fixture-token\n",
+    );
+    await symlink(outside, path.join(root, "outside-link"));
+    await symlink(
+      path.join(outside, "private.txt"),
+      path.join(root, "file-link"),
+    );
+    const bin = await tempProject();
+    await symlink("/bin/sh", path.join(bin, "sh"));
+    await symlink("/usr/bin/grep", path.join(bin, "grep"));
+    const originalPath = process.env.PATH;
+    try {
+      // Exercise the installed system grep, with optional rg absent from PATH.
+      process.env.PATH = bin;
+      const privateHits = await searchContent({
+        root,
+        pattern: "private-fixture-token",
+      });
+      assert.equal(privateHits.engine, "grep");
+      assert.equal(privateHits.output, "(no matches)");
+
+      const singleFile = await searchContent({
+        root,
+        pattern: "unique-token-xyz",
+        path: "README.md",
+      });
+      assert.match(singleFile.output, /^README\.md:1:/);
+
+      const alternatives = await searchContent({
+        root,
+        pattern: "unique-token-xyz|uniqueTokenXyz",
+      });
+      assert.match(alternatives.output, /README\.md:1:/);
+      assert.match(alternatives.output, /src\/app\.js:1:/);
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH;
+      } else {
+        process.env.PATH = originalPath;
+      }
+    }
+  },
+);
+
 test("findFiles finds files by name", async () => {
   const root = await tempProject();
   const result = await findFiles({ root, pattern: "app.js" });
@@ -56,6 +108,26 @@ test("findFiles finds files by name", async () => {
       result.engine === "fdfind" ||
       result.engine === "find",
   );
+});
+
+test("findFiles accepts filename globs and literal substrings", async () => {
+  const root = await tempProject();
+  await writeFile(path.join(root, "src", "appXjs"), "not JavaScript\n");
+  const glob = await findFiles({ root, pattern: "*.js" });
+  assert.match(glob.output, /src\/app\.js/);
+  assert.doesNotMatch(glob.output, /appXjs|README/);
+
+  const literal = await findFiles({ root, pattern: "app.js" });
+  assert.match(literal.output, /src\/app\.js/);
+  assert.doesNotMatch(literal.output, /appXjs/);
+
+  await writeFile(
+    path.join(root, "--hidden.txt"),
+    "literal option-like name\n",
+  );
+  const optionLike = await findFiles({ root, pattern: "--hidden" });
+  assert.match(optionLike.output, /--hidden\.txt/);
+  assert.doesNotMatch(optionLike.output, /README/);
 });
 
 test("start_here guide mentions tools and project root", () => {

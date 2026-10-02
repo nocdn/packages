@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import test from "node:test";
 import {
   buildCloudflaredConfigYaml,
@@ -14,6 +16,7 @@ import {
   pastepatchCloudflaredConfigPath,
   pastepatchTunnelConfigPath,
   startCloudflaredWithReconnect,
+  startCloudflaredWithToken,
   subdomainFromHostname,
 } from "../lib/tunnel.js";
 
@@ -83,6 +86,55 @@ test("noisy cloudflared lines are filtered by default", () => {
     false,
   );
 });
+
+test(
+  "cloudflared logs redact MCP secrets even across chunks and unterminated lines",
+  { skip: process.platform === "win32" },
+  async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), "pastepatch-tunnel-log-"),
+    );
+    const binary = path.join(root, "cloudflared");
+    await writeFile(
+      binary,
+      `#!${process.execPath}
+process.stderr.write('ERR Request failed error="stream 9 canceled by remote" dest=https://example.com/mcp/fixture-');
+setTimeout(() => {
+  process.stderr.write('private-secret\\n');
+  process.stdout.write('ERR origin failed dest=https://example.com/mcp/fixture-private-secret');
+}, 30);
+`,
+    );
+    await chmod(binary, 0o755);
+    const originalWrite = process.stderr.write;
+    try {
+      for (const verbose of [false, true]) {
+        const logs = [];
+        const terminal = [];
+        process.stderr.write = (chunk) => {
+          terminal.push(String(chunk));
+          return true;
+        };
+        const handle = startCloudflaredWithToken({
+          binary,
+          token: "fixture-token",
+          port: 8787,
+          verbose,
+          logger: async (line) => logs.push(line),
+        });
+        await handle.exitPromise;
+        assert.equal(logs.length, 2);
+        for (const output of [logs.join("\n"), terminal.join("")]) {
+          assert.match(output, /\/mcp\/<secret>/);
+          assert.doesNotMatch(output, /fixture-|private-secret/);
+        }
+      }
+    } finally {
+      process.stderr.write = originalWrite;
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
 
 test("hostname helpers build subdomain under authenticated zone", () => {
   assert.equal(

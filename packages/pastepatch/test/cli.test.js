@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import {
   access,
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -33,6 +34,7 @@ test("--mcp -h shows MCP-only help", async () => {
   assert.match(result.stdout, /MCP mode/);
   assert.match(result.stdout, /--allow-outside/);
   assert.match(result.stdout, /--setup-tunnel/);
+  assert.match(result.stdout, /--quick-tunnel/);
   assert.match(result.stdout, /--no-color/);
   assert.match(result.stdout, /--color/);
   assert.match(result.stdout, /Sandbox/);
@@ -46,8 +48,97 @@ test("--help includes all modes and points to --mcp -h", async () => {
   assert.match(result.stdout, /--init/);
   assert.match(result.stdout, /--edit/);
   assert.match(result.stdout, /--mcp/);
+  assert.match(result.stdout, /--quick-tunnel/);
   assert.match(result.stdout, /--mcp -h/);
 });
+
+const clipboardCommands =
+  process.platform === "darwin" ? ["pbcopy"] : ["wl-copy", "xclip", "xsel"];
+
+for (const clipboardCommand of clipboardCommands) {
+  test(
+    `--init copies with ${clipboardCommand} after earlier providers fail`,
+    { skip: process.platform === "win32" },
+    async () => {
+      const { root, env, clipboard } = await initFixture(clipboardCommand);
+      const result = await runCli(["--init", root, "--task", "fixture task"], {
+        cwd: root,
+        env,
+      });
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout, "");
+      assert.match(result.stderr, /prompt copied to clipboard/);
+      const copied = await readFile(clipboard, "utf8");
+      assert.match(copied, /fixture task/);
+      assert.match(copied, /fixture digest/);
+    },
+  );
+}
+
+test(
+  "--init prints once and reports fallback when clipboard providers fail",
+  { skip: process.platform === "win32" },
+  async () => {
+    const { root, env } = await initFixture(undefined, { largeDigest: true });
+    for (const flags of [[], ["--stdout"]]) {
+      const result = await runCli(
+        ["--init", root, "--task", "fixture task", ...flags],
+        { cwd: root, env },
+      );
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout.split("You are helping me code").length, 2);
+      assert.match(result.stdout, /fixture task/);
+      assert.match(result.stderr, /Could not copy to clipboard/);
+      assert.doesNotMatch(result.stderr, /prompt copied to clipboard/);
+    }
+  },
+);
+
+test(
+  "--init finishes while a clipboard owner retains inherited output streams",
+  { skip: process.platform === "win32" },
+  async () => {
+    const { root, env, clipboard } = await initFixture(clipboardCommands[0], {
+      clipboardOwner: true,
+    });
+    const invocation = runCli(["--init", root], { cwd: root, env });
+    let timer;
+    try {
+      const result = await Promise.race([
+        invocation,
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("CLI waited for the clipboard owner")),
+            3000,
+          );
+        }),
+      ]);
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stderr, /prompt copied to clipboard/);
+    } finally {
+      clearTimeout(timer);
+      const pid = Number(await readFile(`${clipboard}.pid`, "utf8"));
+      process.kill(pid, "SIGKILL");
+      await invocation;
+    }
+  },
+);
+
+test(
+  "--init --no-clipboard prints the prompt without trying clipboard providers",
+  { skip: process.platform === "win32" },
+  async () => {
+    const { root, env, clipboard } = await initFixture(clipboardCommands[0]);
+    const result = await runCli(["--init", root, "--no-clipboard"], {
+      cwd: root,
+      env,
+    });
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /fixture digest/);
+    assert.equal(result.stderr, "");
+    await assertFileMissing(clipboard);
+  },
+);
 
 test("dry run rejects invalid and stale tool plans", async () => {
   const root = await tempProject();
@@ -269,11 +360,43 @@ async function tempProject() {
   return directory;
 }
 
+async function initFixture(successfulProvider, options = {}) {
+  const root = await tempProject();
+  const bin = path.join(root, "bin");
+  const clipboard = path.join(root, "clipboard.txt");
+  await mkdir(bin);
+  for (const command of ["bunx", ...clipboardCommands]) {
+    let source =
+      command === "bunx"
+        ? `process.stdout.write("fixture digest\\n" + "x".repeat(${options.largeDigest ? 512_000 : 0}));`
+        : command === successfulProvider
+          ? 'let text = ""; for await (const chunk of process.stdin) text += chunk; await import("node:fs/promises").then(fs => fs.writeFile(process.env.PASTEPATCH_TEST_CLIPBOARD, text));'
+          : "process.exitCode = 1;";
+    if (command === successfulProvider && options.clipboardOwner) {
+      source += `
+const { spawn } = await import("node:child_process");
+const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { detached: true, stdio: "inherit" });
+await import("node:fs/promises").then(fs => fs.writeFile(process.env.PASTEPATCH_TEST_CLIPBOARD + ".pid", String(child.pid)));
+child.unref();`;
+    }
+    const target = path.join(bin, command);
+    await writeFile(target, `#!${process.execPath}\n${source}\n`);
+    await chmod(target, 0o755);
+  }
+  // Absolute shebangs keep fixtures offline and avoid the real clipboard.
+  return {
+    root,
+    clipboard,
+    env: { PATH: bin, PASTEPATCH_TEST_CLIPBOARD: clipboard },
+  };
+}
+
 function runCli(args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], {
       cwd: options.cwd || repoRoot,
       stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, ...options.env },
     });
 
     let stdout = "";

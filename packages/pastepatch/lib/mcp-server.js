@@ -1668,6 +1668,8 @@ export async function startMcpHttpServer({
   mcpPath = "/mcp",
   /** Extra Host header values (e.g. public tunnel hostname). Cloudflare may forward the public Host. */
   allowedHosts = [],
+  /** Quick tunnels do not support SSE; use the MCP JSON response mode. */
+  enableJsonResponse = false,
   verbose = false,
   allowOutside = false,
   /** Invoked by the stop_session tool (process-level shutdown). */
@@ -1753,6 +1755,10 @@ export async function startMcpHttpServer({
 
   // ---- Streamable HTTP (MCP 2025-11-25) ----
   app.all(mcpPath, async (req, res) => {
+    if (enableJsonResponse && req.method === "GET") {
+      res.set("Allow", "POST, DELETE").sendStatus(405);
+      return;
+    }
     try {
       const sessionId = req.headers["mcp-session-id"];
       let transport;
@@ -1765,6 +1771,7 @@ export async function startMcpHttpServer({
         isInitializeRequest(req.body)
       ) {
         transport = new StreamableHTTPServerTransport({
+          enableJsonResponse,
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (sid) => {
             transports[sid] = transport;

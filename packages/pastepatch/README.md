@@ -34,6 +34,7 @@ pastepatch --edit [options]
 pastepatch --undo
 pastepatch --log
 pastepatch --mcp [path] [options]
+pastepatch --mcp --quick-tunnel
 pastepatch --mcp --setup-tunnel
 ```
 
@@ -45,6 +46,7 @@ pastepatch --mcp --setup-tunnel
 | `--log`, `--last-log`              | print the pastepatch log for the current directory                                                                                                                                                        |
 | `--mcp`                            | start local MCP + Cloudflare Tunnel (requires `cloudflared`; uses `~/.pastepatch/` after setup)                                                                                                           |
 | `--setup-tunnel`                   | one-time automated tunnel setup (login, create tunnel, DNS, save config)                                                                                                                                  |
+| `--quick-tunnel`                   | temporary `trycloudflare.com` MCP URL without a Cloudflare account or domain; implies `--mcp`                                                                                                             |
 | `--path <path>`                    | project path for `--init` / `--mcp`; a positional path also works; defaults to the current directory                                                                                                      |
 | `--port <n>`                       | MCP listen port (default `8787`, or saved / `PASTEPATCH_MCP_PORT`)                                                                                                                                        |
 | `--hostname <host>`                | public hostname for setup / display (e.g. `mcp.bartoszbak.org`)                                                                                                                                           |
@@ -75,14 +77,44 @@ pastepatch --init . -- --line-numbers --template node
 
 ## MCP mode (ChatGPT Developer Mode + Cloudflare Tunnel)
 
-ChatGPT's web UI only connects to **remote HTTPS** MCP servers (Streamable
-HTTP), not local stdio processes. pastepatch therefore:
+pastepatch serves remote HTTPS MCP (Streamable HTTP) through Cloudflare Tunnel:
 
 1. Runs an MCP HTTP server on `127.0.0.1` (default port `8787`)
-2. Runs `cloudflared` against a **named tunnel** so a stable hostname on your
-   domain (e.g. `mcp.bartoszbak.org`) reaches that port
+2. Runs `cloudflared` using either a temporary Quick Tunnel or a **named tunnel**
+   with a stable hostname on your domain
 
-### Prerequisites
+### Quick start — no Cloudflare account
+
+Install `cloudflared`, then run from the project you want ChatGPT to edit:
+
+```bash
+npx @nocdn/pastepatch --mcp --quick-tunnel
+# or
+bunx @nocdn/pastepatch --mcp --quick-tunnel
+```
+
+There is no login, domain, or one-time setup. PastePatch prints one full URL to
+stdout, such as `https://<random>.trycloudflare.com/mcp/<secret>`. Paste that
+entire URL into ChatGPT's MCP connector and choose **No authentication**.
+Progress and tool logs go to stderr. `--quick-tunnel` alone also starts MCP mode.
+
+The tunnel lasts until Ctrl+C or the `stop_session` tool stops PastePatch.
+Each start gets a new hostname, so update the connector URL when restarting.
+If the tunnel process exits unexpectedly, PastePatch stops and asks you to
+restart rather than silently changing the URL. Existing saved named-tunnel
+settings and credentials are ignored and left intact.
+
+Quick Tunnels do not support SSE. PastePatch uses JSON MCP responses in this
+mode, with the same tools, secret path, optional bearer auth, and file sandbox.
+Cloudflare offers these temporary tunnels for testing/development, with no
+uptime guarantee and a limit of 200 simultaneous requests.
+See [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
+
+You cannot combine `--quick-tunnel` with `--no-tunnel`, `--setup-tunnel`,
+`--hostname`, `--tunnel-name`, or `--tunnel-token`. Use the named workflow below
+when you want a permanent hostname.
+
+### Named-tunnel prerequisites
 
 1. Domain on **Cloudflare DNS** (e.g. `bartoszbak.org`)
 2. **cloudflared** installed — `--mcp` exits with install instructions if missing
@@ -93,6 +125,11 @@ brew install cloudflared
 ```
 
 Docs: [Install cloudflared](https://developers.cloudflare.com/tunnel/downloads/)
+
+Linux hosts use the same MCP server and named-tunnel workflow. Install the
+Linux `cloudflared` binary from the downloads page and put it on `PATH`, or
+set `PASTEPATCH_CLOUDFLARED` to its absolute path. No desktop or clipboard
+service is needed for MCP mode.
 
 ### One-time setup (automated)
 
@@ -113,7 +150,8 @@ This runs the official **locally-managed tunnel** CLI flow and saves config for 
 5. `cloudflared tunnel route dns pastepatch <hostname>`
 6. Saves `~/.pastepatch/mcp-tunnel.json` (tunnel id, hostname, zone, credentials path, port)
 
-Do **not** use quick tunnels (`trycloudflare.com`): the URL changes on every start.
+Named tunnels keep the same hostname across starts. Use `--quick-tunnel` above
+when you prefer an account-free temporary address.
 
 Docs: [Create a locally-managed tunnel](https://developers.cloudflare.com/tunnel/advanced/local-management/create-local-tunnel/)
 
@@ -191,6 +229,11 @@ Paths are sandboxed the same way as `--edit` (relative only, no `..`, no
 symlinks). Write tools create undo history under `.git/pastepatch/history` (or
 `.pastepatch/history`).
 
+`find_files` accepts filename globs such as `*.js` and literal substrings
+such as `app.js`, with either `fd`/`fdfind` or the `find` fallback.
+`get_process_tree` and session-owned process cleanup work on Linux and macOS;
+`quit_app` is specific to macOS and returns an explicit error on Linux.
+
 ### Security
 
 **Path sandbox (default ON):** tools can only read/write under the bound project directory
@@ -207,6 +250,8 @@ Anyone with the **full** URL can still invoke every tool. Mitigations:
 - Only run `--mcp` while you are actively coding
 - Optionally put [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) in front of the hostname
 - Optional `--auth-token` for non-ChatGPT clients (ChatGPT No-auth mode will not send it)
+
+Cloudflare tunnel logs redact secret MCP paths, including in verbose output.
 
 Help:
 
@@ -311,6 +356,21 @@ input is piped.
 On Windows, pastepatch invokes npm and Bun command shims through `cmd.exe`, so
 PowerShell users can run the CLI with either `npx` or `bunx`. Clipboard access
 uses PowerShell's `Get-Clipboard` and `Set-Clipboard` cmdlets when available.
+
+On Linux, clipboard writes try `wl-copy`, then `xclip`, then `xsel`; reads
+try `wl-paste`, then `xclip`, then `xsel`. Install `wl-clipboard` for a Wayland
+desktop, or `xclip`/`xsel` for X11. These require access to the corresponding
+desktop session. If copying fails, `--init` prints the prompt once to stdout
+and reports the fallback on stderr.
+
+For a headless Linux VM, use MCP mode or stdin/stdout:
+
+```bash
+pastepatch --init . --task "Add a --json flag" --no-clipboard > prompt.txt
+pastepatch --edit --dry-run < chatgpt-tools.json
+pastepatch --edit --yes < chatgpt-tools.json
+pastepatch --undo
+```
 
 To inspect what happened in the current directory:
 

@@ -4,6 +4,8 @@ import { createInterface } from "node:readline/promises";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { parseCliArgs } from "../lib/cli-options.js";
+import { startQuickTunnel } from "../lib/quick-tunnel.js";
 import {
   describeCall,
   executeToolCall,
@@ -40,7 +42,15 @@ async function main() {
   const logger = createLogger();
 
   try {
-    const args = parseArgs(process.argv.slice(2), packageInfo);
+    let args;
+    try {
+      args = parseCliArgs(process.argv.slice(2), {
+        command: commandName(packageInfo),
+      });
+    } catch (error) {
+      error.exitCode = 2;
+      throw error;
+    }
 
     if (args.help) {
       process.stdout.write(
@@ -88,238 +98,8 @@ async function main() {
       process.stderr.write(`Error: ${error.message}\n`);
     }
     process.stderr.write(`Log: ${logPath()}\n`);
-    process.exitCode = 1;
+    process.exitCode = error.exitCode ?? 1;
   }
-}
-
-function parseArgs(argv, packageInfo) {
-  const args = {
-    help: false,
-    version: false,
-    init: false,
-    edit: false,
-    undo: false,
-    log: false,
-    mcp: false,
-    path: ".",
-    pathExplicit: false,
-    stdout: false,
-    noClipboard: false,
-    dryRun: false,
-    yes: false,
-    task: "",
-    include: [],
-    exclude: [],
-    ingestArgs: [],
-    port: process.env.PASTEPATCH_MCP_PORT
-      ? Number(process.env.PASTEPATCH_MCP_PORT)
-      : null,
-    hostname: process.env.PASTEPATCH_MCP_HOSTNAME || "",
-    tunnelToken:
-      process.env.PASTEPATCH_TUNNEL_TOKEN ||
-      process.env.CLOUDFLARE_TUNNEL_TOKEN ||
-      "",
-    tunnelName: process.env.PASTEPATCH_TUNNEL_NAME || "",
-    noTunnel: false,
-    setupTunnel: false,
-    authToken: process.env.PASTEPATCH_MCP_TOKEN || "",
-    noAuth: false,
-    rotateSecret: false,
-    verbose: false,
-    allowHome: false,
-    allowOutside: false,
-    /** null = auto (TTY + env), true = --color, false = --no-color */
-    color: null,
-  };
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg === "-h" || arg === "--help") {
-      args.help = true;
-      continue;
-    }
-
-    if (arg === "-v" || arg === "--version") {
-      args.version = true;
-      continue;
-    }
-
-    if (arg === "--init") {
-      args.init = true;
-      continue;
-    }
-
-    if (arg === "--edit") {
-      args.edit = true;
-      continue;
-    }
-
-    if (arg === "--undo") {
-      args.undo = true;
-      continue;
-    }
-
-    if (arg === "--log" || arg === "--last-log") {
-      args.log = true;
-      continue;
-    }
-
-    if (arg === "--mcp") {
-      args.mcp = true;
-      continue;
-    }
-
-    if (arg === "--setup-tunnel") {
-      args.setupTunnel = true;
-      args.mcp = true;
-      continue;
-    }
-
-    if (arg === "--stdout") {
-      args.stdout = true;
-      continue;
-    }
-
-    if (arg === "--no-clipboard") {
-      args.noClipboard = true;
-      continue;
-    }
-
-    if (arg === "--dry-run") {
-      args.dryRun = true;
-      continue;
-    }
-
-    if (arg === "-y" || arg === "--yes") {
-      args.yes = true;
-      continue;
-    }
-
-    if (arg === "--no-tunnel") {
-      args.noTunnel = true;
-      continue;
-    }
-
-    if (arg === "--no-auth") {
-      args.noAuth = true;
-      continue;
-    }
-
-    if (arg === "--rotate-secret") {
-      args.rotateSecret = true;
-      continue;
-    }
-
-    if (arg === "--verbose") {
-      args.verbose = true;
-      continue;
-    }
-
-    if (arg === "--no-color") {
-      args.color = false;
-      continue;
-    }
-
-    if (arg === "--color") {
-      args.color = true;
-      continue;
-    }
-
-    if (arg === "--path") {
-      args.path = readOptionValue(argv, (index += 1), arg);
-      args.pathExplicit = true;
-      continue;
-    }
-
-    if (arg === "--allow-home") {
-      args.allowHome = true;
-      continue;
-    }
-
-    if (arg === "--allow-outside") {
-      args.allowOutside = true;
-      continue;
-    }
-
-    if (arg === "--port") {
-      const raw = readOptionValue(argv, (index += 1), arg);
-      const port = Number(raw);
-      if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        throw new Error(`--port must be an integer 1-65535, got "${raw}".`);
-      }
-      args.port = port;
-      continue;
-    }
-
-    if (arg === "--hostname") {
-      args.hostname = readOptionValue(argv, (index += 1), arg);
-      continue;
-    }
-
-    if (arg === "--tunnel-token") {
-      args.tunnelToken = readOptionValue(argv, (index += 1), arg);
-      continue;
-    }
-
-    if (arg === "--tunnel-name") {
-      args.tunnelName = readOptionValue(argv, (index += 1), arg);
-      continue;
-    }
-
-    if (arg === "--auth-token") {
-      args.authToken = readOptionValue(argv, (index += 1), arg);
-      continue;
-    }
-
-    if (arg === "-m" || arg === "--message" || arg === "--task") {
-      args.task = readOptionValue(argv, (index += 1), arg);
-      continue;
-    }
-
-    if (arg === "-i" || arg === "--include") {
-      args.include.push(readOptionValue(argv, (index += 1), arg));
-      continue;
-    }
-
-    if (arg === "-e" || arg === "--exclude") {
-      args.exclude.push(readOptionValue(argv, (index += 1), arg));
-      continue;
-    }
-
-    if (arg === "--") {
-      args.ingestArgs.push(...argv.slice(index + 1));
-      break;
-    }
-
-    if (arg.startsWith("-")) {
-      throw new Error(
-        `Unknown option "${arg}". Run ${commandName(packageInfo)} --help for usage.`,
-      );
-    }
-
-    args.path = arg;
-    args.pathExplicit = true;
-  }
-
-  const modes = [args.init, args.edit, args.undo, args.log, args.mcp].filter(
-    Boolean,
-  ).length;
-  if (modes > 1) {
-    throw new Error(
-      "Choose only one mode: --init, --edit, --undo, --log, or --mcp.",
-    );
-  }
-
-  return args;
-}
-
-function readOptionValue(argv, index, flag) {
-  const value = argv[index];
-  if (!value || value.startsWith("-")) {
-    throw new Error(`${flag} requires a value.`);
-  }
-  return value;
 }
 
 async function runInit(args, packageInfo, logger) {
@@ -332,15 +112,18 @@ async function runInit(args, packageInfo, logger) {
   const digest = await runIngest(root, args, logger);
   const prompt = buildPrompt(packageInfo, root, digest, task);
 
-  if (args.stdout || args.noClipboard) {
+  const copied = args.noClipboard
+    ? false
+    : await copyToClipboard(prompt, logger);
+
+  if (args.stdout || !copied) {
     process.stdout.write(prompt);
     if (!prompt.endsWith("\n")) {
       process.stdout.write("\n");
     }
   }
 
-  if (!args.noClipboard) {
-    await copyToClipboard(prompt, logger);
+  if (copied) {
     process.stderr.write(
       "ChatGPT coding prompt copied to clipboard. Paste it into ChatGPT.\n",
     );
@@ -646,20 +429,23 @@ async function runMcp(args, packageInfo, logger) {
   });
   const mcpPath = mcpPathForSecret(secret);
 
-  const saved = await loadTunnelConfig();
+  // Quick tunnels neither read nor modify saved named-tunnel settings.
+  const saved = args.quickTunnel ? null : await loadTunnelConfig();
   const port = args.port ?? saved?.port ?? 8787;
-  let hostname = (args.hostname || saved?.hostname || "")
+  let hostname = (
+    args.quickTunnel ? "" : args.hostname || saved?.hostname || ""
+  )
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "");
   const authToken = args.noAuth ? null : args.authToken || null;
   const envToken = args.tunnelToken || "";
 
   // Resolve how to run the tunnel: saved local credentials (preferred) or env token.
-  let tunnelMode = null; // "config" | "token" | null
+  let tunnelMode = args.quickTunnel ? "quick" : null;
   let tunnelConfigFile = saved?.cloudflaredConfigFile || null;
   let tunnelIdOrName = saved?.tunnelId || saved?.tunnelName || null;
 
-  if (!args.noTunnel) {
+  if (!args.noTunnel && !args.quickTunnel) {
     if (envToken) {
       tunnelMode = "token";
     } else if (saved?.credentialsFile && saved?.tunnelId && saved?.hostname) {
@@ -691,6 +477,8 @@ async function runMcp(args, packageInfo, logger) {
         `No Cloudflare tunnel configured yet.\n\n` +
           `Run one-time setup (creates tunnel + DNS + saves config to ~/.pastepatch/):\n` +
           `  ${command} --mcp --setup-tunnel\n\n` +
+          `Or start a temporary URL without an account or domain:\n` +
+          `  ${command} --mcp --quick-tunnel\n\n` +
           `Or pass a dashboard tunnel token:\n` +
           `  ${command} --mcp --tunnel-token "$PASTEPATCH_TUNNEL_TOKEN"\n\n` +
           `For local-only testing without a public URL:\n` +
@@ -743,21 +531,29 @@ async function runMcp(args, packageInfo, logger) {
     }
   };
 
-  const shutdown = async (signal) => {
+  const shutdown = async (signal, exitCode = 0) => {
     if (shuttingDown) {
       return;
     }
     shuttingDown = true;
     process.stderr.write(`\nShutting down (${signal})...\n`);
-    tunnelHandle?.kill();
+    await tunnelHandle?.kill();
     try {
       await mcp?.close();
     } catch {
       // ignore close races
     }
     await releaseLock();
-    process.exit(0);
+    process.exit(exitCode);
   };
+
+  // Install handlers before waiting for a quick tunnel's network startup.
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
 
   try {
     mcp = await startMcpHttpServer({
@@ -769,6 +565,7 @@ async function runMcp(args, packageInfo, logger) {
       authToken,
       mcpPath,
       allowedHosts: hostname ? [hostname] : [],
+      enableJsonResponse: args.quickTunnel,
       verbose: args.verbose,
       allowOutside: args.allowOutside,
       onStopSession: () => shutdown("stop_session"),
@@ -783,7 +580,38 @@ async function runMcp(args, packageInfo, logger) {
     `MCP listening root=${root} port=${port} verbose=${args.verbose} allowOutside=${args.allowOutside}`,
   );
 
-  if (tunnelMode === "config") {
+  if (tunnelMode === "quick") {
+    process.stderr.write(
+      "Starting a temporary Cloudflare Quick Tunnel (no account or domain needed)...\n",
+    );
+    try {
+      tunnelHandle = await startQuickTunnel({
+        binary,
+        port,
+        logger,
+        verbose: args.verbose,
+      });
+      const url = await tunnelHandle.urlPromise;
+      hostname = new URL(url).hostname;
+    } catch (error) {
+      if (shuttingDown) return;
+      await tunnelHandle?.kill();
+      await mcp.close();
+      await releaseLock();
+      throw error;
+    }
+    const ended = (error) => {
+      if (shuttingDown) return;
+      process.stderr.write(
+        `Quick tunnel ended${error ? `: ${error.message}` : "."}\nRun ${command} --mcp --quick-tunnel again and update the URL in ChatGPT.\n`,
+      );
+      void shutdown("quick tunnel ended", 1);
+    };
+    void tunnelHandle.exitPromise.then(() => ended(), ended);
+    process.stderr.write(
+      "This URL is temporary and changes each time you start. It may take a few seconds to become reachable. Paste the full URL below into ChatGPT.\n",
+    );
+  } else if (tunnelMode === "config") {
     process.stderr.write(
       "Starting Cloudflare Tunnel (local credentials + config)...\n",
     );
@@ -829,9 +657,13 @@ async function runMcp(args, packageInfo, logger) {
   }
 
   if (hostname) {
-    process.stderr.write(
-      `Public MCP URL (ChatGPT): https://${hostname}${mcpPath}\n`,
-    );
+    const publicUrl = `https://${hostname}${mcpPath}`;
+    if (args.quickTunnel) {
+      process.stderr.write("Temporary MCP URL (ChatGPT):\n");
+      process.stdout.write(`${publicUrl}\n`);
+    } else {
+      process.stderr.write(`Public MCP URL (ChatGPT): ${publicUrl}\n`);
+    }
   }
 
   if (secretCreated) {
@@ -851,13 +683,6 @@ async function runMcp(args, packageInfo, logger) {
   }
 
   process.stderr.write("Press Ctrl+C to stop.\n");
-
-  process.on("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  process.on("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
 
   // Keep process alive until signal
   await new Promise(() => {});
@@ -1144,8 +969,12 @@ async function copyToClipboard(text, logger) {
 
   for (const [command, args] of commands) {
     try {
-      await runCommand(command, args, { input: text });
-      return;
+      await runCommand(command, args, {
+        input: text,
+        ignoreOutput: true,
+        timeout: 10_000,
+      });
+      return true;
     } catch (error) {
       errors.push(`${command}: ${error.message}`);
       await logger(
@@ -1154,13 +983,10 @@ async function copyToClipboard(text, logger) {
     }
   }
 
-  process.stdout.write(text);
-  if (!text.endsWith("\n")) {
-    process.stdout.write("\n");
-  }
   process.stderr.write(
     `Could not copy to clipboard, so the prompt was printed to stdout instead. ${errors.join(" ")}\n`,
   );
+  return false;
 }
 
 function clipboardWriteCommands() {
@@ -1177,7 +1003,11 @@ function clipboardWriteCommands() {
     ];
   }
 
-  return [["xclip", ["-selection", "clipboard"]]];
+  return [
+    ["wl-copy", []],
+    ["xclip", ["-selection", "clipboard"]],
+    ["xsel", ["--clipboard", "--input"]],
+  ];
 }
 
 function clipboardPipeExample() {
@@ -1208,7 +1038,14 @@ function runCommand(command, args, options = {}) {
     const spawnConfig = commandSpawnConfig(command, args);
     const child = spawn(spawnConfig.command, spawnConfig.args, {
       cwd: options.cwd || process.cwd(),
-      stdio: [options.input ? "pipe" : "ignore", "pipe", "pipe"],
+      // Linux clipboard owners fork and retain output descriptors while serving
+      // pastes. No output pipes means their lifetime cannot delay this CLI.
+      stdio: [
+        options.input !== undefined ? "pipe" : "ignore",
+        options.ignoreOutput ? "ignore" : "pipe",
+        options.ignoreOutput ? "ignore" : "pipe",
+      ],
+      timeout: options.timeout,
       windowsHide: true,
       ...spawnConfig.options,
     });
@@ -1216,12 +1053,12 @@ function runCommand(command, args, options = {}) {
     let stdout = "";
     let stderr = "";
 
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => {
       stdout += chunk;
     });
-    child.stderr.on("data", (chunk) => {
+    child.stderr?.on("data", (chunk) => {
       stderr += chunk;
     });
     child.on("error", reject);
@@ -1237,7 +1074,8 @@ function runCommand(command, args, options = {}) {
       reject(error);
     });
 
-    if (options.input) {
+    if (options.input !== undefined) {
+      child.stdin.on("error", reject);
       child.stdin.end(options.input);
     }
   });
@@ -1403,6 +1241,7 @@ Modes:
   --undo                           Undo the most recent applied pastepatch change set.
   --log, --last-log                Print the pastepatch log for the current directory.
   --mcp                            Start MCP server + Cloudflare Tunnel for live ChatGPT tools.
+  --quick-tunnel                   Start MCP with a temporary URL; no Cloudflare account or domain needed.
 
 --init options:
   --path <path>                    Project path (positional path also works). Default: current directory.
@@ -1444,6 +1283,7 @@ Usage:
 
 Examples:
   ${command} --mcp
+  ${command} --mcp --quick-tunnel
   ${command} --mcp --path ~/code/my-app
   ${command} --mcp --setup-tunnel
   ${command} --mcp --setup-tunnel --hostname pastepatch
@@ -1455,6 +1295,8 @@ Examples:
 Options:
   --mcp                            Start the pastepatch MCP server (required for this help page).
   --setup-tunnel                   One-time Cloudflare tunnel setup (login, DNS, save ~/.pastepatch/).
+  --quick-tunnel                   Temporary trycloudflare.com URL; no account, login, or domain needed.
+                                   Implies --mcp. Prints the full MCP URL to stdout. Changes on restart.
   --path <path>                    Project root to bind tools to. Positional path works. Default: cwd.
   --port <n>                       Listen port (default 8787, or saved / PASTEPATCH_MCP_PORT).
   --hostname <host>                Setup: subdomain (pastepatch) or FQDN. Env: PASTEPATCH_MCP_HOSTNAME.
@@ -1478,6 +1320,9 @@ Sandbox (default ON):
   Pass --allow-outside to lift this restriction (dangerous).
 
 Notes:
+  For a temporary session: ${command} --mcp --quick-tunnel
+  Quick tunnels use JSON MCP responses because Cloudflare does not support SSE.
+  Stop with Ctrl+C or stop_session. Restarting requires updating the URL in ChatGPT.
   Requires cloudflared. First time: ${command} --mcp --setup-tunnel
   Then: ${command} --mcp   (starts local MCP + tunnel from ~/.pastepatch/)
   Only one --mcp process at a time (~/.pastepatch/mcp.lock). Stop the other first
