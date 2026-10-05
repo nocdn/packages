@@ -246,58 +246,68 @@ async function run(values, { stdout, stderr, stdin, cwd }) {
   }
   let id = values.session
   let selected
-  if (values.last) {
-    const latest = await latestChat(runJob, provider, readerOptions, onSkipped)
-    provider = latest.provider
-    id = latest.id
-  } else if (pickChat) {
-    const controller = new AbortController()
-    const stop = () => controller.abort(new Cancelled())
-    const iterator = indexChats(
-      { mode: "index", provider, options: readerOptions },
-      controller.signal,
-      onSkipped,
-    )
-    try {
-      if (fzf) {
-        selected = await native.selectNativeChat(
-          fzf,
-          iterator,
-          provider,
-          !!values.exact,
-          values.query,
-          stop,
-          { preview: readerOptions.preview },
-        )
-      } else {
-        const { selectFallbackChat } = await import("./pickers/fallback.js")
-        const loaded = (async () => {
-          const entries = []
-          for await (const entry of iterator) entries.push(entry)
-          if (!entries.length) {
-            throw new ExportError(noChatsMessage(directories))
-          }
-          return entries
-        })()
-        void loaded.catch(() => {})
-        selected = await selectFallbackChat(
-          loaded,
-          provider,
-          !!values.exact,
-          values.query,
-          stop,
-        )
+  // The note is printed however the picker ends (including Esc or no
+  // results), so skipped chats are never hidden silently.
+  try {
+    if (values.last) {
+      const latest = await latestChat(
+        runJob,
+        provider,
+        readerOptions,
+        onSkipped,
+      )
+      provider = latest.provider
+      id = latest.id
+    } else if (pickChat) {
+      const controller = new AbortController()
+      const stop = () => controller.abort(new Cancelled())
+      const iterator = indexChats(
+        { mode: "index", provider, options: readerOptions },
+        controller.signal,
+        onSkipped,
+      )
+      try {
+        if (fzf) {
+          selected = await native.selectNativeChat(
+            fzf,
+            iterator,
+            provider,
+            !!values.exact,
+            values.query,
+            stop,
+            { preview: readerOptions.preview },
+          )
+        } else {
+          const { selectFallbackChat } = await import("./pickers/fallback.js")
+          const loaded = (async () => {
+            const entries = []
+            for await (const entry of iterator) entries.push(entry)
+            if (!entries.length) {
+              throw new ExportError(noChatsMessage(directories))
+            }
+            return entries
+          })()
+          void loaded.catch(() => {})
+          selected = await selectFallbackChat(
+            loaded,
+            provider,
+            !!values.exact,
+            values.query,
+            stop,
+          )
+        }
+      } finally {
+        stop()
+        await iterator.return(undefined)
       }
-    } finally {
-      stop()
-      await iterator.return(undefined)
+      id = selected.id
     }
-    id = selected.id
-  }
-  for (const [source, count] of skipped) {
-    stderr.write(
-      `Note: skipped ${count} ${providerName(source)} ${count === 1 ? "chat" : "chats"} stored in a format chat-export does not recognize yet.\n`,
-    )
+  } finally {
+    for (const [source, count] of skipped) {
+      stderr.write(
+        `Note: skipped ${count} ${providerName(source)} ${count === 1 ? "chat" : "chats"} stored in a format chat-export does not recognize yet.\n`,
+      )
+    }
   }
 
   const result = await runJob({
@@ -417,6 +427,8 @@ Choosing a chat:
   --list                      List main chat IDs; never touch the clipboard.
   --json                      JSON metadata with --list.
   --exact                     Literal search, including spaces and punctuation.
+                              Without it, wrap a phrase in double quotes to
+                              search for it exactly.
   --query TEXT                Initial chat search.
   --no-preview                Hide the chat preview in the picker.
 
@@ -439,10 +451,11 @@ Stores:
   -h, --help                  Show this help text.
   -v, --version               Show the package version.
 
-Codex preserves its dedupe, formatting, merge, and quoted-phrase search
-behavior. OpenCode excludes children, synthetic/summary parts, and (unless
---tools) tool parts; attachments appear as labels. The selected chat is
-reread before copying. T3 Code reads projected messages and saved plans,
-with reasoning and tool activity controlled by the same content flags.
+Searches ignore Markdown syntax, so text copied from a rendered chat matches.
+Codex preserves its dedupe, formatting, and merge behavior. OpenCode excludes
+children, synthetic/summary parts, and (unless --tools) tool parts;
+attachments appear as labels. The selected chat is reread before copying.
+T3 Code reads projected messages and saved plans, with reasoning and tool
+activity controlled by the same content flags.
 `
 }

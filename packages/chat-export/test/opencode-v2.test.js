@@ -57,6 +57,8 @@ async function dualFixture(root) {
   })
   db.message2("syn", 4, "synthetic", { text: "SYNTHETIC" })
   db.message2("cmp", 5, "compaction", { summary: "COMPACTED" })
+  db.message2("sys", 5, "system", { text: "SYSTEM NOTICE" })
+  db.message2("unk", 5, "mystery", { text: "UNKNOWN ROW" })
   db.message2("u2", 6, "user", {
     text: "Second question",
     files: [
@@ -112,7 +114,10 @@ test("OpenCode sessions in both layouts merge by message ID and time", () =>
         "Third question",
       ].join("\n\n\n\n"),
     )
-    assert.doesNotMatch(transcript(chat), /SYNTHETIC|COMPACTED|QUJD/)
+    assert.doesNotMatch(
+      transcript(chat),
+      /SYNTHETIC|COMPACTED|SYSTEM NOTICE|UNKNOWN ROW|QUJD/,
+    )
     assert.doesNotMatch(transcript(await read(path, "root", false)), /Thinking/)
 
     const tools = await read(path, "root", true, true)
@@ -208,11 +213,6 @@ test("OpenCode lists and exports sessions stored only in the newer layout", () =
 test("OpenCode refuses newer-layout data it cannot export in full", () =>
   temporary(async (root) => {
     const refusals = [
-      [
-        "an unknown message type",
-        (db) => db.message2("odd", 9, "mystery", {}),
-        /Unsupported OpenCode message type/,
-      ],
       [
         "an unknown content type",
         (db) =>

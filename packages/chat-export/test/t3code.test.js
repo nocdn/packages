@@ -504,13 +504,17 @@ test("T3 worker indexes complete text and previews for fuzzy and exact search", 
     assert.equal(entries.length, 1)
     assert.ok(entries[0].preview.header[1].includes("T3 Code"))
     assert.equal(
-      new ChatMatcher(entries, "t3code", true).find("Thinking through it")
-        .length,
+      new ChatMatcher(entries, true).find("Thinking through it").length,
+      1,
+    )
+    assert.equal(new ChatMatcher(entries, false).find("T3question").length, 1)
+    assert.equal(
+      new ChatMatcher(entries, false).find('"Thinking through it"').length,
       1,
     )
     assert.equal(
-      new ChatMatcher(entries, "t3code", false).find("T3question").length,
-      1,
+      new ChatMatcher(entries, false).find('"Thinking it through"').length,
+      0,
     )
     assert.ok(
       nativeArgs("fzf", "t3code", false, "").includes(
@@ -518,7 +522,7 @@ test("T3 worker indexes complete text and previews for fuzzy and exact search", 
       ),
     )
     assert.ok(
-      !nativeArgs("fzf", "t3code", false, "").some((arg) =>
+      nativeArgs("fzf", "t3code", false, "").some((arg) =>
         arg.includes("fzf-query.js"),
       ),
     )
@@ -588,29 +592,18 @@ test("T3 committed WAL data is visible and all CLI modes leave database bytes un
     }
   }))
 
-test("T3 malformed data fails explicitly; unknown chats are skipped during indexing", () =>
+test("T3 ignores unknown message roles; malformed data fails explicitly", () =>
   temporary(async (root) => {
-    const { db: writer, path, options } = await fixture(root)
+    const { db: writer, path } = await fixture(root)
     writer.thread("future", { updated: stamp(30) })
+    writer.message("future-q", "user", "Future question", { thread: "future" })
     writer.message("future-msg", "future-role", "Unknown", { thread: "future" })
     writer.close()
-    const db = await openT3Code(path)
-    assert.throws(() => readT3Code(db, "future"), UnsupportedFormat)
-    db.close()
-    let skipped = 0
-    const entries = []
-    for await (const chat of conversations("t3code", options, () => skipped++))
-      entries.push(chat)
-    assert.equal(skipped, 1)
-    assert.equal(entries.length, 1)
     const base = ["--provider", "t3code", "--t3-db", path]
     let result = await invoke([...base, "--last", "--stdout"])
     assert.equal(result.exitCode, 0, result.stderr)
-    assert.match(result.stderr, /skipped 1 T3 Code chat/)
-    result = await invoke([...base, "--session", "future", "--stdout"])
-    assert.equal(result.exitCode, 1)
-    assert.equal(result.stdout, "")
-    assert.match(result.stderr, /refusing a partial export/)
+    assert.equal(result.stdout, "Future question")
+    assert.equal(result.stderr, "")
     const update = await writable(path)
     update.run(
       "UPDATE projection_thread_messages SET attachments_json='not json' WHERE message_id='u1'",

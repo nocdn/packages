@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer"
-import { open, readdir, stat } from "node:fs/promises"
+import { open, readdir, readFile, stat } from "node:fs/promises"
 import { basename, join } from "node:path"
 
 import { ExportError, MissingStore, object, string } from "../model.js"
@@ -455,10 +455,36 @@ export function mergeCodex(fragments) {
   }
 }
 
+// Chat names live in session_index.jsonl; a rename appends a new line, so the
+// last line for an ID wins. Chats Codex never named have no title.
+export async function codexTitles(root) {
+  let raw
+  try {
+    raw = await readFile(join(root, "session_index.jsonl"), "utf8")
+  } catch (error) {
+    if (error?.code === "ENOENT") return new Map()
+    throw new ExportError("Could not read Codex chat names", { cause: error })
+  }
+  const titles = new Map()
+  for (const line of raw.split("\n")) {
+    let row
+    try {
+      row = object(JSON.parse(line))
+    } catch {
+      continue
+    }
+    const id = string(row?.id)
+    const name = string(row?.thread_name)
+    if (id && name !== undefined) titles.set(id, trim(name))
+  }
+  return titles
+}
+
 export async function loadCodex(root, options = {}) {
   if (!(await stat(root).catch(() => undefined))?.isDirectory()) {
     throw new MissingStore(`Codex directory not found: ${root}`)
   }
+  const titles = await codexTitles(root)
   const groups = new Map()
   for (const path of await rolloutPaths(root)) {
     const fragment = await parseCodex(path, options)
@@ -470,7 +496,9 @@ export async function loadCodex(root, options = {}) {
   return [...groups.values()]
     .flatMap((group) => {
       const chat = mergeCodex(group)
-      return chat && chat.source !== "subagent" ? [chat] : []
+      return chat && chat.source !== "subagent"
+        ? [{ ...chat, title: titles.get(chat.id) ?? "" }]
+        : []
     })
     .sort((a, b) => b.updatedAt - a.updatedAt)
 }
@@ -496,7 +524,9 @@ export async function refreshCodex(root, id, guard, options = {}) {
     const chat = mergeCodex(fragments)
     if (!chat || chat.source === "subagent") continue
     const actual = new Set(chat.records.map((record) => compact(record.text)))
-    if (guard.every((key) => actual.has(key))) return chat
+    if (guard.every((key) => actual.has(key))) {
+      return { ...chat, title: (await codexTitles(root)).get(id) ?? "" }
+    }
   }
   throw new ExportError(
     "The selected Codex chat changed or could not be read in full. Reopen the picker and try again.",

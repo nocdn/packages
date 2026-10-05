@@ -139,9 +139,13 @@ failed }`
 Tool output can be large, so exports and the search index grow accordingly.
 `--user-only` keeps only your messages and cannot be combined with `--tools`.
 
-Without `--exact`, Codex supports double-quoted phrase searches in chat text.
-OpenCode and T3 Code use ordinary fzf search and its explicit `--exact` mode. Fuzzy
-ranking can differ slightly between native fzf and the JavaScript matcher.
+Search is fuzzy by default. Wrap a phrase in double quotes (`"like this"`) to
+find chats whose text contains it exactly, or pass `--exact` to make every
+search literal (including the title and directory). Every search ignores
+Markdown syntax (`*`, `_`, backticks, `~`, and link URLs) in both the chat and
+the query, so text copied from a rendered chat matches what is stored:
+`"pinned to Vite+ 0.3.3"` finds `pinned to **Vite+ 0.3.3**`. Fuzzy ranking
+can differ slightly between native fzf and the JavaScript matcher.
 There is no result-count or transcript-length cap; long lists are paginated.
 Previews show the beginning of a chat, shortened; the export itself is not.
 
@@ -160,7 +164,9 @@ without copying anything. The picker needs a terminal; in scripts, use
 - Codex keeps its event/fallback selection, fragment merging,
   normalized-text deduplication, formatting, and placement of trailing
   reasoning. The dedupe behavior is deliberate: this is not a raw log export.
-  With `--tools`, tool calls are kept per call, so repeated commands stay
+  With `--tools`, tool calls are kept per call, so repeated commands stay.
+  Chat names come from Codex's `session_index.jsonl` (the latest rename wins);
+  chats Codex never named have no title
 - OpenCode orders messages by creation time and ID, then parts by ID. Repeated
   text stays intact. Child sessions, synthetic/ignored text, and compaction
   summaries are excluded; tool parts are excluded unless `--tools` is set.
@@ -209,29 +215,32 @@ partial stored output. Older T3 versions that did not persist reasoning cannot
 export it. Every selected export uses one read transaction for a consistent
 snapshot of messages, plans, and tools.
 
-Unexpected message roles, malformed data, and incompatible table shapes fail
+Messages with roles other than user, assistant, and reasoning (such as system
+notices) are left out. Malformed data and incompatible table shapes fail
 explicitly. As with OpenCode, indexing and `--last` skip chats with unsupported
 formats and report the count; an explicit `--session` fails. T3's internal
 thread ID is the `--session` value; discover it with `--provider t3code --list`.
 
 ### OpenCode
 
-The OpenCode reader targets the SQLite `session` / `message` / `part` layout.
-Some OpenCode versions (around 1.18.16 to 1.18.25) also wrote chats to a newer
-`session_v2` / `session_message` layout, sometimes to only one of the two.
+The OpenCode reader supports both of OpenCode's SQLite layouts. OpenCode V1
+uses `session` / `message` / `part`. OpenCode V2 uses `session_v2` /
+`session_message`, and some versions (around 1.18.16 to 1.18.25) wrote chats to
+both, sometimes to only one of the two.
 chat-export reads both and merges them: messages present in both are taken
 once (they share IDs), and messages found only in the newer layout are placed
 by creation time. The newer layout's text, reasoning, tool calls, and
-attachment labels follow the same rules as above; synthetic and compaction
-messages are excluded. Chats that exist only in the newer layout are listed
-too.
+attachment labels follow the same rules as above. Only user and assistant
+messages are read; other message types (synthetic, compaction, system notices,
+and session events such as idle or model switched) are left out. Chats that
+exist only in the newer layout are listed too.
 
-If that layout has an unexpected shape, or a chat contains something the
-reader does not understand (an unknown message or content type, or a revert
-that would need both layouts to resolve), chat-export refuses instead of
-producing a partial transcript. The picker and `--last` skip such chats and
-print a note on stderr with the count; `--session` fails with an explicit
-unsupported-format error.
+If that layout has an unexpected shape, or a message contains something the
+reader does not understand (an unknown part or content type, or a revert that
+would need both layouts to resolve), chat-export refuses instead of producing
+a partial transcript. The picker and `--last` skip such chats and print a note
+on stderr with the count, even when the picker is cancelled; `--session` fails
+with an explicit unsupported-format error.
 
 Node 22 prints its standard `node:sqlite` experimental warning on stderr. The
 native fzf integration expects a POSIX shell. macOS has been exercised; other
@@ -258,7 +267,7 @@ split by concern:
 - `src/render.js` — Markdown, JSON, and preview rendering
 - `src/tools.js` — the shared shape of tool records
 - `src/fzf-query.js` / `src/fzf-preview.js` — helpers native fzf runs for
-  Codex quoted-phrase search and the preview pane
+  quoted-phrase search and the preview pane
 
 The project uses plain ESM JavaScript, so publishing does not require a build
 step. Runtime dependencies are limited to `fzf`, `@inquirer/core`, and

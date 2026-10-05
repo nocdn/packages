@@ -126,16 +126,9 @@ export function readT3Code(db, id, reasoning = true, tools = false) {
       [id],
     )) {
       const messageId = t3Text(message.message_id, "message ID")
+      // Other roles (such as system) are app notices, not conversation text.
       if (
-        !["user", "assistant", "reasoning", "system"].includes(message.role)
-      ) {
-        throw new UnsupportedFormat(
-          `Unsupported T3 Code message role in ${messageId}; refusing a partial export`,
-        )
-      }
-      // System messages are app notices, not main conversation text.
-      if (
-        message.role === "system" ||
+        !["user", "assistant", "reasoning"].includes(message.role) ||
         (message.role === "reasoning" && !reasoning)
       )
         continue

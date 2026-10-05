@@ -1,7 +1,14 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { mkdir, readdir, readFile, stat, utimes } from "node:fs/promises"
+import {
+  mkdir,
+  readdir,
+  readFile,
+  stat,
+  utimes,
+  writeFile,
+} from "node:fs/promises"
 import { join } from "node:path"
 import process from "node:process"
 import test from "node:test"
@@ -761,6 +768,41 @@ test("the executable supports new flags end to end without a terminal", () =>
     assert.equal(JSON.parse(result.stdout).records.length, 2)
   }))
 
+test("Codex chats use their saved names, and the latest rename wins", () =>
+  temporary(async (root) => {
+    const options = await bothFixtures(root)
+    await writeFile(
+      join(options.codexHome, "session_index.jsonl"),
+      [
+        JSON.stringify({ id: "main", thread_name: "First name" }),
+        "not json",
+        JSON.stringify({ id: "main", thread_name: "Renamed chat" }),
+        "",
+      ].join("\n"),
+    )
+    const list = await invoke([
+      "--provider",
+      "codex",
+      "--list",
+      ...stores(options),
+    ])
+    assert.equal(list.exitCode, 0, list.stderr)
+    assert.match(list.stdout, /^main\tRenamed chat$/mu)
+    assert.match(list.stdout, /^other\t\/test\/project$/mu)
+    const markdown = await invoke([
+      "--provider",
+      "codex",
+      "--session",
+      "main",
+      "--stdout",
+      "--format",
+      "markdown",
+      ...stores(options),
+    ])
+    assert.equal(markdown.exitCode, 0, markdown.stderr)
+    assert.match(markdown.stdout, /^# Renamed chat$/mu)
+  }))
+
 test("sessions in an unrecognized OpenCode format are skipped by the picker and --last, not fatal", () =>
   temporary(async (root) => {
     const options = await bothFixtures(root)
@@ -770,6 +812,13 @@ test("sessions in an unrecognized OpenCode format are skipped by the picker and 
         "INSERT INTO session VALUES('newer',NULL,'Newer chat','/test',900,NULL,NULL)",
       )
       writer.run("INSERT INTO session_message VALUES('sm','newer',1,'{}')")
+      writer.run(
+        "INSERT INTO session VALUES('odd',NULL,'Odd chat','/test',800,NULL,NULL)",
+      )
+      writer.run(`INSERT INTO message VALUES('om','odd',1,1,'{"role":"user"}')`)
+      writer.run(
+        `INSERT INTO part VALUES('op','om','odd',1,1,'{"type":"hologram"}')`,
+      )
     } finally {
       writer.close()
     }
@@ -783,7 +832,7 @@ test("sessions in an unrecognized OpenCode format are skipped by the picker and 
       entries.push(entry.id)
     }
     assert.deepEqual(entries, ["root"])
-    assert.deepEqual(skipped, [1])
+    assert.deepEqual(skipped, [1, 1])
 
     const result = await invoke([
       "--last",
@@ -796,7 +845,7 @@ test("sessions in an unrecognized OpenCode format are skipped by the picker and 
     assert.ok(result.stdout.startsWith("OpenCode question"))
     assert.match(
       result.stderr,
-      /^Note: skipped 1 OpenCode chat stored in a format chat-export does not recognize/,
+      /^Note: skipped 2 OpenCode chats stored in a format chat-export does not recognize/,
     )
 
     const direct = await invoke([

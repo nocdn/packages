@@ -377,7 +377,7 @@ test("fallback matches complete long transcripts, literal punctuation, smart cas
     searchable: "James pathfile cost mixedcase reserved \ue000\ue001\ue001",
     guard: [],
   }
-  const matcher = new ChatMatcher([negative, positive], "codex", false)
+  const matcher = new ChatMatcher([negative, positive], false)
   for (const query of [
     "jamespathfile",
     '"mes\'"',
@@ -396,7 +396,7 @@ test("fallback matches complete long transcripts, literal punctuation, smart cas
       ["yes"],
       query,
     )
-  const exact = new ChatMatcher([negative, positive], "opencode", true)
+  const exact = new ChatMatcher([negative, positive], true)
   assert.deepEqual(
     exact
       .find("James' path\\file cost$")
@@ -416,6 +416,29 @@ test("fallback matches complete long transcripts, literal punctuation, smart cas
     ),
   )
   assert.ok(fzfQuery('"cost$"').endsWith("$$"))
+})
+
+test("searches ignore Markdown syntax in chats and in queries", () => {
+  const entry = {
+    display: "2026-10-02 12:00  |  Portal  |  /work/my_repo",
+    searchable:
+      "pinned to **Vite+ 0.3.3**, see [the docs](https://example.com) and `npm run dev`",
+  }
+  const other = { display: "Other", searchable: "pinned to Vite+ 1.0" }
+  const copied = "pinned to Vite+ 0.3.3, see the docs and npm run dev"
+  for (const exact of [false, true]) {
+    const matcher = new ChatMatcher([entry, other], exact)
+    const phrase = (text) => (exact ? text : `"${text}"`)
+    assert.deepEqual(matcher.find(phrase(copied)), [entry])
+    assert.deepEqual(matcher.find(phrase("**Vite+ 0.3.3**")), [entry])
+    assert.deepEqual(matcher.find(phrase("Vite+ 0.3.3")), [entry])
+  }
+  assert.deepEqual(new ChatMatcher([entry, other], true).find("my_repo"), [
+    entry,
+  ])
+  assert.equal(fzfQuery('"**Vite+ 0.3.3**, see"'), "'Vite+\\ 0.3.3,\\ see")
+  assert.equal(fzfQuery("`npm run dev`", true), "npm run dev")
+  assert.ok(nativeRow(entry, 0).includes("pinned to Vite+ 0.3.3, see the docs"))
 })
 
 test("invalid Unicode cannot silently be replaced in a copied transcript", () => {

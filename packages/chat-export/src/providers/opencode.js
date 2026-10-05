@@ -339,19 +339,13 @@ export function readOpenCode(db, id, reasoning = true, tools = false) {
           "SELECT id, type, time_created, data FROM session_message WHERE session_id=? ORDER BY seq",
           [id],
         )
-        .filter((row) => {
-          if (
-            !["user", "assistant", "synthetic", "compaction"].includes(row.type)
-          ) {
-            throw new UnsupportedFormat(
-              `Unsupported OpenCode message type in ${id}; refusing a partial export`,
-            )
-          }
-          return (
+        // Other row types (synthetic, compaction, system, idle, and so on)
+        // are notices and session events, never conversation text.
+        .filter(
+          (row) =>
             (row.type === "user" || row.type === "assistant") &&
-            !known.has(row.id)
-          )
-        })
+            !known.has(row.id),
+        )
       if (newer.length && revert.messageID) {
         throw new UnsupportedFormat(
           `Session ${id} mixes a revert with newer-format messages; refusing a partial export`,
@@ -367,18 +361,11 @@ export function readOpenCode(db, id, reasoning = true, tools = false) {
       }
       messages = messages.slice(0, boundary + (revert.partID ? 1 : 0))
     }
-    for (const message of messages) {
-      if (message.role !== "user" && message.role !== "assistant") {
-        throw new ExportError(
-          `Unsupported message role in ${String(message.id)}`,
-        )
-      }
-    }
     messages = messages.filter(
       (message) =>
-        message.role !== "assistant" ||
-        message.summary_type !== "true" ||
-        message.id === revert.messageID,
+        message.role === "user" ||
+        (message.role === "assistant" &&
+          (message.summary_type !== "true" || message.id === revert.messageID)),
     )
     const fields = tools ? [...PART_FIELDS, ...TOOL_FIELDS] : PART_FIELDS
     const projection = fields.map((field) => `'${field}'`).join(", ")
@@ -474,7 +461,9 @@ export function readOpenCode(db, id, reasoning = true, tools = false) {
         if (kind === "file") {
           content = attachmentLabel(filename, sourcePath, mime)
         } else if (kind !== "text" && kind !== "reasoning") {
-          throw new ExportError(`Unsupported part type in ${String(part.id)}`)
+          throw new UnsupportedFormat(
+            `Unsupported part type in ${String(part.id)}; refusing a partial export`,
+          )
         }
         if (typeof content !== "string") {
           throw new ExportError(

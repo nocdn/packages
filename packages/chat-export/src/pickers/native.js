@@ -17,7 +17,7 @@ import {
   fzfEnvironment,
   shellQuote,
 } from "../system.js"
-import { encodeExact, HIDDEN_PADDING, oneLine } from "../text.js"
+import { encodeExact, HIDDEN_PADDING, oneLine, plainText } from "../text.js"
 
 const FZF_QUERY_HELPER = fileURLToPath(
   new URL("../fzf-query.js", import.meta.url),
@@ -81,12 +81,15 @@ export async function selectNativeSource(executable) {
   return provider
 }
 
-// Fields: visible display, padded searchable text, padded exact-encoded text,
-// the row index fzf returns on accept, and (when previews are on) the preview
-// as single-line JSON. The padding keeps the hidden fields off-screen.
+// Fields: visible display, padded Markdown-free display and transcript (fuzzy
+// and --exact search), padded exact-encoded Markdown-free transcript (quoted
+// phrases), the row index fzf returns on accept, and (when previews are on)
+// the preview as single-line JSON. The padding keeps hidden fields off-screen.
 export function nativeRow(entry, index) {
   const preview = entry.preview ? `\t${JSON.stringify(entry.preview)}` : ""
-  return `${entry.display}\t${HIDDEN_PADDING}${entry.searchable}\t${HIDDEN_PADDING}${encodeExact(entry.searchable)}\t${index}${preview}\n`
+  const searchable = plainText(`${entry.display}  ${entry.searchable}`)
+  const transcript = encodeExact(plainText(entry.searchable))
+  return `${entry.display}\t${HIDDEN_PADDING}${searchable}\t${HIDDEN_PADDING}${transcript}\t${index}${preview}\n`
 }
 
 export function nativeArgs(
@@ -97,12 +100,9 @@ export function nativeArgs(
   preview = false,
 ) {
   const name = providerName(provider)
-  const help =
-    provider === "codex" && !exact
-      ? "Wrap a phrase in double quotes for exact transcript search."
-      : exact
-        ? "Literal substring search; smart case."
-        : "Fuzzy search; --exact enables literal phrases."
+  const help = exact
+    ? "Literal substring search; smart case."
+    : "Wrap a phrase in double quotes for exact transcript search."
   const keys = `Enter selects; Esc cancels${preview ? "; Ctrl-/ toggles preview" : ""}.`
   const ready = `Full chat index loaded. ${keys} ${help}`
   const args = [
@@ -131,13 +131,21 @@ export function nativeArgs(
       "--bind=ctrl-/:toggle-preview",
     )
   }
+  // Every query passes through the helper, which drops Markdown syntax (and,
+  // for quoted phrases, builds an exact search over the transcript field).
+  const helper = `${shellQuote(process.execPath)} ${shellQuote(FZF_QUERY_HELPER)} ${exact ? "literal" : "search"} {q}`
+  const search = `enter:wait+accept,start:trigger(change),change:`
   if (exact) {
-    args.push("--exact", "--no-extended", "--literal")
-  } else if (provider === "codex") {
-    const helper = `${shellQuote(process.execPath)} ${shellQuote(FZF_QUERY_HELPER)} {q}`
+    args.push(
+      "--exact",
+      "--no-extended",
+      "--literal",
+      `--bind=${search}transform-search:${helper}`,
+    )
+  } else {
     const nth = `case "$FZF_QUERY" in '"'*) printf 3 ;; *) printf 1,2 ;; esac`
     args.push(
-      `--bind=enter:wait+accept,start:trigger(change),change:transform-nth[${nth}]+transform-search:${helper}`,
+      `--bind=${search}transform-nth[${nth}]+transform-search:${helper}`,
     )
   }
   return args

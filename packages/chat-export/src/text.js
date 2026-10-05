@@ -28,6 +28,15 @@ const EXACT_CODES = {
 export const encodeExact = (text) =>
   text.replace(/['-]/gu, (character) => EXACT_CODES[character])
 
+// Chats are stored as Markdown but read rendered, so text copied from an app
+// lacks emphasis, code and link syntax. Searches drop that syntax from both
+// the chat text and the query, so either form matches.
+const MARKDOWN_LINK = /!?\[([^\]\n]*)\]\([^)\s]*\)/gu
+const MARKDOWN_MARKERS = /[*_`~]/gu
+
+export const plainText = (text) =>
+  text.replace(MARKDOWN_LINK, "$1").replace(MARKDOWN_MARKERS, "")
+
 export function validUnicode(value) {
   if (/\p{Surrogate}/u.test(value)) {
     throw new ExportError(
@@ -103,16 +112,18 @@ export function transcript(chat, view = {}) {
 export function indexEntry(chat, view = {}) {
   const records = visibleRecords(chat, view)
   const previewRecord =
-    chat.provider === "codex"
-      ? records[0]
-      : records.find((record) => record.kind === "user")
+    records.find((record) => record.kind === "user") ?? records[0]
   const preview = previewRecord
     ? Array.from(compact(previewRecord.text)).slice(0, 100).join("")
     : ""
-  const display =
-    chat.provider === "codex"
-      ? `${dateLabel(chat.updatedAt)}  |  ${chat.directory || "(unknown cwd)"}  |  ${preview || "(no visible text)"}`
-      : `${dateLabel(chat.updatedAt)}  |  ${chat.title}  |  ${chat.directory}${preview ? `  |  ${preview}` : ""}`
+  const display = [
+    dateLabel(chat.updatedAt),
+    compact(chat.title),
+    chat.directory,
+    preview,
+  ]
+    .filter(Boolean)
+    .join("  |  ")
   return {
     provider: chat.provider,
     id: chat.id,
@@ -135,15 +146,21 @@ export function quotedPhrase(query) {
     : undefined
 }
 
-export function fzfQuery(query) {
+// The search native fzf runs for a typed query. `literal` is --exact mode,
+// where fzf's extended syntax is off and the query is matched as typed.
+export function fzfQuery(query, literal = false) {
+  if (literal) return plainText(query)
   const phrase = quotedPhrase(query)
   if (phrase !== undefined) {
-    if (!phrase) return ""
+    const plain = plainText(phrase)
+    if (!plain) return ""
     return (
       "'" +
-      encodeExact(phrase).replace(/ /gu, "\\ ") +
-      (phrase.endsWith("$") ? "$" : "")
+      encodeExact(plain).replace(/ /gu, "\\ ") +
+      (plain.endsWith("$") ? "$" : "")
     )
   }
-  return query.startsWith('"') ? encodeExact(query.slice(1)) : query
+  return query.startsWith('"')
+    ? encodeExact(plainText(query.slice(1)))
+    : plainText(query)
 }

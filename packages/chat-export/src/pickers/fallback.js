@@ -75,9 +75,7 @@ export async function selectFallbackChat(
   initialQuery,
   stop,
 ) {
-  const matcher = entries.then(
-    (items) => new ChatMatcher(items, provider, exact),
-  )
+  const matcher = entries.then((items) => new ChatMatcher(items, exact))
   void matcher.catch(() => {})
   try {
     const selected = await searchPrompt(

@@ -17,8 +17,8 @@ async function runWorker(job) {
   if (!port) throw new Error("This module runs in a worker")
   const send = (message) => port.postMessage(message)
   const { options } = job
-  let skipped = 0
-  const onSkip = () => skipped++
+  // Reported as they happen, so a picker closed early still counts them.
+  const onSkip = () => send({ type: "skipped", count: 1 })
   let acknowledge
   port.on("message", () => {
     const ready = acknowledge
@@ -66,7 +66,6 @@ async function runWorker(job) {
       },
     })
   }
-  if (skipped) send({ type: "skipped", count: skipped })
   send({ type: "done" })
   port.close()
 }
